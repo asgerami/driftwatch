@@ -4,7 +4,9 @@ import { Command } from "commander";
 import { disconnect } from "./db.js";
 import { log } from "./log.js";
 import { backfill } from "./commands/backfill.js";
+import { diff } from "./commands/diff.js";
 import { discover } from "./commands/discover.js";
+import { preview } from "./commands/preview.js";
 import { poll } from "./commands/poll.js";
 import { seed } from "./commands/seed.js";
 import { status } from "./commands/status.js";
@@ -50,6 +52,30 @@ program
   .argument("[target]", 'provider slug or "slug/key"; omit for all')
   .description("Fetch current head and ingest if the normalized surface changed")
   .action((target: string | undefined) => poll(target));
+
+program
+  .command("diff")
+  .argument("[target]", 'provider slug or "slug/key"; omit for all')
+  .option("-n, --limit <count>", "only the most recent N pairs per source")
+  .description("Diff every stored snapshot pair and persist typed changes")
+  .action((target: string | undefined, opts: { limit?: string }) =>
+    diff(target, opts.limit ? Number(opts.limit) : undefined),
+  );
+
+program
+  .command("preview")
+  .argument("<target>", 'provider slug or "slug/key"')
+  .option("-n, --pairs <count>", "how many consecutive revision pairs", "5")
+  .option("-f, --full", "list every change instead of grouping by rule")
+  .option("--min <severity>", "lowest severity to show", "BEHAVIORAL")
+  .description("Diff real revisions straight from git and print them — no database")
+  .action((target: string, opts: { pairs: string; full?: boolean; min: string }) =>
+    preview(target, {
+      pairs: Number(opts.pairs),
+      full: opts.full === true,
+      min: opts.min.toUpperCase() as never,
+    }),
+  );
 
 program
   .command("verify")

@@ -8,6 +8,12 @@ export interface RawChange {
   method?: string;
   path?: string;
   operationId?: string;
+  /** Set when the change belongs to a shared component rather than one operation. */
+  componentName?: string;
+  /** How many operations can reach this component. */
+  affectedOperations?: number;
+  /** A few of those operations, for the feed to show. */
+  affectedSample?: string[];
   /** Dotted access path as calling code would write it: "customer.address". */
   fieldPath?: string;
   before?: Json;
@@ -21,9 +27,14 @@ export interface DiffContext {
   afterDoc: JsonObject;
   direction: Direction;
   emit: (change: RawChange) => void;
-  /** Per-operation, so a shared component is reported for each operation that uses it. */
-  seen: Set<string>;
-  location: { method?: string; path?: string; operationId?: string };
+  location: {
+    method?: string;
+    path?: string;
+    operationId?: string;
+    componentName?: string;
+    affectedOperations?: number;
+    affectedSample?: string[];
+  };
 }
 
 const MAX_DEPTH = 14;
@@ -161,12 +172,44 @@ export function diffSchema(
 ): void {
   if (depth > MAX_DEPTH) return;
 
+  /**
+   * Stop at every `$ref`. This is the single most important line in the diff.
+   *
+   * Following refs inline looks correct and is catastrophic in practice.
+   * Stripe's schemas nest deeply through shared components, so one enum
+   * gaining a value gets rediscovered along every path that can reach it:
+   * measured on real history, a single change to `fpx.bank` surfaced 2319
+   * times in one diff, and one pair produced 4528 "breaking" changes. No
+   * inbox survives that.
+   *
+   * Shared components are diffed once each, by name, in `diffComponents`,
+   * and carry the count of operations they affect. What remains here is the
+   * inline portion of a schema, which genuinely does belong to its operation.
+   */
   const beforeRef = isObject(beforeRaw) ? beforeRaw["$ref"] : undefined;
   const afterRef = isObject(afterRaw) ? afterRaw["$ref"] : undefined;
   if (typeof beforeRef === "string" || typeof afterRef === "string") {
-    const key = `${ctx.direction}|${beforeRef ?? ""}|${afterRef ?? ""}`;
-    if (ctx.seen.has(key)) return;
-    ctx.seen.add(key);
+    // Repointing a field at a different component IS an operation-level
+    // change, and one the component diff cannot see.
+    if (
+      typeof beforeRef === "string" &&
+      typeof afterRef === "string" &&
+      beforeRef !== afterRef
+    ) {
+      ctx.emit({
+        ...ctx.location,
+        fieldPath,
+        ruleId:
+          ctx.direction === "request"
+            ? "request.property.type-changed"
+            : "response.property.type-changed",
+        jsonPointer: at,
+        before: beforeRef,
+        after: afterRef,
+        detail: `${shortRef(beforeRef)} → ${shortRef(afterRef)}`,
+      });
+    }
+    return;
   }
 
   const beforeResolved = deref(ctx.beforeDoc, beforeRaw ?? null);
@@ -437,6 +480,56 @@ const PAGINATION_FIELDS = new Set([
   "maxresults",
   "page_limit",
 ]);
+
+export function shortRef(ref: string): string {
+  return ref.split("/").pop() ?? ref;
+}
+
+/** Component name if this is a local component-schema ref, else null. */
+export function componentNameOf(ref: string): string | null {
+  const prefix = "#/components/schemas/";
+  if (!ref.startsWith(prefix)) return null;
+  return ref.slice(prefix.length).replace(/~1/g, "/").replace(/~0/g, "~");
+}
+
+/**
+ * Every component schema reachable from `schema`, following refs transitively.
+ * Used to work out which operations an eventual component change affects.
+ */
+export function collectComponentRefs(
+  doc: JsonObject,
+  schema: Json | undefined,
+  out: Set<string> = new Set(),
+  visiting: Set<string> = new Set(),
+  depth = 0,
+): Set<string> {
+  if (depth > MAX_DEPTH * 3 || schema === undefined || schema === null) return out;
+
+  if (Array.isArray(schema)) {
+    for (const item of schema) collectComponentRefs(doc, item, out, visiting, depth + 1);
+    return out;
+  }
+  if (!isObject(schema)) return out;
+
+  const ref = schema["$ref"];
+  if (typeof ref === "string") {
+    const name = componentNameOf(ref);
+    if (name) {
+      out.add(name);
+      if (!visiting.has(name)) {
+        visiting.add(name);
+        const target = resolveRef(doc, ref);
+        if (target) collectComponentRefs(doc, target, out, visiting, depth + 1);
+      }
+    }
+    return out;
+  }
+
+  for (const value of Object.values(schema)) {
+    collectComponentRefs(doc, value, out, visiting, depth + 1);
+  }
+  return out;
+}
 
 export function isPaginationField(fieldPath: string | undefined): boolean {
   if (!fieldPath) return false;

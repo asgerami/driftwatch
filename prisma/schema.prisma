@@ -129,7 +129,7 @@ model DiffRun {
   to     SpecSnapshot @relation("diffTo", fields: [toId], references: [id], onDelete: Cascade)
   toId   String
 
-  engine     String // "oasdiff@x.y.z"
+  engine     String // "driftwatch-core@1.0.0"
   rulesetVer String // our consumer-direction overlay version
 
   changes Change[]
@@ -152,10 +152,22 @@ model Change {
   confidence    Int // 0-100, gates publish
   directionFlip Boolean  @default(false)
 
+  // Identity of the underlying FACT. One inline enum seen across nine
+  // operations is nine rows sharing one fingerprint: the feed groups on this,
+  // while the rows stay so the GitHub App can name each affected call site.
+  fingerprint String
+
   method      String?
   path        String?
   operationId String?
   jsonPointer String // "/paths/~1v1~1charges/post/responses/200/..."
+
+  // Set when the change belongs to a shared component rather than one
+  // operation, with how much of the API that component reaches.
+  componentName      String?
+  affectedOperations Int?
+  fieldPath          String? // "customer.address"
+  detail             String?
 
   before Json?
   after  Json?
@@ -168,6 +180,7 @@ model Change {
   @@index([severity, publishedAt])
   @@index([ruleId])
   @@index([runId])
+  @@index([fingerprint])
 }
 
 model Impact {

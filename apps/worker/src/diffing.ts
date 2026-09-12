@@ -1,0 +1,192 @@
+import { RULESET_VERSION, diffDocuments, type Change } from "@driftwatch/core";
+import type { JsonObject } from "@driftwatch/core";
+
+import { getText } from "./blobs.js";
+import { prisma } from "./db.js";
+import { log } from "./log.js";
+
+export const DIFF_ENGINE = `driftwatch-core@${RULESET_VERSION}`;
+
+export interface SnapshotRef {
+  id: string;
+  normBlobKey: string;
+  contentHash: string;
+  providerTime: Date | null;
+  commitSha: string | null;
+}
+
+export interface DiffPersistResult {
+  status: "created" | "existing" | "failed";
+  runId?: string;
+  changeCount?: number;
+  breaking?: number;
+  error?: string;
+}
+
+async function loadNormalized(snapshot: SnapshotRef): Promise<JsonObject> {
+  return JSON.parse(await getText(snapshot.normBlobKey)) as JsonObject;
+}
+
+/**
+ * Diff one consecutive pair and persist the result.
+ *
+ * Keyed on (fromId, toId, rulesetVer), so re-running is free and bumping the
+ * ruleset version re-classifies a pair without destroying the previous run's
+ * history. That is what makes it safe to iterate on rules against years of
+ * backfilled data.
+ */
+export async function diffPair(
+  from: SnapshotRef,
+  to: SnapshotRef,
+): Promise<DiffPersistResult> {
+  const existing = await prisma.diffRun.findUnique({
+    where: {
+      fromId_toId_rulesetVer: {
+        fromId: from.id,
+        toId: to.id,
+        rulesetVer: RULESET_VERSION,
+      },
+    },
+    select: { id: true },
+  });
+  if (existing) return { status: "existing", runId: existing.id };
+
+  const run = await prisma.diffRun.create({
+    data: {
+      fromId: from.id,
+      toId: to.id,
+      engine: DIFF_ENGINE,
+      rulesetVer: RULESET_VERSION,
+    },
+    select: { id: true },
+  });
+
+  try {
+    const [beforeDoc, afterDoc] = await Promise.all([
+      loadNormalized(from),
+      loadNormalized(to),
+    ]);
+
+    const result = diffDocuments(beforeDoc, afterDoc);
+
+    if (result.changes.length > 0) {
+      await prisma.change.createMany({
+        data: result.changes.map((change) => toRow(run.id, change)),
+      });
+    }
+
+    await prisma.diffRun.update({
+      where: { id: run.id },
+      data: {
+        finishedAt: new Date(),
+        error: result.truncated ? "change cap reached; diff is incomplete" : null,
+      },
+    });
+
+    return {
+      status: "created",
+      runId: run.id,
+      changeCount: result.changes.length,
+      breaking: result.counts.BREAKING,
+    };
+  } catch (err) {
+    const message = (err as Error).message;
+    await prisma.diffRun.update({
+      where: { id: run.id },
+      data: { finishedAt: new Date(), error: message },
+    });
+    return { status: "failed", runId: run.id, error: message };
+  }
+}
+
+function toRow(runId: string, change: Change) {
+  return {
+    runId,
+    ruleId: change.ruleId,
+    severity: change.severity,
+    confidence: change.confidence,
+    directionFlip: change.directionFlip,
+    fingerprint: change.fingerprint,
+    method: change.method ?? null,
+    path: change.path ?? null,
+    operationId: change.operationId ?? null,
+    jsonPointer: change.jsonPointer,
+    componentName: change.componentName ?? null,
+    affectedOperations: change.affectedOperations ?? null,
+    fieldPath: change.fieldPath ?? null,
+    detail: change.detail ?? null,
+    before: change.before === undefined ? null : (change.before as never),
+    after: change.after === undefined ? null : (change.after as never),
+    // Nothing auto-publishes. Every change is held for review until the
+    // confidence thresholds have been tuned against real backfilled data.
+    publishedAt: null,
+    reviewedAt: null,
+  };
+}
+
+/**
+ * Diff every consecutive snapshot pair for a source, oldest first.
+ *
+ * Pairs are consecutive by `providerTime`, never by insertion order: a
+ * backfill writes four years of history in one afternoon, and ordering by
+ * `capturedAt` would diff them in essentially random sequence.
+ */
+export async function diffSource(
+  sourceId: string,
+  label: string,
+  limit?: number,
+): Promise<void> {
+  const snapshots = (await prisma.specSnapshot.findMany({
+    where: { sourceId },
+    orderBy: [{ providerTime: "asc" }, { capturedAt: "asc" }],
+    select: {
+      id: true,
+      normBlobKey: true,
+      contentHash: true,
+      providerTime: true,
+      commitSha: true,
+    },
+  })) as SnapshotRef[];
+
+  if (snapshots.length < 2) {
+    log.warn(`${label}: needs at least 2 snapshots, has ${snapshots.length}`);
+    return;
+  }
+
+  const pairs: [SnapshotRef, SnapshotRef][] = [];
+  for (let i = 1; i < snapshots.length; i++) {
+    pairs.push([snapshots[i - 1]!, snapshots[i]!]);
+  }
+  const selected = limit ? pairs.slice(-limit) : pairs;
+
+  log.info(`${label}: diffing ${selected.length} consecutive pairs`);
+
+  let created = 0;
+  let skipped = 0;
+  let failed = 0;
+  let breaking = 0;
+
+  for (const [from, to] of selected) {
+    const result = await diffPair(from, to);
+    if (result.status === "created") {
+      created++;
+      breaking += result.breaking ?? 0;
+      if ((result.breaking ?? 0) > 0) {
+        log.step(
+          `${label} ${to.commitSha?.slice(0, 8) ?? "?"} ` +
+            `${to.providerTime?.toISOString().slice(0, 10) ?? ""} ` +
+            `— ${result.breaking} breaking of ${result.changeCount}`,
+        );
+      }
+    } else if (result.status === "existing") {
+      skipped++;
+    } else {
+      failed++;
+      log.warn(`${label}: ${result.error}`);
+    }
+  }
+
+  log.ok(
+    `${label}: ${created} runs created, ${skipped} already done, ${failed} failed, ${breaking} breaking changes found`,
+  );
+}

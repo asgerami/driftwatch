@@ -4,3 +4,5 @@ dist/
 .data/
 *.tsbuildinfo
 .DS_Store
+prisma-stub.d.ts
+tsconfig.check.json
