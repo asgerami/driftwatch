@@ -1,6 +1,8 @@
 import { createRequire } from "node:module";
 import type { PrismaClient } from "@prisma/client";
 
+import { requireDatabaseUrl } from "./config.js";
+
 /**
  * Loaded on first use, not at import time.
  *
@@ -20,6 +22,9 @@ let client: PrismaClient | null = null;
 
 function instance(): PrismaClient {
   if (client) return client;
+
+  // Fail with a sentence that says what to do, not a connection stack trace.
+  requireDatabaseUrl();
 
   let PrismaClientCtor: new (options?: unknown) => PrismaClient;
   try {
