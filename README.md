@@ -7,14 +7,13 @@ spec, in your own CI, to stop yourself from breaking your own customers.
 Driftwatch points the other way. It watches the specs you *depend on* and tells
 you when a vendor broke you.
 
-This repo currently implements **stages 1 and 2** of the pipeline: acquisition
-and normalization. Diffing, classification and the feed come next.
+```
+acquire → normalize → diff → classify → render → publish
+   ●          ●         ●        ●         ●         ●
+```
 
-```
-acquire → normalize → diff → classify → render
-   ▲          ▲         ○       ○          ○
-   this slice           not yet
-```
+The pipeline is complete end to end. What is not built yet is the GitHub App
+that opens fix PRs, which is deliberately the second thing.
 
 ## Quick start
 
@@ -22,18 +21,27 @@ acquire → normalize → diff → classify → render
 pnpm install
 cp .env.example .env
 
-pnpm db:up          # postgres on :5433
-pnpm generate       # prisma client
-pnpm db:push        # apply schema
+pnpm w verify            # no DB: resolve paths, walk history, normalize HEAD
+pnpm w preview stripe    # no DB: diff real revisions and print them
 
-pnpm w verify       # no DB needed: resolve paths, walk history, normalize HEAD
-pnpm w seed         # clone repos, resolve spec paths, write providers
-pnpm w backfill -n 25   # walk git history, ingest distinct versions
-pnpm w status       # see what landed
+pnpm db:up               # postgres on :5433
+pnpm generate            # prisma client
+pnpm db:push             # apply schema
+
+pnpm w seed              # clone repos, resolve spec paths, write providers
+pnpm w backfill -n 25    # walk git history, ingest distinct versions
+pnpm w diff              # diff consecutive pairs, persist typed changes
+pnpm w review            # inspect what is pending (read-only)
+pnpm w review --publish  # open the gate
+pnpm web                 # the feed on :3000
 ```
 
-`verify` is the fastest way to confirm the whole acquisition path works. It
-needs no database. Current output against the live repos:
+`verify` and `preview` need no database and no Prisma client, so they are the
+fastest way to confirm the whole acquisition and diff path works.
+
+## What it finds
+
+`pnpm w verify`, against the live repos:
 
 ```
 stripe/api             1225 revisions  2017-09-05 → 2026-08-26   594 ops
@@ -45,29 +53,44 @@ github/rest             926 revisions  2020-07-27 → 2026-09-12  1229 ops
 2741 revisions available to backfill across 4 providers.
 ```
 
-Nine years of Stripe history, on day one, before a single subscriber exists.
+Nine years of Stripe history on day one, before a single subscriber exists.
 That is the whole argument for starting with tier A.
 
-`seed` clones four repos with `--filter=blob:none`, so the first run pulls the
-commit graph but not every historical blob. Expect a few minutes and a few
-hundred megabytes under `.data/`.
+`pnpm w preview`, on real consecutive releases:
 
-Start with `-n 25` per source. Dropping the limit walks the full history, which
-on `github/rest-api-description` is thousands of commits against a spec of tens
-of megabytes and will take a while.
+```
+stripe/api   2026-08-26   11 breaking  64 additive
+  ▪ response.enum.value-added [flip]
+      payment_intent.allowed_payment_method_types[] [579 ops] (can now return "touch_n_go")
+  ▪ response.property.removed
+      …three_d_secure.cryptogram [48 ops]
+  ▪ response.property.type-changed
+      terminal.location.address [19 ops] (address → address_api_resource_terminal)
+
+openai/api   2026-09-11   1 breaking
+  ▪ response.enum.value-added [flip]
+      SessionTurnErrorCodeResource [6 ops] (can now return "credit_balance_exhausted")
+
+github/rest  2026-09-11   2 behavioral
+  ▪ response.status-code.added
+      GET /repos/{owner}/{repo}/dependabot/alerts/{alert_number} (410 is now documented)
+```
 
 ## Commands
 
-| Command | What it does |
-| --- | --- |
-| `pnpm w verify [slug]` | Resolve paths, walk history, normalize HEAD, check hash stability. No database. |
-| `pnpm w seed` | Clone registry repos, resolve each spec's real path, upsert providers and sources |
-| `pnpm w discover <slug>` | List files in a provider's repo that look like OpenAPI documents |
-| `pnpm w backfill [target]` | Walk git history oldest-first, ingest every distinct version |
-| `pnpm w poll [target]` | Fetch current head, ingest only if the normalized surface changed |
-| `pnpm w status` | Snapshot counts, date range and resolved file path per source |
+| Command | Needs DB | What it does |
+| --- | --- | --- |
+| `pnpm w verify [slug]` | no | Resolve paths, walk history, normalize HEAD, check hash stability |
+| `pnpm w preview <target>` | no | Diff real revisions straight from git and print them |
+| `pnpm w discover <slug>` | no | List files in a repo that look like OpenAPI documents |
+| `pnpm w seed` | yes | Clone repos, resolve each spec's real path, upsert providers |
+| `pnpm w backfill [target]` | yes | Walk git history oldest-first, ingest every distinct version |
+| `pnpm w diff [target]` | yes | Diff consecutive pairs, persist typed changes |
+| `pnpm w review [target]` | yes | The publish gate. Read-only without `--publish` |
+| `pnpm w poll [target]` | yes | Fetch current head, ingest only if the surface changed |
+| `pnpm w status` | yes | Snapshot counts, date range, resolved path per source |
 
-`target` is a provider slug (`stripe`) or a specific source (`twilio/messaging_v1`).
+`target` is a provider slug (`stripe`) or a source (`twilio/messaging_v1`).
 
 ## How it works
 
@@ -75,7 +98,6 @@ of megabytes and will take a while.
 
 A spec tracked in a public git repo hands you its own history. That is the
 cold-start unlock: the feed launches with an archive rather than an empty page.
-Four providers are seeded, all verified as publishing OpenAPI in public repos:
 
 | Provider | Repo |
 | --- | --- |
@@ -84,96 +106,136 @@ Four providers are seeded, all verified as publishing OpenAPI in public repos:
 | Twilio | `twilio/twilio-oai` |
 | GitHub | `github/rest-api-description` |
 
-The exact **file path** inside each repo is not documented anywhere and does
-move, so `registry.ts` declares ordered `filePathCandidates` and `seed` resolves
-the first one that actually exists at HEAD. A wrong guess fails loudly at seed
-time. When it does, `pnpm w discover <slug>` lists every spec-shaped file in the
-repo with sizes, marking the ones that declare `openapi:` or `swagger:` in their
-first 4KB.
+The exact **file path** inside each repo is documented nowhere and does move, so
+`registry.ts` declares ordered `filePathCandidates` and `seed` resolves the
+first that exists at HEAD. A wrong guess fails loudly at seed time, and
+`pnpm w discover <slug>` then lists every spec-shaped file with sizes, marking
+those that declare `openapi:` or `swagger:` in their first 4KB.
 
 Clones are partial (`--filter=blob:none --no-checkout`). Blobs arrive lazily via
 `git show`, so you only pay for the spec files you actually read.
 
 History uses `--follow`, and each revision carries **the path it was written
-at**. This is not hypothetical: Twilio's core spec has lived at four different
-paths, `json/twilio_api.json` → `spec/twilio_api.json` →
-`spec/json/twilio_api.json` → `spec/json/twilio_api_v2010.json`. Without
-per-revision paths, every commit before a move fails to read and the rename
-looks like the API being deleted and a new one appearing.
+at**. Twilio's core spec has lived at four paths, `json/twilio_api.json` →
+`spec/twilio_api.json` → `spec/json/twilio_api.json` →
+`spec/json/twilio_api_v2010.json`. Without per-revision paths, every commit
+before a move fails to read.
 
-One trap worth knowing about, documented in `acquire/git.ts`: **`--follow`
-cannot be combined with `--reverse`.** On `twilio/twilio-oai` that pairing
-returns 1 revision where `--follow` alone returns 168. It fails silently and
-looks exactly like a provider that never ships changes. We take git's
-newest-first order and reverse in JS.
+> One trap, documented in `acquire/git.ts`: **`--follow` cannot be combined with
+> `--reverse`.** On `twilio/twilio-oai` that pairing returns 1 revision where
+> `--follow` alone returns 168. It fails silently and looks exactly like a
+> provider that never ships changes.
 
 ### Normalization is where the noise dies
 
-One false `BREAKING` and a subscriber is gone for good. Providers regenerate
-specs from source annotations, and generators are not stable: key order shifts,
-parameter lists reorder, enum values come out in a different sequence. None of
-that is a change to the API.
+One false `BREAKING` and a subscriber is gone for good. Generators are not
+stable: key order shifts, parameter lists reorder, enum values come out in a
+different sequence. None of that is a change to the API.
 
-`@driftwatch/core` therefore, in order:
+`@driftwatch/core` therefore parses JSON or YAML, upgrades Swagger 2.0 in patch
+mode, **bundles** `$ref`s rather than dereferencing them (dereferencing a real
+spec produces circular objects that cannot be hashed), strips per-source
+volatile pointers, sorts object keys and the arrays that are semantically sets
+(`enum`, `required`, `security`, `tags`, and `parameters` by `(in, name)`), then
+hashes. `allOf` is deliberately left alone, because later members override
+earlier ones.
 
-1. Parses JSON or YAML (OpenAI publishes YAML, Stripe JSON).
-2. Upgrades Swagger 2.0 to OAS 3 via `swagger2openapi`, in patch mode, because
-   real-world 2.0 documents carry small spec violations.
-3. **Bundles** `$ref`s rather than dereferencing them. Dereferencing a real
-   provider spec produces circular objects — Stripe's Charge references Customer
-   references Charge — which cannot be serialized or hashed. Bundling also means
-   a change to a shared component surfaces once instead of at every call site
-   that would have inlined it.
-4. Strips per-source volatile JSON Pointers (build stamps, rotating example ids).
-5. Sorts object keys recursively, and sorts the arrays that are semantically
-   sets: `enum`, `required`, `security`, `tags`, and `parameters` by its
-   `(in, name)` identity. `allOf` is deliberately left alone, because later
-   members override earlier ones and order is load-bearing.
-6. Hashes the canonical serialization with sha256.
+### Shared components are diffed once, not once per call site
 
-That hash is the dedup key. Two snapshots with the same hash are the same API
-surface regardless of the bytes on disk.
+The most important decision in the codebase, and it was found by running the
+first implementation against real history rather than fixtures.
 
-`packages/core/src/normalize/normalize.test.ts` encodes this as tests. If one of
-them fails, the feed is about to publish a false positive.
+Following `$ref`s inline looks correct. In practice Stripe's schemas nest
+deeply through shared components, so one enum gaining a value gets rediscovered
+along every path that can reach it. Measured: a single change to `fpx.bank`
+surfaced **2319 times** in one diff, and one release pair produced **4528**
+"breaking" changes.
 
-### Storage
+Schema walks now stop at every `$ref`. Components are diffed once each, per
+direction they are used in, and carry the number of operations that can reach
+them. The same release now yields **11** breaking changes, each a distinct real
+fact. Roughly a 200x reduction with no loss of signal.
 
-Blobs are content-addressed and gzipped under `.data/blobs/<ab>/<hash>.json.gz`,
-both raw and normalized. A provider republishing an identical document costs
-nothing. Swap `blobs.ts` for object storage when this outgrows one box; nothing
-upstream knows where the bytes live.
+Repointing a field at a *different* component is still caught at the operation
+level, because the component diff cannot see it.
 
-`SpecSnapshot` is unique on `(sourceId, contentHash)`, which makes ingest
-idempotent. An interrupted backfill is resumed by running it again.
+### The consumer direction
 
-Snapshots order by `providerTime` (the commit date), never `capturedAt`. A
-backfill fetches four years of history in one afternoon; ordering by fetch time
-would scramble it.
+Producer tools ask "does this break my callers?" Three rules invert on the
+calling end, and they are why anyone subscribes:
+
+1. `response.property.became-optional` — safe for a producer, a null
+   dereference waiting to happen for you. Also fires when a field merely
+   becomes nullable.
+2. `response.enum.value-added` — additive for a producer. Breaks exhaustive
+   switches, strict parsers and generated client enums.
+3. `request.param.removed` — raises no error at all. The provider ignores the
+   argument and your results quietly change.
+
+The full ruleset lives in `packages/core/src/diff/rules.ts` and is rendered
+live on the site's `/method` page, so the published explanation cannot drift
+from the actual behaviour.
+
+### Severity is deterministic
+
+Assigned by a pure lookup in the ruleset. No model participates, so the same
+pair of specs always yields the same classification and a wrong call is a bug
+in a rule rather than an unreproducible generation.
+
+Impact rendering (headline, explanation, breaking code pattern) is templated
+for the same reason: a template cannot invent a field that does not exist.
+`enrich()` is the seam where a model may later rewrite body prose. It cannot
+touch the headline, and severity is not in scope at all.
+
+### Nothing publishes itself
+
+Changes below 85 confidence never reach the feed, cosmetic changes never do at
+any confidence, and everything else waits for `pnpm w review --publish`.
+Precision over recall, without apology.
 
 ## Layout
 
 ```
-packages/core/          normalize · canonicalize · hash   (pure, tested)
+packages/core/
+  normalize/     parse · upgrade · bundle · canonicalize · hash
+  diff/          structural diff · usage index · ruleset · classify
+  impact/        headline · explanation · breaking code pattern
 apps/worker/
-  registry.ts           the seed list and its candidate paths
-  acquire/git.ts        partial clone, rename-aware history, read-at-commit
-  store.ts              the one write path into SpecSnapshot
-  commands/             seed · discover · backfill · poll · status
-prisma/schema.prisma    full model, including the not-yet-used diff tables
+  registry.ts    the seed list and its candidate paths
+  acquire/git.ts partial clone, rename-aware history, read-at-commit
+  store.ts       the one write path into SpecSnapshot
+  diffing.ts     the one write path into DiffRun/Change
+  commands/      verify · preview · discover · seed · backfill · diff · review · poll · status
+apps/web/
+  lib/           Prisma queries → plain view models
+  components/    pure presentation, no data access
+  scripts/       render-check: verifies the UI with no database
+prisma/          full model, including the GitHub App tables
 ```
 
-The Prisma schema defines the whole system up front — `DiffRun`, `Change`,
-`Impact`, and the GitHub App tables — even though only the acquisition path is
-exercised today. Those land without a destructive migration.
+`pnpm check` builds and tests everything. A pre-commit hook runs it, because a
+type error reached a commit once already.
+
+## Testing
+
+- **43 unit tests** in `packages/core` covering normalization determinism,
+  every direction flip, ref cycles, `allOf` flattening and impact rendering.
+- **16 render checks** in `apps/web` exercising the presentation layer with no
+  database, no Prisma client and no network.
+- **`pnpm w verify` and `pnpm w preview`** are the integration tests, and they
+  run against live provider repos rather than fixtures. Both bugs worth finding
+  so far were found by them, not by the unit tests.
 
 ## Next
 
-1. Wire in [oasdiff](https://github.com/oasdiff/oasdiff) for the structural diff.
-   Do not write this from scratch; its ruleset is mature and open source.
-2. Layer the consumer-direction classifier on top. Three rules invert when you
-   sit on the calling end, and those three are the reason anyone subscribes:
-   a response property becoming optional, a new enum value in a response, and a
-   removed request parameter that throws no error at all.
-3. Impact rendering. Severity stays deterministic; a model writes only the prose
-   and the breaking code pattern.
+1. **Tier B sources.** Providers with a hosted spec URL but no public repo.
+   The ingest path is identical; only acquisition differs.
+2. **The GitHub App.** Fingerprint which providers, endpoints and response
+   fields a repo actually touches, then open a PR when a published change
+   intersects it. The static analysis is the same technique as AegisPulse's
+   Babel AST traversal. Metric is PRs *merged*, not opened.
+3. **MCP server over `/api/feed.json`**, so a coding agent can ask mid-task
+   whether anything the repo depends on has broken.
+4. **Observed responses.** Everything here is spec-derived, which means it is
+   diffing documentation, not behaviour. Watching real response shapes is a
+   much larger product and the natural direction after the feed proves itself.
