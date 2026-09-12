@@ -1,0 +1,23 @@
+{
+  "name": "driftwatch",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Consumer-side breaking-change radar for third-party APIs",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:up": "docker compose up -d",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "generate": "prisma generate",
+    "w": "pnpm --filter @driftwatch/worker run cli"
+  },
+  "devDependencies": {
+    "prisma": "^6.1.0",
+    "typescript": "^5.7.2"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

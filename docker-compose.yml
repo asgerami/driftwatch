@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: driftwatch-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: driftwatch
+      POSTGRES_PASSWORD: driftwatch
+      POSTGRES_DB: driftwatch
+    # 5433 to stay clear of a local Postgres on 5432
+    ports: ["5433:5432"]
+    volumes: ["driftwatch-pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U driftwatch"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  driftwatch-pgdata:
