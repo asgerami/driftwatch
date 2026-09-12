@@ -19,3 +19,21 @@ export {
   type NormalizedSpec,
   type SpecStats,
 } from "./types.js";
+
+export {
+  diffDocuments,
+  classify,
+  RULESET_VERSION,
+  RULES,
+  ruleFor,
+  PUBLISH_CONFIDENCE_THRESHOLD,
+  flattenAllOf,
+  resolveRef,
+  pointer,
+  type Change,
+  type DiffResult,
+  type Severity,
+  type Rule,
+  type RawChange,
+  type Direction,
+} from "./diff/index.js";
