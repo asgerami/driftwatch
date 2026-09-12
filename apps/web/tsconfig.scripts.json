@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // The app itself uses jsx:"preserve" so Next owns the transform. The
+    // render check runs outside Next, so it needs a real one.
+    "jsx": "react-jsx",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "noEmit": true
+  },
+  "include": ["scripts/**/*", "components/**/*", "lib/types.ts"]
+}

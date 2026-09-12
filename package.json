@@ -3,7 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "description": "Consumer-side breaking-change radar for third-party APIs",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
@@ -13,7 +15,10 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "generate": "prisma generate",
-    "w": "pnpm --filter @driftwatch/worker run cli"
+    "w": "pnpm --filter @driftwatch/worker run cli",
+    "check": "pnpm -r build && pnpm -r test",
+    "prepare": "git config core.hooksPath .githooks || true",
+    "web": "pnpm --filter @driftwatch/web run dev"
   },
   "devDependencies": {
     "prisma": "^6.1.0",

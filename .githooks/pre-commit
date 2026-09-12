@@ -1,0 +1,9 @@
+#!/bin/sh
+# Build and test the core package before every commit. A type error reached a
+# commit once; this is cheap insurance against the next one.
+set -e
+echo "pre-commit: building @driftwatch/core"
+pnpm --filter @driftwatch/core build >/dev/null
+echo "pre-commit: running tests"
+pnpm --filter @driftwatch/core test >/dev/null
+echo "pre-commit: ok"

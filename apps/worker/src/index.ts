@@ -7,6 +7,7 @@ import { backfill } from "./commands/backfill.js";
 import { diff } from "./commands/diff.js";
 import { discover } from "./commands/discover.js";
 import { preview } from "./commands/preview.js";
+import { review } from "./commands/review.js";
 import { poll } from "./commands/poll.js";
 import { seed } from "./commands/seed.js";
 import { status } from "./commands/status.js";
@@ -82,6 +83,25 @@ program
   .argument("[provider]", "provider slug; omit for all")
   .description("Resolve paths, walk history and normalize HEAD — no database needed")
   .action((provider: string | undefined) => verify(provider));
+
+program
+  .command("review")
+  .argument("[target]", 'provider slug or "slug/key"; omit for all')
+  .option("-s, --severity <severity>", "only this severity")
+  .option("-n, --limit <count>", "facts to list", "40")
+  .option("--publish", "actually publish what is listed (read-only without it)")
+  .description("The review gate: inspect pending changes, then publish them")
+  .action(
+    (
+      target: string | undefined,
+      opts: { severity?: string; limit: string; publish?: boolean },
+    ) =>
+      review(target, {
+        severity: opts.severity?.toUpperCase() as never,
+        limit: Number(opts.limit),
+        publish: opts.publish === true,
+      }),
+  );
 
 program
   .command("status")

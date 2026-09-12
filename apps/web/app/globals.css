@@ -1,0 +1,427 @@
+/*
+ * Palette is severity-first: the accent IS the breaking colour, so the page's
+ * one loud element and its most important information are the same thing.
+ * Neutrals carry a cool slate bias so they read as chosen rather than default.
+ */
+
+:root {
+  --ground: #eff2f6;
+  --surface: #fcfdfe;
+  --surface-2: #f6f8fa;
+  --ink: #111820;
+  --ink-2: #47525f;
+  --ink-3: #76828f;
+  --rule: #d7dee6;
+  --rule-strong: #bfc9d4;
+
+  --breaking: #a8321c;
+  --breaking-soft: #faece8;
+  --deprecation: #8a6516;
+  --deprecation-soft: #faf2de;
+  --behavioral: #3a5a8c;
+  --behavioral-soft: #e9eff8;
+  --additive: #2d6a62;
+  --additive-soft: #e4f0ee;
+  --cosmetic: #76828f;
+  --cosmetic-soft: #eef1f4;
+
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0e1319;
+    --surface: #151c24;
+    --surface-2: #1b232c;
+    --ink: #e6ebf1;
+    --ink-2: #a8b3c0;
+    --ink-3: #77838f;
+    --rule: #29333e;
+    --rule-strong: #3a4654;
+
+    --breaking: #e8714c;
+    --breaking-soft: #2e1a14;
+    --deprecation: #d9a742;
+    --deprecation-soft: #2b2313;
+    --behavioral: #7fa6dc;
+    --behavioral-soft: #16202e;
+    --additive: #5fb3a3;
+    --additive-soft: #142a28;
+    --cosmetic: #77838f;
+    --cosmetic-soft: #1b232c;
+
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 16.5px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--breaking);
+  text-underline-offset: 2px;
+}
+
+.shell {
+  max-width: 900px;
+  margin: 0 auto;
+  padding-inline: 20px;
+  padding-block: 0 80px;
+}
+
+/* ── masthead ─────────────────────────────────────────────────────── */
+
+.masthead {
+  border-bottom: 2px solid var(--ink);
+  padding-block: 34px 22px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 28px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.wordmark {
+  font-family: var(--f-display);
+  font-weight: 700;
+  font-size: 1.32rem;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.wordmark span {
+  color: var(--breaking);
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  font-family: var(--f-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+}
+
+.nav a {
+  color: var(--ink-3);
+  text-decoration: none;
+}
+
+.nav a:hover,
+.nav a:focus-visible {
+  color: var(--breaking);
+}
+
+.tagline {
+  font-size: 1.05rem;
+  color: var(--ink-2);
+  max-width: 58ch;
+  margin: 22px 0 0;
+}
+
+/* ── release ──────────────────────────────────────────────────────── */
+
+.release {
+  border-top: 1px solid var(--rule);
+  padding-block: 26px 6px;
+}
+
+.release:first-of-type {
+  border-top: none;
+}
+
+.release-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+  margin-bottom: 16px;
+}
+
+.release-provider {
+  font-family: var(--f-display);
+  font-weight: 700;
+  font-size: 1.16rem;
+  letter-spacing: -0.015em;
+}
+
+.release-meta {
+  font-family: var(--f-mono);
+  font-size: 0.72rem;
+  color: var(--ink-3);
+  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.tally {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* ── change ───────────────────────────────────────────────────────── */
+
+.changes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.change {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--sev, var(--rule-strong));
+  border-radius: 3px;
+  padding: 14px 16px;
+}
+
+.change[data-severity="BREAKING"] {
+  --sev: var(--breaking);
+}
+.change[data-severity="DEPRECATION"] {
+  --sev: var(--deprecation);
+}
+.change[data-severity="BEHAVIORAL"] {
+  --sev: var(--behavioral);
+}
+.change[data-severity="ADDITIVE"] {
+  --sev: var(--additive);
+}
+.change[data-severity="COSMETIC"] {
+  --sev: var(--cosmetic);
+}
+
+.change-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 10px;
+  margin-bottom: 5px;
+}
+
+.change-title {
+  font-family: var(--f-display);
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: -0.005em;
+  margin: 0;
+}
+
+.change-body {
+  margin: 0;
+  font-size: 0.94rem;
+  color: var(--ink-2);
+  max-width: 68ch;
+}
+
+.change-where {
+  font-family: var(--f-mono);
+  font-size: 0.73rem;
+  color: var(--ink-3);
+  margin-top: 8px;
+  word-break: break-word;
+}
+
+.change pre {
+  margin: 10px 0 0;
+  padding: 11px 13px;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  overflow-x: auto;
+  font-family: var(--f-mono);
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+/* ── chips ────────────────────────────────────────────────────────── */
+
+.chip {
+  display: inline-block;
+  font-family: var(--f-mono);
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.chip[data-severity="BREAKING"] {
+  background: var(--breaking-soft);
+  color: var(--breaking);
+}
+.chip[data-severity="DEPRECATION"] {
+  background: var(--deprecation-soft);
+  color: var(--deprecation);
+}
+.chip[data-severity="BEHAVIORAL"] {
+  background: var(--behavioral-soft);
+  color: var(--behavioral);
+}
+.chip[data-severity="ADDITIVE"] {
+  background: var(--additive-soft);
+  color: var(--additive);
+}
+.chip[data-severity="COSMETIC"] {
+  background: var(--cosmetic-soft);
+  color: var(--cosmetic);
+}
+
+.flip {
+  font-family: var(--f-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: var(--breaking);
+  border: 1px solid var(--breaking);
+  border-radius: 3px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+
+.rule-id {
+  font-family: var(--f-mono);
+  font-size: 0.68rem;
+  color: var(--ink-3);
+}
+
+/* ── providers ────────────────────────────────────────────────────── */
+
+.providers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+}
+
+.provider {
+  background: var(--surface);
+  padding: 15px 16px;
+}
+
+.provider a {
+  font-family: var(--f-display);
+  font-weight: 600;
+  font-size: 1rem;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.provider a:hover {
+  color: var(--breaking);
+}
+
+.provider-meta {
+  font-family: var(--f-mono);
+  font-size: 0.7rem;
+  color: var(--ink-3);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── prose pages ──────────────────────────────────────────────────── */
+
+.prose h1 {
+  font-family: var(--f-display);
+  font-weight: 700;
+  font-size: clamp(1.9rem, 5vw, 2.6rem);
+  letter-spacing: -0.025em;
+  line-height: 1.06;
+  text-wrap: balance;
+  margin: 34px 0 14px;
+}
+
+.prose h2 {
+  font-family: var(--f-display);
+  font-weight: 700;
+  font-size: 1.4rem;
+  letter-spacing: -0.015em;
+  margin: 34px 0 8px;
+  text-wrap: balance;
+}
+
+.prose p,
+.prose li {
+  max-width: 68ch;
+}
+
+.prose code {
+  font-family: var(--f-mono);
+  font-size: 0.84em;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 0.05em 0.3em;
+}
+
+.empty {
+  border: 1px dashed var(--rule-strong);
+  border-radius: 3px;
+  padding: 28px 22px;
+  color: var(--ink-2);
+  background: var(--surface);
+  margin-top: 24px;
+}
+
+.empty code {
+  font-family: var(--f-mono);
+  font-size: 0.82em;
+}
+
+.footer {
+  border-top: 1px solid var(--rule);
+  margin-top: 48px;
+  padding-top: 18px;
+  font-family: var(--f-mono);
+  font-size: 0.7rem;
+  color: var(--ink-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--breaking);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (max-width: 620px) {
+  .tally {
+    margin-left: 0;
+  }
+}
