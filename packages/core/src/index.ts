@@ -37,3 +37,5 @@ export {
   type RawChange,
   type Direction,
 } from "./diff/index.js";
+
+export { renderImpact, enrich, type RenderedImpact } from "./impact/index.js";
