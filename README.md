@@ -18,7 +18,7 @@ that opens fix PRs, which is deliberately the second thing.
 ## Quick start
 
 ```bash
-pnpm install
+pnpm install          # also builds packages/core via its prepare script
 cp .env.example .env
 
 pnpm w verify            # no DB: resolve paths, walk history, normalize HEAD
@@ -215,6 +215,12 @@ prisma/          full model, including the GitHub App tables
 
 `pnpm check` builds and tests everything. A pre-commit hook runs it, because a
 type error reached a commit once already.
+
+`packages/core` compiles to `dist/`, and the worker and site import it by that
+path. Its `prepare` script builds it, which pnpm runs for every workspace
+project on install, so a fresh clone works with nothing but `pnpm install`.
+Without that, the first command after cloning fails with a module-not-found on
+a file no one has been told to build.
 
 ## Testing
 
