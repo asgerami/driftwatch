@@ -34,6 +34,7 @@ pnpm w diff              # diff consecutive pairs, persist typed changes
 pnpm w review            # inspect what is pending (read-only)
 pnpm w review --publish  # open the gate
 pnpm web                 # the feed on :3000
+node apps/mcp/dist/index.js   # stdio MCP over that feed (after pnpm install)
 ```
 
 `verify` and `preview` need no database and no Prisma client, so they are the
@@ -88,9 +89,30 @@ github/rest  2026-09-11   2 behavioral
 | `pnpm w diff [target]` | yes | Diff consecutive pairs, persist typed changes |
 | `pnpm w review [target]` | yes | The publish gate. Read-only without `--publish` |
 | `pnpm w poll [target]` | yes | Fetch current head, ingest only if the surface changed |
-| `pnpm w status` | yes | Snapshot counts, date range, resolved path per source |
+| `pnpm w status` | yes | Snapshot counts, date range, resolved path or URL per source |
+| `node apps/mcp/dist/index.js` | no | Stdio MCP server. Reads `/api/feed.json`, not Postgres |
 
 `target` is a provider slug (`stripe`) or a source (`twilio/messaging_v1`).
+
+Point a coding agent at the feed with `DRIFTWATCH_FEED_URL` (defaults to
+`http://localhost:3000/api/feed.json`). Invoke the built binary directly so
+the stdio channel stays JSON-RPC — `pnpm mcp` prints a script banner and
+breaks the protocol:
+
+```json
+{
+  "mcpServers": {
+    "driftwatch": {
+      "command": "node",
+      "args": ["apps/mcp/dist/index.js"],
+      "env": { "DRIFTWATCH_FEED_URL": "http://localhost:3000/api/feed.json" }
+    }
+  }
+}
+```
+
+The server never opens Postgres. It reads the same published JSON a human
+sees, so an unpublished change cannot leak through a side channel.
 
 ## How it works
 
@@ -248,9 +270,11 @@ a file no one has been told to build.
 
 ## Testing
 
-- **43 unit tests** in `packages/core` covering normalization determinism,
+- **55 unit tests** in `packages/core` covering normalization determinism,
   every direction flip, ref cycles, `allOf` flattening and impact rendering.
-- **16 render checks** in `apps/web` exercising the presentation layer with no
+- **Worker tests** covering HTTP acquisition, the registry, and a real
+  Postgres persist round-trip.
+- **Render checks** in `apps/web` exercising the presentation layer with no
   database, no Prisma client and no network.
 - **`pnpm w verify` and `pnpm w preview`** are the integration tests, and they
   run against live provider repos rather than fixtures. Both bugs worth finding
@@ -263,8 +287,6 @@ a file no one has been told to build.
    intersects it. The static analysis is the same technique as AegisPulse's
    Babel AST traversal. Metric is PRs *merged*, not opened. Wait for one
    person to say the digest caught something before it hit their production.
-2. **MCP server over `/api/feed.json`**, so a coding agent can ask mid-task
-   whether anything the repo depends on has broken.
-3. **Observed responses.** Everything here is spec-derived, which means it is
+2. **Observed responses.** Everything here is spec-derived, which means it is
    diffing documentation, not behaviour. Watching real response shapes is a
    much larger product and the natural direction after the feed proves itself.

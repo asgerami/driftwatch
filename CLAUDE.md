@@ -121,6 +121,7 @@ apps/web/
   lib/queries.ts        Prisma reads to plain view models
   components/           pure presentation, no data access
   scripts/              render-check: verifies the UI with no database
+apps/mcp/               stdio MCP server over /api/feed.json
 prisma/schema.prisma    full model, including the unbuilt GitHub App tables
 ```
 

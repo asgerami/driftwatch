@@ -8,13 +8,18 @@ export const revalidate = 300;
  * Quietly the most strategic surface here: wrapped as an MCP server, a coding
  * agent can ask mid-task whether anything the repo depends on has broken, and
  * get a typed answer instead of a blog post.
+ *
+ * `?signal=1` ranks releases with a break, deprecation or behavioural shift
+ * first — the default chronological order is for humans reading history.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const provider = url.searchParams.get("provider") ?? undefined;
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 50) || 50, 200);
+  const preferSignal =
+    url.searchParams.get("signal") === "1" || url.searchParams.get("signal") === "true";
 
-  const releases = await recentReleases(limit, provider);
+  const releases = await recentReleases(limit, provider, { preferSignal });
 
   return Response.json(
     {
