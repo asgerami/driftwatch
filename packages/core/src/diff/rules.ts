@@ -109,6 +109,14 @@ export const RULES: Record<string, Rule> = Object.fromEntries(
         "No error is raised. The value is ignored and your results change silently, which is the hardest class of break to notice.",
     }),
     rule({
+      id: "request.param.unlisted",
+      severity: "COSMETIC",
+      confidence: 100,
+      headline: "Parameter no longer listed on this operation",
+      consequence:
+        "The same parameter still exists as a shared component, or on other operations. This is a documentation drop, not a withdrawn argument.",
+    }),
+    rule({
       id: "request.param.became-required",
       severity: "BREAKING",
       confidence: 100,

@@ -153,6 +153,94 @@ describe("direction flip 3 — a removed request parameter throws no error", () 
     expect(hits[0].severity).toBe("BREAKING");
     expect(hits[0].consequence).toContain("No error is raised");
   });
+
+  it("does not call a dropped $ref a removal when the shared parameter still exists", () => {
+    // GitHub 33438507 → 1048c01d: classroom list ops stopped $refing page and
+    // per-page. The components remained, and 250+ other operations kept them.
+    const page = { name: "page", in: "query", schema: { type: "integer" } };
+    const perPage = { name: "per_page", in: "query", schema: { type: "integer" } };
+    const assignmentId = {
+      name: "assignment_id",
+      in: "path",
+      required: true,
+      schema: { type: "string" },
+    };
+    const before = {
+      openapi: "3.0.3",
+      info: { title: "T", version: "1" },
+      paths: {
+        "/assignments/{assignment_id}/accepted_assignments": {
+          get: {
+            parameters: [
+              { $ref: "#/components/parameters/assignment-id" },
+              { $ref: "#/components/parameters/page" },
+              { $ref: "#/components/parameters/per-page" },
+            ],
+            responses: { "200": { description: "ok" } },
+          },
+        },
+        "/events": {
+          get: {
+            parameters: [
+              { $ref: "#/components/parameters/page" },
+              { $ref: "#/components/parameters/per-page" },
+            ],
+            responses: { "200": { description: "ok" } },
+          },
+        },
+      },
+      components: {
+        parameters: {
+          "assignment-id": assignmentId,
+          page,
+          "per-page": perPage,
+        },
+      },
+    } as JsonObject;
+    const after = structuredClone(before) as JsonObject;
+    (after as any).paths["/assignments/{assignment_id}/accepted_assignments"].get.parameters = [
+      { $ref: "#/components/parameters/assignment-id" },
+    ];
+
+    const result = diffDocuments(before, after);
+    expect(only(result, "request.param.removed")).toHaveLength(0);
+    const unlisted = only(result, "request.param.unlisted");
+    expect(unlisted.map((c) => c.fieldPath).sort()).toEqual(["page", "per_page"]);
+    expect(unlisted.every((c) => c.severity === "COSMETIC")).toBe(true);
+    expect(unlisted.every((c) => c.publishable === false)).toBe(true);
+  });
+
+  it("still flags a shared parameter that vanished from the whole API", () => {
+    const page = { name: "page", in: "query", schema: { type: "integer" } };
+    const before = {
+      openapi: "3.0.3",
+      info: { title: "T", version: "1" },
+      paths: {
+        "/events": {
+          get: {
+            parameters: [{ $ref: "#/components/parameters/page" }],
+            responses: { "200": { description: "ok" } },
+          },
+        },
+      },
+      components: { parameters: { page } },
+    } as JsonObject;
+    const after = {
+      openapi: "3.0.3",
+      info: { title: "T", version: "1" },
+      paths: {
+        "/events": {
+          get: { responses: { "200": { description: "ok" } } },
+        },
+      },
+      components: { parameters: {} },
+    } as JsonObject;
+
+    const hits = only(diffDocuments(before, after), "request.param.removed");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].fieldPath).toBe("page");
+    expect(only(diffDocuments(before, after), "request.param.unlisted")).toHaveLength(0);
+  });
 });
 
 describe("request rules", () => {

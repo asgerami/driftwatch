@@ -65,7 +65,7 @@ export interface DiffResult {
   counts: Record<Severity, number>;
 }
 
-export const RULESET_VERSION = "1.0.0";
+export const RULESET_VERSION = "1.1.0";
 
 /** A single pair of specs should never produce more than this. */
 const MAX_CHANGES = 5000;
@@ -104,6 +104,44 @@ function indexParameters(
     if (key) map.set(key, param);
   }
   return map;
+}
+
+/**
+ * Every `in:name` currently declared anywhere: shared parameter components
+ * and every path/operation parameter list.
+ *
+ * Needed because resolving `$ref`s before compare makes "this operation
+ * stopped listing a still-shared parameter" look identical to "the argument
+ * was withdrawn". GitHub's classroom endpoints dropped `$ref`s to `page` and
+ * `per-page` while 250+ other operations kept them; that is documentation,
+ * not a break.
+ */
+function collectDeclaredParamKeys(doc: JsonObject): Set<string> {
+  const keys = new Set<string>();
+  const add = (raw: Json | undefined) => {
+    for (const key of indexParameters(doc, raw).keys()) keys.add(key);
+  };
+
+  const components = isObject(doc["components"]) ? doc["components"] : {};
+  const parameters = isObject(components["parameters"]) ? components["parameters"] : {};
+  for (const param of Object.values(parameters)) {
+    if (!isObject(param)) continue;
+    const resolved =
+      typeof param["$ref"] === "string"
+        ? (resolveRef(doc, param["$ref"]) ?? param)
+        : param;
+    if (!isObject(resolved)) continue;
+    const key = paramKey(resolved);
+    if (key) keys.add(key);
+  }
+
+  const paths = isObject(doc["paths"]) ? doc["paths"] : {};
+  for (const item of Object.values(paths)) {
+    if (!isObject(item)) continue;
+    add(item["parameters"]);
+    for (const [, operation] of operationsOf(item)) add(operation["parameters"]);
+  }
+  return keys;
 }
 
 /** Path parameters are required by definition, whatever the spec says. */
@@ -171,6 +209,7 @@ export function diffDocuments(
 
   const beforePaths = isObject(beforeDoc["paths"]) ? beforeDoc["paths"] : {};
   const afterPaths = isObject(afterDoc["paths"]) ? afterDoc["paths"] : {};
+  const afterDeclaredParams = collectDeclaredParamKeys(afterDoc);
 
   for (const path of Object.keys(beforePaths)) {
     const beforeItem = beforePaths[path];
@@ -205,6 +244,7 @@ export function diffDocuments(
         method,
         at,
         emit,
+        afterDeclaredParams,
       });
     }
 
@@ -344,6 +384,7 @@ interface OperationDiffInput {
   method: string;
   at: string;
   emit: (change: RawChange) => void;
+  afterDeclaredParams: Set<string>;
 }
 
 function diffOperation(input: OperationDiffInput): void {
@@ -358,6 +399,7 @@ function diffOperation(input: OperationDiffInput): void {
     method,
     at,
     emit,
+    afterDeclaredParams,
   } = input;
 
   const operationId =
@@ -408,7 +450,9 @@ function diffOperation(input: OperationDiffInput): void {
     if (!afterParam) {
       emit({
         ...location,
-        ruleId: "request.param.removed",
+        ruleId: afterDeclaredParams.has(key)
+          ? "request.param.unlisted"
+          : "request.param.removed",
         jsonPointer: paramAt,
         fieldPath: name,
         before: key,
