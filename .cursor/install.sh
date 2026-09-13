@@ -10,13 +10,13 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 echo "install: system packages (docker engine + fuse-overlayfs + psql client)"
-sudo apt-get update -qq
 # fuse-overlayfs lets dockerd run inside the Cloud Agent VM without a host
-# overlay mount. The retry reconfigures fuse3/fuse-overlayfs if the first
-# postinst races on /etc/fuse.conf.
-sudo apt-get install -y -qq docker.io docker-compose-v2 fuse-overlayfs postgresql-client \
-  || sudo apt-get install -y -qq -o Dpkg::Options::="--force-confnew" \
-       docker.io docker-compose-v2 fuse3 fuse-overlayfs postgresql-client
+# overlay mount. --force-confold keeps existing conffiles so the fuse3
+# /etc/fuse.conf postinst never blocks on an interactive prompt.
+APT_OPTS=(-y -qq -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef)
+sudo apt-get update -qq
+sudo apt-get install "${APT_OPTS[@]}" \
+  docker.io docker-compose-v2 fuse3 fuse-overlayfs postgresql-client
 
 echo "install: node toolchain"
 corepack enable >/dev/null 2>&1 || true
