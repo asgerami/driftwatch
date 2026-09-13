@@ -247,6 +247,24 @@ a {
   word-break: break-word;
 }
 
+.additive-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin: 12px 0 8px;
+  font-family: var(--f-mono);
+  font-size: 0.78rem;
+  color: var(--ink-2);
+  line-height: 1.45;
+}
+
+.additive-fields {
+  color: var(--ink-3);
+  font-weight: 400;
+  word-break: break-word;
+}
+
 .change pre {
   margin: 10px 0 0;
   padding: 11px 13px;

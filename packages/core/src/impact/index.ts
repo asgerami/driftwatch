@@ -195,6 +195,31 @@ export function renderImpact(change: Change): RenderedImpact {
       break;
     }
 
+    case "path.added": {
+      headline = `${change.path} added`;
+      break;
+    }
+
+    case "operation.added": {
+      headline = `${change.method?.toUpperCase() ?? ""} ${change.path} added`.trim();
+      break;
+    }
+
+    case "request.param.optional-added": {
+      headline = `${leaf(change.fieldPath)} is now optional`;
+      break;
+    }
+
+    case "request.property.added": {
+      headline = `Request property ${leaf(change.fieldPath)} added`;
+      break;
+    }
+
+    case "response.property.added": {
+      headline = `Response field ${leaf(change.fieldPath)} added`;
+      break;
+    }
+
     default:
       break;
   }

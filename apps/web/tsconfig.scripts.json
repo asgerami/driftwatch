@@ -8,5 +8,5 @@
     "moduleResolution": "Node",
     "noEmit": true
   },
-  "include": ["scripts/**/*", "components/**/*", "lib/types.ts"]
+  "include": ["scripts/**/*", "components/**/*", "lib/types.ts", "lib/feed.ts"]
 }

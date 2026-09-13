@@ -5,6 +5,7 @@ import {
   type Severity,
 } from "@driftwatch/core";
 import { prisma } from "./db";
+import { leadWithSignal, splitCards } from "./feed";
 import type { ChangeView, ProviderView, ReleaseView } from "./types";
 
 /**
@@ -173,9 +174,10 @@ interface RunRow {
 }
 
 function toRelease(run: RunRow): ReleaseView {
-  const changes = groupByFingerprint(run.changes);
+  const grouped = groupByFingerprint(run.changes);
   const counts = { ...EMPTY_COUNTS };
-  for (const change of changes) counts[change.severity]++;
+  for (const change of grouped) counts[change.severity]++;
+  const { cards, responseFieldAdds } = splitCards(grouped);
 
   return {
     id: run.id,
@@ -187,7 +189,8 @@ function toRelease(run: RunRow): ReleaseView {
     commitSha: run.to.commitSha ?? undefined,
     repo: run.to.source.repo ?? undefined,
     counts,
-    changes,
+    changes: cards,
+    responseFieldAdds,
   };
 }
 
@@ -213,7 +216,12 @@ const RUN_INCLUDE = {
   },
 } as const;
 
-export async function recentReleases(limit = 20, providerSlug?: string): Promise<ReleaseView[]> {
+export async function recentReleases(
+  limit = 20,
+  providerSlug?: string,
+  opts?: { preferSignal?: boolean },
+): Promise<ReleaseView[]> {
+  const take = opts?.preferSignal ? Math.max(limit * 3, 60) : limit;
   const runs = (await prisma.diffRun.findMany({
     where: {
       changes: { some: { publishedAt: { not: null } } },
@@ -223,10 +231,17 @@ export async function recentReleases(limit = 20, providerSlug?: string): Promise
     },
     include: RUN_INCLUDE,
     orderBy: { to: { providerTime: "desc" } },
-    take: limit,
+    take,
   })) as unknown as RunRow[];
 
-  return runs.map(toRelease).filter((release) => release.changes.length > 0);
+  const releases = runs
+    .map(toRelease)
+    .filter(
+      (release) => release.changes.length > 0 || release.responseFieldAdds,
+    );
+
+  if (opts?.preferSignal) return leadWithSignal(releases).slice(0, limit);
+  return releases.slice(0, limit);
 }
 
 export async function listProviders(): Promise<ProviderView[]> {

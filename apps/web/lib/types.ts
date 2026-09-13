@@ -29,6 +29,14 @@ export interface ChangeView {
   sampleSites: string[];
 }
 
+/** Several new response fields, collapsed from individual cards. */
+export interface AdditiveLine {
+  /** Distinct facts, after fingerprint grouping. */
+  count: number;
+  /** Field labels, already ordered for display. */
+  fields: string[];
+}
+
 export interface ReleaseView {
   /** Diff run id. */
   id: string;
@@ -41,7 +49,10 @@ export interface ReleaseView {
   commitSha?: string;
   repo?: string;
   counts: Record<Severity, number>;
+  /** Cards. `response.property.added` may be collapsed into `responseFieldAdds`. */
   changes: ChangeView[];
+  /** Several new response fields, as one line instead of N identical cards. */
+  responseFieldAdds?: AdditiveLine;
 }
 
 export interface ProviderView {

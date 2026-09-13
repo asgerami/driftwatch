@@ -1,5 +1,6 @@
 import type { ChangeView, ReleaseView } from "../lib/types";
 import { SEVERITY_LABEL, SEVERITY_ORDER } from "../lib/types";
+import { additiveLineHeadline } from "../lib/feed";
 
 export function SeverityChip({ severity }: { severity: ChangeView["severity"] }) {
   return (
@@ -80,6 +81,13 @@ function formatDate(iso: string): string {
 }
 
 export function Release({ release }: { release: ReleaseView }) {
+  const shown = release.responseFieldAdds
+    ? release.responseFieldAdds.fields.slice(0, 8)
+    : [];
+  const more = release.responseFieldAdds
+    ? release.responseFieldAdds.fields.length - shown.length
+    : 0;
+
   return (
     <article className="release">
       <header className="release-head">
@@ -93,11 +101,27 @@ export function Release({ release }: { release: ReleaseView }) {
         </span>
         <Tally counts={release.counts} />
       </header>
-      <ul className="changes">
-        {release.changes.map((change) => (
-          <ChangeItem key={change.id} change={change} />
-        ))}
-      </ul>
+      {release.changes.length > 0 ? (
+        <ul className="changes">
+          {release.changes.map((change) => (
+            <ChangeItem key={change.id} change={change} />
+          ))}
+        </ul>
+      ) : null}
+      {release.responseFieldAdds ? (
+        <p className="additive-line">
+          <span className="chip" data-severity="ADDITIVE">
+            Additive
+          </span>
+          <span>{additiveLineHeadline(release.responseFieldAdds)}</span>
+          {shown.length > 0 ? (
+            <span className="additive-fields">
+              {shown.join(", ")}
+              {more > 0 ? ` +${more} more` : ""}
+            </span>
+          ) : null}
+        </p>
+      ) : null}
     </article>
   );
 }
