@@ -8,7 +8,8 @@ import type { AdditiveLine, ChangeView, ReleaseView } from "./types";
  */
 
 /** Drowns a release when each occurrence is its own card. */
-export const COLLAPSED_ADDITIVE_RULE = "response.property.added";
+export const COLLAPSED_RESPONSE_RULE = "response.property.added";
+export const COLLAPSED_REQUEST_RULE = "request.property.added";
 
 export function hasSignal(release: Pick<ReleaseView, "counts">): boolean {
   return (
@@ -41,6 +42,10 @@ export function additiveLineHeadline(line: AdditiveLine): string {
   return `${line.count} new response field${line.count === 1 ? "" : "s"}`;
 }
 
+export function requestPropertyHeadline(line: AdditiveLine): string {
+  return `${line.count} new request ${line.count === 1 ? "property" : "properties"}`;
+}
+
 function fieldLabel(change: ChangeView): string {
   if (change.componentName && change.fieldPath) {
     return `${change.componentName}.${change.fieldPath}`;
@@ -51,31 +56,37 @@ function fieldLabel(change: ChangeView): string {
 }
 
 /**
- * Collapse `response.property.added` into one line when a release has several.
+ * Collapse noisy additive property-adds into one line each.
  *
  * `path.added` and `operation.added` stay as cards: those are the additive
- * facts worth a row of their own. A single new response field also stays a
- * card, now with a specific headline; the collapse is for the identical
- * eleven-card dump that was drowning the feed.
+ * facts worth a row of their own. A single new field also stays a card.
+ * The collapse is for the identical eleven-card dump that was drowning
+ * the feed — first response fields, then request properties (Stripe's
+ * `country_options.*.igic` dump is the same shape on the request side).
  */
 export function splitCards(changes: ChangeView[]): {
   cards: ChangeView[];
   responseFieldAdds?: AdditiveLine;
+  requestPropertyAdds?: AdditiveLine;
 } {
-  const collapsed: ChangeView[] = [];
+  const response: ChangeView[] = [];
+  const request: ChangeView[] = [];
   const cards: ChangeView[] = [];
   for (const change of changes) {
-    if (change.ruleId === COLLAPSED_ADDITIVE_RULE) collapsed.push(change);
+    if (change.ruleId === COLLAPSED_RESPONSE_RULE) response.push(change);
+    else if (change.ruleId === COLLAPSED_REQUEST_RULE) request.push(change);
     else cards.push(change);
   }
 
-  if (collapsed.length < 2) {
-    return { cards: [...cards, ...collapsed] };
-  }
-
-  const fields = collapsed.map(fieldLabel);
   return {
-    cards,
-    responseFieldAdds: { count: collapsed.length, fields },
+    cards: [
+      ...cards,
+      ...(response.length < 2 ? response : []),
+      ...(request.length < 2 ? request : []),
+    ],
+    responseFieldAdds:
+      response.length >= 2 ? { count: response.length, fields: response.map(fieldLabel) } : undefined,
+    requestPropertyAdds:
+      request.length >= 2 ? { count: request.length, fields: request.map(fieldLabel) } : undefined,
   };
 }

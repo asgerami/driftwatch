@@ -57,6 +57,12 @@ export function formatReleases(
           (release.responseFieldAdds.count === 1 ? "" : "s"),
       );
     }
+    if (release.requestPropertyAdds) {
+      lines.push(
+        `  ▪ ADDITIVE  ${release.requestPropertyAdds.count} new request ` +
+          (release.requestPropertyAdds.count === 1 ? "property" : "properties"),
+      );
+    }
     lines.push("");
   }
   return lines.join("\n").trimEnd();

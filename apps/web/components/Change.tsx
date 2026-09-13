@@ -1,6 +1,6 @@
-import type { ChangeView, ReleaseView } from "../lib/types";
+import type { AdditiveLine, ChangeView, ReleaseView } from "../lib/types";
 import { SEVERITY_LABEL, SEVERITY_ORDER } from "../lib/types";
-import { additiveLineHeadline } from "../lib/feed";
+import { additiveLineHeadline, requestPropertyHeadline } from "../lib/feed";
 
 export function SeverityChip({ severity }: { severity: ChangeView["severity"] }) {
   return (
@@ -80,14 +80,32 @@ function formatDate(iso: string): string {
   return new Date(iso).toISOString().slice(0, 10);
 }
 
-export function Release({ release }: { release: ReleaseView }) {
-  const shown = release.responseFieldAdds
-    ? release.responseFieldAdds.fields.slice(0, 8)
-    : [];
-  const more = release.responseFieldAdds
-    ? release.responseFieldAdds.fields.length - shown.length
-    : 0;
+function AdditiveLineRow({
+  line,
+  headline,
+}: {
+  line: AdditiveLine;
+  headline: string;
+}) {
+  const shown = line.fields.slice(0, 8);
+  const more = line.fields.length - shown.length;
+  return (
+    <p className="additive-line">
+      <span className="chip" data-severity="ADDITIVE">
+        Additive
+      </span>
+      <span>{headline}</span>
+      {shown.length > 0 ? (
+        <span className="additive-fields">
+          {shown.join(", ")}
+          {more > 0 ? ` +${more} more` : ""}
+        </span>
+      ) : null}
+    </p>
+  );
+}
 
+export function Release({ release }: { release: ReleaseView }) {
   return (
     <article className="release">
       <header className="release-head">
@@ -109,18 +127,16 @@ export function Release({ release }: { release: ReleaseView }) {
         </ul>
       ) : null}
       {release.responseFieldAdds ? (
-        <p className="additive-line">
-          <span className="chip" data-severity="ADDITIVE">
-            Additive
-          </span>
-          <span>{additiveLineHeadline(release.responseFieldAdds)}</span>
-          {shown.length > 0 ? (
-            <span className="additive-fields">
-              {shown.join(", ")}
-              {more > 0 ? ` +${more} more` : ""}
-            </span>
-          ) : null}
-        </p>
+        <AdditiveLineRow
+          line={release.responseFieldAdds}
+          headline={additiveLineHeadline(release.responseFieldAdds)}
+        />
+      ) : null}
+      {release.requestPropertyAdds ? (
+        <AdditiveLineRow
+          line={release.requestPropertyAdds}
+          headline={requestPropertyHeadline(release.requestPropertyAdds)}
+        />
       ) : null}
     </article>
   );
@@ -133,13 +149,52 @@ export function Release({ release }: { release: ReleaseView }) {
  * shrug, because for the first week of this project's life it is the page
  * you will see most.
  */
-export function EmptyFeed({ providerSlug }: { providerSlug?: string }) {
+export function EmptyFeed({
+  providerSlug,
+  snapshotCount,
+}: {
+  providerSlug?: string;
+  snapshotCount?: number;
+}) {
+  const scoped = providerSlug ? ` for ${providerSlug}` : "";
+
+  if ((snapshotCount ?? 0) === 1) {
+    return (
+      <div className="empty">
+        <p>
+          Nothing published yet{scoped}. One spec version is stored. Diff needs
+          two consecutive surfaces, so poll or backfill until a second one
+          appears, then <code>pnpm w diff</code> and{" "}
+          <code>pnpm w review</code>.
+        </p>
+        <p style={{ marginBottom: 0 }}>
+          Hosted URL sources have no git history: the first snapshot is now,
+          and the next change is the first pair.
+        </p>
+      </div>
+    );
+  }
+
+  if ((snapshotCount ?? 0) > 1) {
+    return (
+      <div className="empty">
+        <p>
+          Nothing published yet{scoped}. {snapshotCount} spec versions are
+          stored. Changes appear here only after a human sets{" "}
+          <code>publishedAt</code>, which is the review gate.
+        </p>
+        <p style={{ marginBottom: 0 }}>
+          To open it: <code>pnpm w diff</code> → <code>pnpm w review --publish</code>.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="empty">
       <p>
-        Nothing published yet
-        {providerSlug ? ` for ${providerSlug}` : ""}. Changes appear here only
-        after a human sets <code>publishedAt</code>, which is the review gate.
+        Nothing published yet{scoped}. Changes appear here only after a human
+        sets <code>publishedAt</code>, which is the review gate.
       </p>
       <p style={{ marginBottom: 0 }}>
         To fill it: <code>pnpm w seed</code> → <code>pnpm w backfill</code> →{" "}
