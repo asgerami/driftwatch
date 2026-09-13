@@ -166,10 +166,13 @@ change and read the output before trusting it.
    `operation.added` as cards, give additive changes specific headlines instead
    of a generic one, and stop letting a release with nothing breaking lead the
    feed.
-3. **Unverified.** `request.param.removed` fires on GitHub's `per_page` and
-   `page` for several classroom endpoints. Pagination vanishing from GitHub
-   looks more like a parameter-indexing bug than a real removal. Reproduce with
-   `preview` on the exact commits before trusting it.
+3. **Verified.** `request.param.removed` on GitHub's classroom `page` /
+   `per_page` was not a walker bug. Commits `33438507 → 1048c01d` dropped the
+   `$ref`s from three operations while the shared parameter components stayed,
+   still referenced by 250+ other operations. Resolving `$ref`s before compare
+   made that look like a withdrawal. Those drops are now
+   `request.param.unlisted` (cosmetic, never published). A parameter that
+   vanishes from the whole API is still `request.param.removed`.
 4. **Tier B sources** (hosted spec URL, no public repo) are modelled but not
    implemented. Ingest is identical; only acquisition differs.
 5. **The GitHub App is deliberately not built.** It is the revenue half, and
