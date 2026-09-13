@@ -1,0 +1,19 @@
+{
+  "name": "Driftwatch",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "web",
+      "command": "set -a && . ./.env && set +a && pnpm web",
+      "description": "Next.js feed UI on http://localhost:3000 (reads the local Postgres via Prisma)."
+    }
+  ],
+  "ports": [
+    {
+      "name": "web",
+      "port": 3000
+    }
+  ]
+}
