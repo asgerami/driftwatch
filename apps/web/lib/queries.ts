@@ -177,7 +177,7 @@ function toRelease(run: RunRow): ReleaseView {
   const grouped = groupByFingerprint(run.changes);
   const counts = { ...EMPTY_COUNTS };
   for (const change of grouped) counts[change.severity]++;
-  const { cards, responseFieldAdds } = splitCards(grouped);
+  const { cards, responseFieldAdds, requestPropertyAdds } = splitCards(grouped);
 
   return {
     id: run.id,
@@ -191,6 +191,7 @@ function toRelease(run: RunRow): ReleaseView {
     counts,
     changes: cards,
     responseFieldAdds,
+    requestPropertyAdds,
   };
 }
 

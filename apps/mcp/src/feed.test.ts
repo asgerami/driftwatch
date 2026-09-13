@@ -119,6 +119,20 @@ describe("formatReleases", () => {
     expect(text).toContain("11 new response fields");
     expect(text).toContain("additive only");
   });
+
+  it("summarises collapsed request properties", () => {
+    const text = formatReleases(
+      [
+        {
+          ...additiveOnly,
+          responseFieldAdds: undefined,
+          requestPropertyAdds: { count: 9, fields: ["a"] },
+        },
+      ],
+      "ADDITIVE",
+    );
+    expect(text).toContain("9 new request properties");
+  });
 });
 
 describe("formatBreakingSummary", () => {

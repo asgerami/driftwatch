@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { Release, EmptyFeed, ChangeItem } from "../components/Change";
 import type { ChangeView, ReleaseView } from "../lib/types";
-import { additiveLineHeadline, leadWithSignal, splitCards } from "../lib/feed";
+import { additiveLineHeadline, leadWithSignal, requestPropertyHeadline, splitCards } from "../lib/feed";
 
 /**
  * Renders the presentation layer against fixtures and asserts on the markup.
@@ -124,6 +124,13 @@ check("empty state explains the review gate", emptyHtml.includes("publishedAt"))
 const emptyProvider = decode(renderToStaticMarkup(<EmptyFeed providerSlug="twilio" />));
 check("empty state is scoped when given a provider", emptyProvider.includes("for twilio"));
 
+const emptyOne = decode(renderToStaticMarkup(<EmptyFeed providerSlug="hetzner" snapshotCount={1} />));
+check("one stored version does not tell you to seed", !emptyOne.includes("pnpm w seed") && emptyOne.includes("for hetzner"));
+check("one stored version names poll and diff", emptyOne.includes("poll") && emptyOne.includes("pnpm w diff"));
+
+const emptyMany = decode(renderToStaticMarkup(<EmptyFeed providerSlug="stripe" snapshotCount={7} />));
+check("stored versions waiting on review name the publish gate", emptyMany.includes("pnpm w review --publish") && !emptyMany.includes("pnpm w seed"));
+
 // A change with no optional fields at all must not render "undefined".
 const bare: ChangeView = {
   id: "c4",
@@ -157,6 +164,26 @@ check("path.added stays a card", split.cards.some((c) => c.ruleId === "path.adde
 check("eleven response field adds collapse to one line", split.responseFieldAdds?.count === 11 && !split.cards.some((c) => c.ruleId === "response.property.added"));
 check("a single response field add stays a card", splitCards([fieldAdds[0]!]).cards.length === 1 && splitCards([fieldAdds[0]!]).responseFieldAdds === undefined);
 
+const requestAdds = Array.from({ length: 9 }, (_, i) => ({
+  id: `q${i}`,
+  ruleId: "request.property.added" as const,
+  severity: "ADDITIVE" as const,
+  directionFlip: false,
+  headline: `Request property field_${i} added`,
+  body: "No action needed unless it is required.",
+  patterns: {},
+  fieldPath: `field_${i}`,
+  siteCount: 1,
+  sampleSites: [],
+}));
+const splitRequest = splitCards([...release.changes, ...requestAdds]);
+check("path.added stays a card next to collapsed request properties", splitRequest.cards.some((c) => c.ruleId === "path.added"));
+check("nine request property adds collapse to one line", splitRequest.requestPropertyAdds?.count === 9 && !splitRequest.cards.some((c) => c.ruleId === "request.property.added"));
+check("a single request property add stays a card", splitCards([requestAdds[0]!]).cards.length === 1 && splitCards([requestAdds[0]!]).requestPropertyAdds === undefined);
+
+const both = splitCards([...fieldAdds, ...requestAdds]);
+check("response and request property adds collapse independently", both.responseFieldAdds?.count === 11 && both.requestPropertyAdds?.count === 9 && both.cards.length === 0);
+
 const collapsedRelease: ReleaseView = {
   ...release,
   counts: { BREAKING: 2, DEPRECATION: 0, BEHAVIORAL: 0, ADDITIVE: 12, COSMETIC: 0 },
@@ -168,6 +195,24 @@ check("collapsed additive is one line, not eleven cards", collapsedHtml.includes
 check("collapsed line lists a sample of fields", collapsedHtml.includes("field_0") && collapsedHtml.includes("+3 more"));
 check("path.added and breaking cards still render next to the line", collapsedHtml.includes("Endpoint added") && collapsedHtml.includes("direction flip"));
 check("additiveLineHeadline is plural-aware", additiveLineHeadline({ count: 1, fields: ["a"] }) === "1 new response field" && additiveLineHeadline({ count: 11, fields: [] }) === "11 new response fields");
+check(
+  "requestPropertyHeadline is plural-aware",
+  requestPropertyHeadline({ count: 1, fields: ["a"] }) === "1 new request property" &&
+    requestPropertyHeadline({ count: 9, fields: [] }) === "9 new request properties",
+);
+
+const requestCollapsedHtml = decode(
+  renderToStaticMarkup(
+    <Release
+      release={{
+        ...release,
+        changes: [flipChange],
+        requestPropertyAdds: { count: 9, fields: requestAdds.map((c) => c.fieldPath!) },
+      }}
+    />,
+  ),
+);
+check("collapsed request properties render as one line", requestCollapsedHtml.includes("9 new request properties") && requestCollapsedHtml.includes("field_0"));
 
 const additiveOnly: ReleaseView = {
   ...release,

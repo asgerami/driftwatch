@@ -49,10 +49,12 @@ export interface ReleaseView {
   commitSha?: string;
   repo?: string;
   counts: Record<Severity, number>;
-  /** Cards. `response.property.added` may be collapsed into `responseFieldAdds`. */
+  /** Cards. Property-adds may be collapsed into the lines below. */
   changes: ChangeView[];
   /** Several new response fields, as one line instead of N identical cards. */
   responseFieldAdds?: AdditiveLine;
+  /** Several new request properties, as one line instead of N identical cards. */
+  requestPropertyAdds?: AdditiveLine;
 }
 
 export interface ProviderView {

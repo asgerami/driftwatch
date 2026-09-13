@@ -161,10 +161,11 @@ change and read the output before trusting it.
 1. **Postgres persist test exists.** `apps/worker/src/persist.test.ts` hits
    the real write path. It is skipped when `DATABASE_URL` is unset so
    `pnpm check` still runs without Postgres.
-2. **Feed additive collapse shipped.** `response.property.added` collapses to
-   one line per release when a release has two or more; `path.added` and
-   `operation.added` stay as cards; additive headlines are specific; home
-   ranks releases with a break, deprecation or behavioural shift first.
+2. **Feed additive collapse shipped.** `response.property.added` and
+   `request.property.added` each collapse to one line per release when a
+   release has two or more; `path.added` and `operation.added` stay as cards;
+   additive headlines are specific; home ranks releases with a break,
+   deprecation or behavioural shift first.
 3. **Verified.** `request.param.removed` on GitHub's classroom `page` /
    `per_page` was not a walker bug. Commits `33438507 → 1048c01d` dropped the
    `$ref`s from three operations while the shared parameter components stayed,
