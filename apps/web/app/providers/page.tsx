@@ -9,9 +9,8 @@ export default async function ProvidersPage() {
     <main className="prose">
       <h1>Providers</h1>
       <p style={{ color: "var(--ink-2)" }}>
-        Tier A sources only for now: specs tracked in a public git repo, which
-        is what makes their whole history available rather than only what has
-        happened since we started watching.
+        Specs a team depends on. Git-tracked sources arrive with years of
+        history; hosted URLs start from the first poll.
       </p>
       {providers.length === 0 ? (
         <div className="empty">
