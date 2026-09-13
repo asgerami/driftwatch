@@ -47,9 +47,17 @@ export async function diffPair(
         rulesetVer: RULESET_VERSION,
       },
     },
-    select: { id: true },
+    select: { id: true, error: true },
   });
-  if (existing) return { status: "existing", runId: existing.id };
+
+  if (existing) {
+    // A run that failed must not be treated as done. The uniqueness key makes
+    // re-running free, but it also means a transient failure would be skipped
+    // forever on every subsequent pass, leaving a permanent hole in the
+    // history with no way to fill it short of wiping the database.
+    if (!existing.error) return { status: "existing", runId: existing.id };
+    await prisma.diffRun.delete({ where: { id: existing.id } });
+  }
 
   const run = await prisma.diffRun.create({
     data: {
@@ -99,6 +107,30 @@ export async function diffPair(
   }
 }
 
+/**
+ * Postgres rejects NUL (0x00) anywhere in a text column.
+ *
+ * Our own fingerprint separator caused this once. It can also arrive from a
+ * provider's spec, since JSON permits \u0000 in a string and a description or
+ * example could carry one. Strip it at the write boundary so one malformed
+ * upstream byte cannot take down a whole diff run.
+ */
+function clean<T>(value: T): T {
+  if (typeof value === "string") {
+    return (value.includes("\u0000") ? value.replace(/\u0000/g, "") : value) as T;
+  }
+  if (Array.isArray(value)) return value.map(clean) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [
+        clean(k),
+        clean(v),
+      ]),
+    ) as T;
+  }
+  return value;
+}
+
 function toRow(runId: string, change: Change) {
   return {
     runId,
@@ -107,16 +139,16 @@ function toRow(runId: string, change: Change) {
     confidence: change.confidence,
     directionFlip: change.directionFlip,
     fingerprint: change.fingerprint,
-    method: change.method ?? null,
-    path: change.path ?? null,
-    operationId: change.operationId ?? null,
-    jsonPointer: change.jsonPointer,
-    componentName: change.componentName ?? null,
+    method: clean(change.method) ?? null,
+    path: clean(change.path) ?? null,
+    operationId: clean(change.operationId) ?? null,
+    jsonPointer: clean(change.jsonPointer),
+    componentName: clean(change.componentName) ?? null,
     affectedOperations: change.affectedOperations ?? null,
-    fieldPath: change.fieldPath ?? null,
-    detail: change.detail ?? null,
-    before: change.before === undefined ? null : (change.before as never),
-    after: change.after === undefined ? null : (change.after as never),
+    fieldPath: clean(change.fieldPath) ?? null,
+    detail: clean(change.detail) ?? null,
+    before: change.before === undefined ? null : (clean(change.before) as never),
+    after: change.after === undefined ? null : (clean(change.after) as never),
     // Nothing auto-publishes. Every change is held for review until the
     // confidence thresholds have been tuned against real backfilled data.
     publishedAt: null,

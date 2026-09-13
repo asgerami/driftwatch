@@ -296,6 +296,133 @@ describe("$ref and composition handling", () => {
   });
 });
 
+describe("relaxations are not breaks (found in real provider data)", () => {
+  /**
+   * Stripe's checkout ui_mode reported "no longer accepts custom, embedded,
+   * form, hosted" — every value it had ever had. A provider never means that.
+   * The enum keyword had simply been dropped, which widens what is accepted.
+   */
+  it("treats a dropped request enum as a widening, not a mass withdrawal", () => {
+    const param = (schema: Doc) => ({
+      parameters: [{ name: "ui_mode", in: "query", schema }],
+      responses: { "200": { description: "ok" } },
+    });
+    const before = doc({ "/c": { post: param({ type: "string", enum: ["hosted", "embedded"] }) } });
+    const after = doc({ "/c": { post: param({ type: "string" }) } });
+
+    const result = diffDocuments(before, after);
+    expect(ids(result)).not.toContain("request.enum.value-removed");
+    const hits = only(result, "request.enum.constraint-removed");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].severity).toBe("ADDITIVE");
+  });
+
+  /** The mirror image, which was previously missed entirely. */
+  it("treats a dropped response enum as breaking, since anything can now appear", () => {
+    const before = doc({ "/c": { get: jsonOp({ type: "object", properties: { s: { type: "string", enum: ["a", "b"] } } }) } });
+    const after = doc({ "/c": { get: jsonOp({ type: "object", properties: { s: { type: "string" } } }) } });
+
+    const hits = only(diffDocuments(before, after), "response.enum.constraint-removed");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].severity).toBe("BREAKING");
+    expect(hits[0].directionFlip).toBe(true);
+  });
+
+  /**
+   * GitHub's custom-property-value.value went string -> null|string and was
+   * reported as a BREAKING request retype. On a request, accepting null where
+   * you previously could not is purely a relaxation.
+   */
+  it("treats a request field gaining null as additive", () => {
+    const body = (schema: Doc) => ({
+      requestBody: { content: { "application/json": { schema: { type: "object", properties: { value: schema } } } } },
+      responses: { "200": { description: "ok" } },
+    });
+    const before = doc({ "/p": { post: body({ type: "string" }) } });
+    const after = doc({ "/p": { post: body({ type: "string", nullable: true }) } });
+
+    const result = diffDocuments(before, after);
+    expect(ids(result)).not.toContain("request.property.type-changed");
+    const hits = only(result, "request.property.became-nullable");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].severity).toBe("ADDITIVE");
+  });
+
+  it("but a response field gaining null is still a lost guarantee", () => {
+    const before = doc({ "/p": { get: jsonOp({ type: "object", properties: { v: { type: "string" } } }) } });
+    const after = doc({ "/p": { get: jsonOp({ type: "object", properties: { v: { type: "string", nullable: true } } }) } });
+    expect(ids(diffDocuments(before, after))).toContain("response.property.became-optional");
+  });
+});
+
+describe("schema repoints", () => {
+  const build = (ref: string, shapes: Doc) =>
+    doc({ "/r": { get: jsonOp({ type: "object", properties: { f: { $ref: ref } } }) } }, { schemas: shapes });
+
+  it("calls an identical-shape repoint a rename, not a break", () => {
+    const shape = { type: "object", properties: { a: { type: "string" } } };
+    const before = build("#/components/schemas/OldName", { OldName: shape, NewName: shape });
+    const after = build("#/components/schemas/NewName", { OldName: shape, NewName: shape });
+
+    const hits = only(diffDocuments(before, after), "cosmetic.schema-renamed");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].severity).toBe("COSMETIC");
+    expect(hits[0].publishable).toBe(false);
+  });
+
+  it("holds a genuinely different repoint below the publish threshold", () => {
+    const before = build("#/components/schemas/A", {
+      A: { type: "object", properties: { a: { type: "string" } } },
+      B: { type: "object", properties: { b: { type: "integer" } } },
+    });
+    const after = build("#/components/schemas/B", {
+      A: { type: "object", properties: { a: { type: "string" } } },
+      B: { type: "object", properties: { b: { type: "integer" } } },
+    });
+
+    const hits = only(diffDocuments(before, after), "schema.ref-retargeted");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].severity).toBe("BEHAVIORAL");
+    // Ambiguous by nature, so it is stored but never auto-published.
+    expect(hits[0].publishable).toBe(false);
+  });
+});
+
+describe("fingerprints are storable", () => {
+  /**
+   * Regression. The separator used to be NUL, which is the one byte Postgres
+   * refuses in a text column, so every insert failed with
+   * "invalid byte sequence for encoding UTF8: 0x00" and no change was ever
+   * persisted. Unit tests passed the whole time, because nothing here touched
+   * a database.
+   */
+  it("contain no control characters", () => {
+    const before = doc({ "/a": { get: jsonOp({ type: "object", properties: { x: { type: "string" } } }) } });
+    const after = doc({ "/a": { get: jsonOp({ type: "object", properties: {} }) } });
+    const result = diffDocuments(before, after);
+
+    expect(result.changes.length).toBeGreaterThan(0);
+    for (const change of result.changes) {
+      expect(change.fingerprint).toMatch(/^[0-9a-f]{64}$/);
+    }
+  });
+
+  it("still distinguish different facts and match identical ones", () => {
+    const base = { type: "object", properties: { a: { type: "string" }, b: { type: "string" } } };
+    const dropA = { type: "object", properties: { b: { type: "string" } } };
+    const dropB = { type: "object", properties: { a: { type: "string" } } };
+
+    const fpFor = (after: Doc) =>
+      diffDocuments(
+        doc({ "/x": { get: jsonOp(base) } }),
+        doc({ "/x": { get: jsonOp(after) } }),
+      ).changes[0]!.fingerprint;
+
+    expect(fpFor(dropA)).not.toBe(fpFor(dropB));
+    expect(fpFor(dropA)).toBe(fpFor(structuredClone(dropA)));
+  });
+});
+
 describe("classification", () => {
   it("counts by severity and marks cosmetic changes unpublishable", () => {
     const before = doc({ "/a": { get: jsonOp({ type: "object", properties: { x: { type: "string" } } }) } });

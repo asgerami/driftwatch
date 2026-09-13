@@ -90,16 +90,18 @@ program
   .option("-s, --severity <severity>", "only this severity")
   .option("-n, --limit <count>", "facts to list", "40")
   .option("--publish", "actually publish what is listed (read-only without it)")
+  .option("--all", "include low-confidence and cosmetic changes (never publish these)")
   .description("The review gate: inspect pending changes, then publish them")
   .action(
     (
       target: string | undefined,
-      opts: { severity?: string; limit: string; publish?: boolean },
+      opts: { severity?: string; limit: string; publish?: boolean; all?: boolean },
     ) =>
       review(target, {
         severity: opts.severity?.toUpperCase() as never,
         limit: Number(opts.limit),
         publish: opts.publish === true,
+        all: opts.all === true,
       }),
   );
 

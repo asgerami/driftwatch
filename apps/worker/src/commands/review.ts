@@ -1,4 +1,8 @@
-import { RULES, type Severity } from "@driftwatch/core";
+import {
+  PUBLISH_CONFIDENCE_THRESHOLD,
+  RULES,
+  type Severity,
+} from "@driftwatch/core";
 
 import { prisma } from "../db.js";
 import { log } from "../log.js";
@@ -18,6 +22,11 @@ export interface ReviewOptions {
   limit?: number;
   /** Actually publish what is listed. Without it this is read-only. */
   publish?: boolean;
+  /**
+   * Include changes the ruleset holds back: anything below the confidence
+   * threshold, plus cosmetic ones. Useful for tuning; never for publishing.
+   */
+  all?: boolean;
 }
 
 interface PendingRow {
@@ -58,9 +67,20 @@ export async function review(
       : { provider: { slug: target } }
     : undefined;
 
+  // The gate the ruleset already computed. Confidence is not a measure of how
+  // bad a change is, it is how sure we are the change is real, so anything
+  // ambiguous is stored and withheld rather than mailed to subscribers.
+  const gate = options.all
+    ? {}
+    : {
+        confidence: { gte: PUBLISH_CONFIDENCE_THRESHOLD },
+        severity: { not: "COSMETIC" as Severity },
+      };
+
   const pending = (await prisma.change.findMany({
     where: {
       publishedAt: null,
+      ...gate,
       ...(options.severity ? { severity: options.severity } : {}),
       ...(providerFilter ? { run: { to: { source: providerFilter } } } : {}),
     },
@@ -81,8 +101,25 @@ export async function review(
     orderBy: [{ severity: "asc" }, { ruleId: "asc" }],
   })) as PendingRow[];
 
+  const withheld = options.all
+    ? 0
+    : await prisma.change.count({
+        where: {
+          publishedAt: null,
+          OR: [
+            { confidence: { lt: PUBLISH_CONFIDENCE_THRESHOLD } },
+            { severity: "COSMETIC" },
+          ],
+          ...(providerFilter ? { run: { to: { source: providerFilter } } } : {}),
+        },
+      });
+
   if (pending.length === 0) {
-    log.info("nothing pending review");
+    log.info(
+      withheld > 0
+        ? `nothing pending review (${withheld} rows held below the confidence threshold; --all to see them)`
+        : "nothing pending review",
+    );
     return;
   }
 
@@ -97,7 +134,11 @@ export async function review(
 
   const ordered = [...facts.values()];
   console.log(
-    `\n${ordered.length} distinct facts pending (${pending.length} rows)\n`,
+    `\n${ordered.length} distinct facts pending (${pending.length} rows)` +
+      (withheld > 0
+        ? `, ${withheld} more held below confidence ${PUBLISH_CONFIDENCE_THRESHOLD} \u2014 --all to see them`
+        : "") +
+      "\n",
   );
 
   for (const list of ordered.slice(0, limit)) {

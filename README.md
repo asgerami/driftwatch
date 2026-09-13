@@ -153,11 +153,32 @@ surfaced **2319 times** in one diff, and one release pair produced **4528**
 
 Schema walks now stop at every `$ref`. Components are diffed once each, per
 direction they are used in, and carry the number of operations that can reach
-them. The same release now yields **11** breaking changes, each a distinct real
-fact. Roughly a 200x reduction with no loss of signal.
+them. The same release now yields **6** breaking changes, each a distinct real
+fact. Roughly a 750x reduction with no loss of signal.
 
 Repointing a field at a *different* component is still caught at the operation
 level, because the component diff cannot see it.
+
+### Relaxations are not breaks
+
+Three false positives that only real provider data exposed, each fixed with a
+rule of its own:
+
+- **A dropped `enum` is a widening.** Stripe's checkout `ui_mode` reported "no
+  longer accepts custom, embedded, form, hosted", every value it had ever had.
+  The keyword had simply been removed, which accepts *more*, not less. On a
+  response the same edit is the opposite and was previously missed entirely:
+  an unconstrained field can return anything.
+- **A request field gaining `null` is a relaxation.** GitHub's
+  `custom-property-value.value` went `string` to `null|string` and was called a
+  breaking retype. You can now send null where you could not before; every
+  existing payload still works. On a response, the same edit is still a lost
+  guarantee.
+- **A `$ref` repoint is usually a rename.** Providers split and rename shared
+  schemas constantly. Targets are now compared: identical shape is cosmetic,
+  anything else is `BEHAVIORAL` at confidence 80, which sits below the publish
+  threshold on purpose. This alone removed 5 of the 11 "breaking" changes in
+  Stripe's 2026-08-26 release.
 
 ### The consumer direction
 

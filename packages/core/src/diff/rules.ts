@@ -147,6 +147,21 @@ export const RULES: Record<string, Rule> = Object.fromEntries(
         "Serialization mismatch. Integer-to-string moves are the usual cause and the usual outage.",
     }),
     rule({
+      id: "request.enum.constraint-removed",
+      severity: "ADDITIVE",
+      confidence: 100,
+      headline: "Value restriction lifted",
+      consequence:
+        "A relaxation, not a break. Everything you could send before still works, and more is accepted now.",
+    }),
+    rule({
+      id: "request.property.became-nullable",
+      severity: "ADDITIVE",
+      confidence: 100,
+      headline: "Request field now accepts null",
+      consequence: "A relaxation. Existing payloads are unaffected.",
+    }),
+    rule({
       id: "request.param.optional-added",
       severity: "ADDITIVE",
       confidence: 100,
@@ -187,6 +202,15 @@ export const RULES: Record<string, Rule> = Object.fromEntries(
       headline: "New value can now appear in responses",
       consequence:
         "Producer-side tools call this additive. It breaks exhaustive switches, strict parsers and generated client enums.",
+    }),
+    rule({
+      id: "response.enum.constraint-removed",
+      severity: "BREAKING",
+      directionFlip: true,
+      confidence: 85,
+      headline: "Response values are no longer constrained",
+      consequence:
+        "The documented set of values is gone, so anything can appear. Every exhaustive switch and generated enum over this field is now incomplete.",
     }),
     rule({
       id: "response.property.type-changed",
@@ -257,6 +281,21 @@ export const RULES: Record<string, Rule> = Object.fromEntries(
       confidence: 85,
       headline: "Default value changed",
       consequence: "Behavior shifts for every call that omits the field.",
+    }),
+    rule({
+      id: "schema.ref-retargeted",
+      severity: "BEHAVIORAL",
+      confidence: 80,
+      headline: "Field points at a different schema",
+      consequence:
+        "Often a rename with an identical shape, sometimes a genuine retype. The structural diff cannot tell which, so this is held below the publish threshold on purpose.",
+    }),
+    rule({
+      id: "cosmetic.schema-renamed",
+      severity: "COSMETIC",
+      confidence: 100,
+      headline: "Schema renamed",
+      consequence: "The shape is identical. Only the name changed.",
     }),
     rule({
       id: "schema.composition-changed",

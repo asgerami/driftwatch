@@ -196,17 +196,21 @@ export function diffSchema(
       typeof afterRef === "string" &&
       beforeRef !== afterRef
     ) {
+      // A repoint is usually a rename, not a retype. Providers split and
+      // rename shared schemas constantly, and calling every one of those a
+      // BREAKING type change at confidence 95 floods the feed with work
+      // nobody has to do. Compare the two targets: an identical shape means
+      // a rename, and anything else is genuinely ambiguous, so it lands as
+      // BEHAVIORAL below the publish threshold rather than as a break.
+      const identical = refTargetsMatch(ctx, beforeRef, afterRef);
       ctx.emit({
         ...ctx.location,
         fieldPath,
-        ruleId:
-          ctx.direction === "request"
-            ? "request.property.type-changed"
-            : "response.property.type-changed",
+        ruleId: identical ? "cosmetic.schema-renamed" : "schema.ref-retargeted",
         jsonPointer: at,
         before: beforeRef,
         after: afterRef,
-        detail: `${shortRef(beforeRef)} → ${shortRef(afterRef)}`,
+        detail: shortRef(beforeRef) + " \u2192 " + shortRef(afterRef),
       });
     }
     return;
@@ -238,10 +242,20 @@ export function diffSchema(
       isNullable(after) &&
       beforeTypes.join(",") === afterTypes.filter((t) => t !== "null").join(",");
 
-    if (onlyNullabilityGained && direction === "response") {
+    if (onlyNullabilityGained) {
+      // Direction decides everything here. On a response, gaining null is a
+      // lost guarantee and the commonest way a consumer meets a surprise
+      // null in production. On a REQUEST it is the opposite: you may now
+      // send null where you could not before, and every existing payload is
+      // still valid. Reporting that as a breaking retype was a false
+      // positive found in real GitHub data (custom-property-value.value,
+      // string -> null|string).
       emit({
         ...base,
-        ruleId: "response.property.became-optional",
+        ruleId:
+          direction === "response"
+            ? "response.property.became-optional"
+            : "request.property.became-nullable",
         jsonPointer: at,
         before: beforeTypes.join("|"),
         after: afterTypes.join("|"),
@@ -287,18 +301,45 @@ export function diffSchema(
   const beforeEnum = enumSet(before);
   const afterEnum = enumSet(after);
   if (beforeEnum.length > 0 || afterEnum.length > 0) {
+    // Losing the enum keyword altogether is a WIDENING, not the withdrawal
+    // of every value. Real data made this obvious: Stripe's checkout
+    // ui_mode reported "no longer accepts custom, embedded, form, hosted",
+    // i.e. every value it ever had, which is never what a provider means.
+    const constraintDropped = beforeEnum.length > 0 && afterEnum.length === 0;
+
     if (direction === "request") {
-      const withdrawn = beforeEnum.filter((v) => !afterEnum.includes(v));
-      if (withdrawn.length > 0) {
+      if (constraintDropped) {
         emit({
           ...base,
-          ruleId: "request.enum.value-removed",
+          ruleId: "request.enum.constraint-removed",
           jsonPointer: `${at}/enum`,
           before: beforeEnum.join(", "),
-          after: afterEnum.join(", "),
-          detail: `no longer accepts ${withdrawn.join(", ")}`,
+          detail: "the documented value list is gone; more is accepted now",
         });
+      } else {
+        const withdrawn = beforeEnum.filter((v) => !afterEnum.includes(v));
+        if (withdrawn.length > 0) {
+          emit({
+            ...base,
+            ruleId: "request.enum.value-removed",
+            jsonPointer: `${at}/enum`,
+            before: beforeEnum.join(", "),
+            after: afterEnum.join(", "),
+            detail: `no longer accepts ${withdrawn.join(", ")}`,
+          });
+        }
       }
+    } else if (constraintDropped) {
+      // The mirror image on a response, and previously missed entirely:
+      // an unconstrained field can return anything, so exhaustive handling
+      // is now incomplete even though no single value was "added".
+      emit({
+        ...base,
+        ruleId: "response.enum.constraint-removed",
+        jsonPointer: `${at}/enum`,
+        before: beforeEnum.join(", "),
+        detail: "any value can now appear",
+      });
     } else {
       // Direction flip 2.
       const introduced = afterEnum.filter((v) => !beforeEnum.includes(v));
@@ -480,6 +521,26 @@ const PAGINATION_FIELDS = new Set([
   "maxresults",
   "page_limit",
 ]);
+
+/**
+ * Do two `$ref` targets describe the same shape?
+ *
+ * Compared one level deep, with nested refs left as the strings they are.
+ * A deep walk would have to chase cycles, and would call a real change
+ * identical whenever a nested schema happened to be renamed too. Shallow and
+ * certain beats deep and wrong here: the only job is separating "pure rename"
+ * from "worth a human look".
+ */
+function refTargetsMatch(
+  ctx: DiffContext,
+  beforeRef: string,
+  afterRef: string,
+): boolean {
+  const before = resolveRef(ctx.beforeDoc, beforeRef);
+  const after = resolveRef(ctx.afterDoc, afterRef);
+  if (!before || !after) return false;
+  return JSON.stringify(before) === JSON.stringify(after);
+}
 
 export function shortRef(ref: string): string {
   return ref.split("/").pop() ?? ref;
