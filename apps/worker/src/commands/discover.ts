@@ -1,6 +1,7 @@
 import { defaultRef, ensureClone, listTree, readAtCommit } from "../acquire/git.js";
+import { fetchSpecUrl } from "../acquire/http.js";
 import { log } from "../log.js";
-import { findProvider } from "../registry.js";
+import { findProvider, sourceTier } from "../registry.js";
 
 const SPEC_EXT = /\.(json|ya?ml)$/i;
 const SPEC_HINT = /(openapi|swagger|spec|api|descriptions?)/i;
@@ -16,7 +17,8 @@ function human(bytes: number): string {
 
 /**
  * List the files in a provider's repo that actually look like OpenAPI
- * documents, largest first.
+ * documents, largest first. For a hosted source, fetch the URL and confirm
+ * it declares openapi/swagger.
  *
  * This is the answer to "I am not certain that path is right". Instead of a
  * TODO in a comment, the uncertainty is a command you run.
@@ -31,6 +33,34 @@ export async function discover(slug: string, limit = 40): Promise<void> {
   const seen = new Set<string>();
 
   for (const source of provider.sources) {
+    if (sourceTier(source) === "B") {
+      if (!source.url) {
+        log.error(`${provider.slug}/${source.key}: tier B source is missing url`);
+        continue;
+      }
+      try {
+        const fetched = await fetchSpecUrl(source.url);
+        const confirmed = MARKER.test(fetched.text.slice(0, 4096));
+        const mark = confirmed ? "✓" : " ";
+        console.log(
+          `\n${provider.slug}/${source.key}  hosted\n` +
+            `  ${mark} ${human(Buffer.byteLength(fetched.text, "utf8")).padStart(8)}  ${source.url}`,
+        );
+        if (!confirmed) {
+          log.warn("  body does not declare openapi/swagger in the first 4KB");
+        }
+      } catch (err) {
+        log.error(
+          `${provider.slug}/${source.key}: ${(err as Error).message.split("\n")[0]}`,
+        );
+      }
+      continue;
+    }
+
+    if (!source.repo) {
+      log.error(`${provider.slug}/${source.key}: missing repo`);
+      continue;
+    }
     if (seen.has(source.repo)) continue;
     seen.add(source.repo);
 

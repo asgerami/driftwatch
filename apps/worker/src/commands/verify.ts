@@ -8,16 +8,24 @@ import {
   listTree,
   readAtCommit,
 } from "../acquire/git.js";
+import { fetchSpecUrl } from "../acquire/http.js";
 import { log } from "../log.js";
-import { REGISTRY, findProvider, type RegistryProvider } from "../registry.js";
+import {
+  REGISTRY,
+  findProvider,
+  sourceTier,
+  type RegistryProvider,
+  type RegistrySource,
+} from "../registry.js";
 
 /**
  * End-to-end check of acquisition and normalization, with no database.
  *
- * For each registry source: resolve the spec path, walk history, read HEAD,
- * normalize it, and confirm the hash is stable across two runs. Run it after
- * touching the registry or the normalizer, and periodically — providers move
- * their spec files, and this is what catches that before the feed goes quiet.
+ * For each git source: resolve the spec path, walk history, read HEAD,
+ * normalize it, and confirm the hash is stable across two runs. For a hosted
+ * URL, fetch once and check the same hash stability. Run it after touching
+ * the registry or the normalizer, and periodically — providers move their
+ * spec files, and this is what catches that before the feed goes quiet.
  */
 export async function verify(slug?: string): Promise<void> {
   const providers: RegistryProvider[] = slug
@@ -35,6 +43,19 @@ export async function verify(slug?: string): Promise<void> {
   for (const provider of providers) {
     for (const source of provider.sources) {
       const name = `${provider.slug}/${source.key}`;
+
+      if (sourceTier(source) === "B") {
+        const failed = await verifyHosted(name, source);
+        if (failed) failures++;
+        continue;
+      }
+
+      if (!source.repo || !source.filePathCandidates?.length) {
+        failures++;
+        log.error(`${name}: tier A source needs repo and filePathCandidates`);
+        continue;
+      }
+
       console.log(`\n${name}  (${source.repo})`);
 
       try {
@@ -121,5 +142,40 @@ export async function verify(slug?: string): Promise<void> {
     process.exitCode = 1;
   } else {
     log.ok("all sources verified");
+  }
+}
+
+async function verifyHosted(name: string, source: RegistrySource): Promise<boolean> {
+  if (!source.url) {
+    log.error(`${name}: tier B source is missing url`);
+    return true;
+  }
+
+  console.log(`\n${name}  (${source.url})`);
+  try {
+    const fetched = await fetchSpecUrl(source.url);
+    const options = { volatilePointers: source.volatilePointers ?? [] };
+    const started = Date.now();
+    const normalized = await normalizeSpec(fetched.text, options);
+    const elapsed = Date.now() - started;
+
+    console.log(
+      `  hosted  Last-Modified ${fetched.providerTime.toISOString().slice(0, 10)}  ` +
+        `${(fetched.text.length / 1_048_576).toFixed(1)} MB → OAS ${normalized.oasVersion}, ` +
+        `${normalized.stats.pathCount} paths / ${normalized.stats.opCount} ops / ` +
+        `${normalized.stats.schemaCount} schemas in ${elapsed}ms`,
+    );
+
+    const again = await normalizeSpec(fetched.text, options);
+    if (again.contentHash !== normalized.contentHash) {
+      log.error("  normalization is NOT deterministic");
+      return true;
+    }
+    log.ok(`  ${normalized.contentHash.slice(0, 16)}… stable`);
+    for (const warning of normalized.warnings) log.warn(`  ${warning}`);
+    return false;
+  } catch (err) {
+    log.error(`  ${(err as Error).message.split("\n")[0]}`);
+    return true;
   }
 }

@@ -1,22 +1,34 @@
 /**
  * The seed list.
  *
- * Only tier A sources are here, because a git-tracked spec gives us commit
- * history and therefore an archive on day one rather than an empty page.
+ * Tier A sources are a spec tracked in a public git repo — history is free,
+ * which is why the feed can launch with an archive. Tier B sources are a
+ * spec at a stable hosted URL; ingest is identical, only acquisition differs,
+ * and the first snapshot is "now" rather than years of commits.
  *
- * `filePathCandidates` is ordered by preference. `seed` clones each repo and
- * takes the first candidate that actually exists at HEAD, so a wrong guess
- * here fails loudly at seed time instead of silently producing no snapshots.
- * Run `discover <slug>` to list what a repo really contains.
+ * For tier A, `filePathCandidates` is ordered by preference. `seed` clones
+ * each repo and takes the first candidate that actually exists at HEAD, so a
+ * wrong guess fails loudly at seed time instead of silently producing no
+ * snapshots. Run `discover <slug>` to list what a repo really contains.
  */
 
 export interface RegistrySource {
   key: string;
   label: string;
-  repo: string;
-  filePathCandidates: string[];
+  /** Default A when omitted. */
+  tier?: "A" | "B";
+  /** Tier A: GitHub-style "owner/repo". */
+  repo?: string;
+  /** Tier A. Ordered guesses; seed resolves the first that exists at HEAD. */
+  filePathCandidates?: string[];
+  /** Tier B: stable hosted spec URL. */
+  url?: string;
   /** Stripped before hashing. See SpecSource.volatilePointers. */
   volatilePointers?: string[];
+}
+
+export function sourceTier(source: RegistrySource): "A" | "B" {
+  return source.tier ?? (source.url && !source.repo ? "B" : "A");
 }
 
 export interface RegistryProvider {
@@ -98,6 +110,19 @@ export const REGISTRY: RegistryProvider[] = [
           "descriptions/api.github.com/api.github.com.json",
           "descriptions/api.github.com/api.github.com.yaml",
         ],
+      },
+    ],
+  },
+  {
+    slug: "hetzner",
+    name: "Hetzner",
+    docsUrl: "https://docs.hetzner.cloud/",
+    sources: [
+      {
+        key: "cloud",
+        label: "Hetzner Cloud API",
+        tier: "B",
+        url: "https://docs.hetzner.cloud/cloud.spec.json",
       },
     ],
   },

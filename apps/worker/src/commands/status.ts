@@ -50,7 +50,7 @@ export async function status(): Promise<void> {
         "  " +
         pad(iso(earliest?.providerTime), 12) +
         pad(iso(latest?.providerTime), 12) +
-        (source.filePath ?? "—"),
+        (source.tier === "B" ? (source.url ?? "—") : (source.filePath ?? "—")),
     );
   }
 

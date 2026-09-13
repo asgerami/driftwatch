@@ -80,11 +80,11 @@ github/rest  2026-09-11   2 behavioral
 
 | Command | Needs DB | What it does |
 | --- | --- | --- |
-| `pnpm w verify [slug]` | no | Resolve paths, walk history, normalize HEAD, check hash stability |
+| `pnpm w verify [slug]` | no | Resolve paths or hosted URLs, normalize HEAD, check hash stability |
 | `pnpm w preview <target>` | no | Diff real revisions straight from git and print them |
-| `pnpm w discover <slug>` | no | List files in a repo that look like OpenAPI documents |
-| `pnpm w seed` | yes | Clone repos, resolve each spec's real path, upsert providers |
-| `pnpm w backfill [target]` | yes | Walk git history oldest-first, ingest every distinct version |
+| `pnpm w discover <slug>` | no | List spec-shaped files in a repo, or confirm a hosted URL |
+| `pnpm w seed` | yes | Upsert providers. Clone repos for A; record hosted URLs for B |
+| `pnpm w backfill [target]` | yes | Walk git history (or fetch a hosted URL) and ingest distinct versions |
 | `pnpm w diff [target]` | yes | Diff consecutive pairs, persist typed changes |
 | `pnpm w review [target]` | yes | The publish gate. Read-only without `--publish` |
 | `pnpm w poll [target]` | yes | Fetch current head, ingest only if the surface changed |
@@ -94,17 +94,20 @@ github/rest  2026-09-11   2 behavioral
 
 ## How it works
 
-### Acquisition is tier A only, for now
+### Acquisition
 
-A spec tracked in a public git repo hands you its own history. That is the
-cold-start unlock: the feed launches with an archive rather than an empty page.
+A spec tracked in a public git repo (tier A) hands you its own history. That
+is the cold-start unlock: the feed launches with an archive rather than an
+empty page. A spec that only exists at a hosted URL (tier B) has no history;
+the first snapshot is "now", and ingest is otherwise identical.
 
-| Provider | Repo |
+| Provider | Source |
 | --- | --- |
 | Stripe | `stripe/openapi` |
 | OpenAI | `openai/openai-openapi` |
 | Twilio | `twilio/twilio-oai` |
 | GitHub | `github/rest-api-description` |
+| Hetzner | `https://docs.hetzner.cloud/cloud.spec.json` (tier B) |
 
 The exact **file path** inside each repo is documented nowhere and does move, so
 `registry.ts` declares ordered `filePathCandidates` and `seed` resolves the
@@ -255,14 +258,13 @@ a file no one has been told to build.
 
 ## Next
 
-1. **Tier B sources.** Providers with a hosted spec URL but no public repo.
-   The ingest path is identical; only acquisition differs.
-2. **The GitHub App.** Fingerprint which providers, endpoints and response
+1. **The GitHub App.** Fingerprint which providers, endpoints and response
    fields a repo actually touches, then open a PR when a published change
    intersects it. The static analysis is the same technique as AegisPulse's
-   Babel AST traversal. Metric is PRs *merged*, not opened.
-3. **MCP server over `/api/feed.json`**, so a coding agent can ask mid-task
+   Babel AST traversal. Metric is PRs *merged*, not opened. Wait for one
+   person to say the digest caught something before it hit their production.
+2. **MCP server over `/api/feed.json`**, so a coding agent can ask mid-task
    whether anything the repo depends on has broken.
-4. **Observed responses.** Everything here is spec-derived, which means it is
+3. **Observed responses.** Everything here is spec-derived, which means it is
    diffing documentation, not behaviour. Watching real response shapes is a
    much larger product and the natural direction after the feed proves itself.
