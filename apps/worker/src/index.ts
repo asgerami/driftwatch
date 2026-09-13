@@ -22,14 +22,14 @@ program
 
 program
   .command("seed")
-  .description("Clone registry repos, resolve spec paths, upsert providers and sources")
+  .description("Upsert registry sources. Clone repos for A; record hosted URLs for B")
   .action(seed);
 
 program
   .command("discover")
   .argument("<provider>", "provider slug, e.g. stripe")
   .option("-n, --limit <count>", "max files to list", "40")
-  .description("List files in a provider's repo that look like OpenAPI documents")
+  .description("List spec-shaped files in a repo, or confirm a hosted URL")
   .action((provider: string, opts: { limit: string }) =>
     discover(provider, Number(opts.limit)),
   );
@@ -39,7 +39,7 @@ program
   .argument("[target]", 'provider slug or "slug/key"; omit for all')
   .option("-n, --limit <count>", "max commits per source")
   .option("-s, --since <date>", "only commits on or after this ISO date")
-  .description("Walk git history and ingest every distinct version of each spec")
+  .description("Walk git history (or fetch a hosted URL) and ingest distinct versions")
   .action((target: string | undefined, opts: { limit?: string; since?: string }) =>
     backfill({
       target,
@@ -81,7 +81,7 @@ program
 program
   .command("verify")
   .argument("[provider]", "provider slug; omit for all")
-  .description("Resolve paths, walk history and normalize HEAD — no database needed")
+  .description("Resolve paths or hosted URLs, normalize HEAD, check hash stability — no database")
   .action((provider: string | undefined) => verify(provider));
 
 program

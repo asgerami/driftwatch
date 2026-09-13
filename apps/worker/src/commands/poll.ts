@@ -1,4 +1,5 @@
 import { ensureClone, fileHistory, readAtCommit } from "../acquire/git.js";
+import { fetchSpecUrl } from "../acquire/http.js";
 import { prisma } from "../db.js";
 import { log } from "../log.js";
 import { ingestSpec } from "../store.js";
@@ -7,12 +8,12 @@ import { ingestSpec } from "../store.js";
  * Fetch the current head of every active source and ingest it if the
  * normalized surface changed. This is what the cron runs.
  *
- * Tier B (hosted URL) lands here too once those sources exist; the ingest
- * path is identical, only acquisition differs.
+ * Tier A reads git HEAD. Tier B GETs the hosted URL. Both land in
+ * `ingestSpec`; only acquisition differs.
  */
 export async function poll(target?: string): Promise<void> {
   const sources = await prisma.specSource.findMany({
-    where: { active: true, tier: "A" },
+    where: { active: true },
     include: { provider: true },
   });
 
@@ -29,9 +30,32 @@ export async function poll(target?: string): Promise<void> {
 
   for (const source of selected) {
     const name = `${source.provider.slug}/${source.key}`;
-    if (!source.repo || !source.filePath) continue;
 
     try {
+      if (source.tier === "B") {
+        if (!source.url) {
+          log.warn(`${name}: tier B source is missing url`);
+          continue;
+        }
+        const fetched = await fetchSpecUrl(source.url);
+        const result = await ingestSpec({
+          source,
+          text: fetched.text,
+          providerTime: fetched.providerTime,
+        });
+        if (result.status === "stored") {
+          changed++;
+          log.ok(`${name}: new surface (${result.opCount} ops)`);
+        } else if (result.status === "duplicate") {
+          log.step(`${name}: unchanged`);
+        } else {
+          log.error(`${name}: ${result.error}`);
+        }
+        continue;
+      }
+
+      if (!source.repo || !source.filePath) continue;
+
       const dir = await ensureClone(source.repo);
       const revisions = await fileHistory(
         dir,

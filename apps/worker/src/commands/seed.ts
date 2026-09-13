@@ -1,11 +1,11 @@
 import { prisma } from "../db.js";
 import { log } from "../log.js";
-import { REGISTRY } from "../registry.js";
+import { REGISTRY, sourceTier } from "../registry.js";
 import { defaultRef, ensureClone, fileExistsAt } from "../acquire/git.js";
 
 /**
  * Upsert the registry into Postgres, resolving each source's real file path
- * against the cloned repo.
+ * against the cloned repo (tier A) or recording its hosted URL (tier B).
  *
  * The candidate list exists because published spec paths are not documented
  * anywhere and do move. Resolving here means a wrong guess surfaces as a
@@ -28,6 +28,52 @@ export async function seed(): Promise<void> {
     });
 
     for (const source of provider.sources) {
+      const tier = sourceTier(source);
+
+      if (tier === "B") {
+        if (!source.url) {
+          unresolved++;
+          log.warn(`${provider.slug}/${source.key}: tier B source is missing url`);
+          continue;
+        }
+        await prisma.specSource.upsert({
+          where: { providerId_key: { providerId: row.id, key: source.key } },
+          create: {
+            providerId: row.id,
+            key: source.key,
+            label: source.label,
+            tier: "B",
+            url: source.url,
+            repo: null,
+            ref: null,
+            filePath: null,
+            active: true,
+            volatilePointers: source.volatilePointers ?? [],
+          },
+          update: {
+            label: source.label,
+            tier: "B",
+            url: source.url,
+            repo: null,
+            ref: null,
+            filePath: null,
+            active: true,
+            volatilePointers: source.volatilePointers ?? [],
+          },
+        });
+        resolved++;
+        log.ok(`${provider.slug}/${source.key} → ${source.url}`);
+        continue;
+      }
+
+      if (!source.repo || !source.filePathCandidates?.length) {
+        unresolved++;
+        log.warn(
+          `${provider.slug}/${source.key}: tier A source needs repo and filePathCandidates`,
+        );
+        continue;
+      }
+
       const dir = await ensureClone(source.repo);
       const ref = await defaultRef(dir);
 

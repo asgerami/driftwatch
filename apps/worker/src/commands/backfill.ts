@@ -1,14 +1,17 @@
+import type { Provider, SpecSource } from "@prisma/client";
+
 import { ensureClone, fileHistory, readAtCommit } from "../acquire/git.js";
+import { fetchSpecUrl } from "../acquire/http.js";
 import { prisma } from "../db.js";
 import { log } from "../log.js";
 import { ingestSpec } from "../store.js";
 
 export interface BackfillOptions {
-  /** "stripe" or "stripe/api". Omit for every active tier A source. */
+  /** "stripe" or "stripe/api". Omit for every active source. */
   target?: string;
-  /** Stop after this many commits per source. */
+  /** Stop after this many commits per git source. Ignored for hosted URLs. */
   limit?: number;
-  /** Only commits on or after this date. */
+  /** Only commits on or after this date. Ignored for hosted URLs. */
   since?: Date;
 }
 
@@ -18,8 +21,9 @@ function matches(target: string | undefined, slug: string, key: string): boolean
 }
 
 /**
- * Walk each source's git history oldest-first and ingest every distinct
- * version of the spec.
+ * Walk each git source's history oldest-first and ingest every distinct
+ * version of the spec. Hosted (tier B) sources have no history: one GET
+ * of the current URL, then the same ingest path.
  *
  * This is the cold-start unlock. A provider that has tracked its spec in git
  * for four years hands us four years of history in one pass, so the feed
@@ -29,7 +33,7 @@ function matches(target: string | undefined, slug: string, key: string): boolean
  */
 export async function backfill(options: BackfillOptions = {}): Promise<void> {
   const sources = await prisma.specSource.findMany({
-    where: { tier: "A", active: true },
+    where: { active: true },
     include: { provider: true },
     orderBy: [{ providerId: "asc" }, { key: "asc" }],
   });
@@ -41,14 +45,18 @@ export async function backfill(options: BackfillOptions = {}): Promise<void> {
   if (selected.length === 0) {
     log.warn(
       options.target
-        ? `no active tier A source matches "${options.target}"`
-        : "no active tier A sources — run `pnpm w seed` first",
+        ? `no active source matches "${options.target}"`
+        : "no active sources — run `pnpm w seed` first",
     );
     return;
   }
 
   for (const source of selected) {
     const name = `${source.provider.slug}/${source.key}`;
+    if (source.tier === "B") {
+      await backfillHosted(source);
+      continue;
+    }
     if (!source.repo || !source.filePath) {
       log.warn(`${name}: missing repo or filePath, skipping`);
       continue;
@@ -120,5 +128,37 @@ export async function backfill(options: BackfillOptions = {}): Promise<void> {
     log.ok(
       `${name}: ${stored} stored, ${duplicate} duplicate, ${failed} failed`,
     );
+  }
+}
+
+async function backfillHosted(
+  source: SpecSource & { provider: Provider },
+): Promise<void> {
+  const name = `${source.provider.slug}/${source.key}`;
+  if (!source.url) {
+    log.warn(`${name}: tier B source is missing url`);
+    return;
+  }
+
+  log.info(`${name}: fetching ${source.url}`);
+  try {
+    const fetched = await fetchSpecUrl(source.url);
+    const result = await ingestSpec({
+      source,
+      text: fetched.text,
+      providerTime: fetched.providerTime,
+    });
+    if (result.status === "stored") {
+      log.ok(`${name}: 1 stored, 0 duplicate, 0 failed (${result.opCount} ops)`);
+      for (const warning of result.warnings ?? []) {
+        log.warn(`  ${warning}`);
+      }
+    } else if (result.status === "duplicate") {
+      log.ok(`${name}: 0 stored, 1 duplicate, 0 failed`);
+    } else {
+      log.warn(`${name}: 0 stored, 0 duplicate, 1 failed (${result.error})`);
+    }
+  } catch (err) {
+    log.warn(`${name}: ${(err as Error).message.split("\n")[0]}`);
   }
 }

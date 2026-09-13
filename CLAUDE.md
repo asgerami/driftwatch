@@ -114,6 +114,7 @@ packages/core/          pure, no I/O, no database
 apps/worker/            the pipeline CLI
   registry.ts           seed list with ordered filePathCandidates
   acquire/git.ts        partial clone, rename-aware history, read-at-commit
+  acquire/http.ts       hosted URL fetch for tier B
   store.ts              the ONE write path into SpecSnapshot
   diffing.ts            the ONE write path into DiffRun and Change
 apps/web/
@@ -156,16 +157,13 @@ change and read the output before trusting it.
 
 ## Known gaps
 
-1. **No integration test against a real database.** This is the big one. Every
-   unit test passed while zero rows were being persisted. Fix this before
-   adding features.
-2. **The feed is 73% additive noise.** Measured over 17 real releases: 216
-   additive, 75 breaking, 2 behavioral. It currently leads with eleven
-   identical "New response field / No action needed" cards. Planned: collapse
-   `response.property.added` to one line per release, keep `path.added` and
-   `operation.added` as cards, give additive changes specific headlines instead
-   of a generic one, and stop letting a release with nothing breaking lead the
-   feed.
+1. **Postgres persist test exists.** `apps/worker/src/persist.test.ts` hits
+   the real write path. It is skipped when `DATABASE_URL` is unset so
+   `pnpm check` still runs without Postgres.
+2. **Feed additive collapse shipped.** `response.property.added` collapses to
+   one line per release when a release has two or more; `path.added` and
+   `operation.added` stay as cards; additive headlines are specific; home
+   ranks releases with a break, deprecation or behavioural shift first.
 3. **Verified.** `request.param.removed` on GitHub's classroom `page` /
    `per_page` was not a walker bug. Commits `33438507 → 1048c01d` dropped the
    `$ref`s from three operations while the shared parameter components stayed,
@@ -173,8 +171,10 @@ change and read the output before trusting it.
    made that look like a withdrawal. Those drops are now
    `request.param.unlisted` (cosmetic, never published). A parameter that
    vanishes from the whole API is still `request.param.removed`.
-4. **Tier B sources** (hosted spec URL, no public repo) are modelled but not
-   implemented. Ingest is identical; only acquisition differs.
+4. **Tier B acquisition shipped.** `acquire/http.ts` GETs a hosted spec URL.
+   Seed, poll, backfill, verify and discover branch on tier. The first B
+   source is Hetzner Cloud (`https://docs.hetzner.cloud/cloud.spec.json`).
+   Hosted sources have no git history: the first snapshot is "now".
 5. **The GitHub App is deliberately not built.** It is the revenue half, and
    building it before the feed proves anyone cares is how this becomes a
    portfolio project with a business model nobody asked for. The signal to wait

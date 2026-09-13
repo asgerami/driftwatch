@@ -8,7 +8,7 @@ import {
 
 import { defaultRef, ensureClone, fileExistsAt, fileHistory, readAtCommit } from "../acquire/git.js";
 import { log } from "../log.js";
-import { REGISTRY, type RegistryProvider, type RegistrySource } from "../registry.js";
+import { REGISTRY, sourceTier, type RegistryProvider, type RegistrySource } from "../registry.js";
 
 const SEVERITY_ORDER: Severity[] = [
   "BREAKING",
@@ -71,6 +71,17 @@ export async function preview(
 
   for (const [provider, source] of targets) {
     const label = `${provider.slug}/${source.key}`;
+    if (sourceTier(source) === "B") {
+      log.warn(
+        `${label}: hosted URL has no git history to preview — seed, then poll`,
+      );
+      continue;
+    }
+    if (!source.repo || !source.filePathCandidates?.length) {
+      log.error(`${label}: missing repo or filePathCandidates`);
+      continue;
+    }
+
     const dir = await ensureClone(source.repo);
     const ref = await defaultRef(dir);
 
