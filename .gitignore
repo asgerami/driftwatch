@@ -8,3 +8,5 @@ prisma-stub.d.ts
 tsconfig.check.json
 .next/
 next-env.d.ts
+node-compile-cache/
+*.tsbuildinfo
