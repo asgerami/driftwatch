@@ -313,6 +313,7 @@ a {
   font-size: 1.12rem;
   letter-spacing: 0.02em;
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .change-body {
@@ -327,7 +328,7 @@ a {
   font-size: 0.7rem;
   color: var(--mute);
   margin-top: 8px;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .additive-line {
@@ -807,6 +808,8 @@ a {
 @media (max-width: 620px) {
   .tally {
     margin-left: 0;
+    flex: 1 0 100%;
+    width: 100%;
   }
 
   .masthead {

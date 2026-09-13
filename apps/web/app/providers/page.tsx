@@ -34,7 +34,8 @@ export default async function ProvidersPage() {
                 {provider.name}
               </a>
               <div className="provider-meta">
-                {provider.snapshotCount} versions
+                {provider.snapshotCount}{" "}
+                {provider.snapshotCount === 1 ? "version" : "versions"}
                 {provider.earliest ? ` · since ${provider.earliest.slice(0, 4)}` : ""}
               </div>
               <div className="provider-meta">
