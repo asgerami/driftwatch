@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { Release, EmptyFeed, ChangeItem } from "../components/Change";
-import type { ChangeView, ReleaseView } from "../lib/types";
+import { Scale } from "../components/Scale";
+import { Scope } from "../components/Scope";
+import type { ChangeView, ProviderView, ReleaseView } from "../lib/types";
 import { additiveLineHeadline, leadWithSignal, requestPropertyHeadline, splitCards } from "../lib/feed";
+import { stationId } from "../lib/stations";
 
 /**
  * Renders the presentation layer against fixtures and asserts on the markup.
@@ -111,6 +114,29 @@ check("operation changes show the call-site count", releaseHtml.includes("9 call
 check("code patterns render when present", releaseHtml.includes("no branch for"));
 check("only the first paragraph of the body is shown in the feed", releaseHtml.includes("Producer-side tools call this additive") && !releaseHtml.includes("Affects `invoices_payment_settings`"));
 check("tally is rendered", releaseHtml.includes("2 breaking") && releaseHtml.includes("1 additive"));
+check("station ID is ours, not a vendor mark", releaseHtml.includes("STRP") && releaseHtml.includes("Stripe"));
+
+const compactHtml = decode(renderToStaticMarkup(<Release release={release} compact />));
+check("compact keeps the first two cards", compactHtml.includes(flipChange.headline) && compactHtml.includes(operationChange.headline));
+check("compact hides later cards", !compactHtml.includes("Endpoint added"));
+check("compact omits code patterns", !compactHtml.includes("no branch for"));
+check("compact points at the rest of the station", compactHtml.includes("+1 more on STRP"));
+
+check("known slugs map to four-letter IDs", stationId("stripe") === "STRP" && stationId("github") === "GHUB" && stationId("openai") === "OAI" && stationId("twilio") === "TWLO" && stationId("hetzner") === "HTZR");
+check("unknown slugs still get a short ID", stationId("cloudflare") === "CLOU");
+
+const scaleHtml = renderToStaticMarkup(<Scale />);
+check("masthead scale names the four returns", scaleHtml.includes("hook") && scaleHtml.includes("cell") && scaleHtml.includes("echo") && scaleHtml.includes("clear"));
+
+const station: ProviderView = {
+  slug: "stripe",
+  name: "Stripe",
+  sourceCount: 1,
+  snapshotCount: 40,
+  breakingCount: 12,
+};
+const scopeHtml = renderToStaticMarkup(<Scope stations={[station]} />);
+check("scope plots station IDs", scopeHtml.includes("STRP") && scopeHtml.includes("/stripe"));
 
 const singular = decode(
   renderToStaticMarkup(<ChangeItem change={{ ...flipChange, affectedOperations: 1 }} />),

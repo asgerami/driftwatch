@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { EmptyFeed, Release } from "../../components/Change";
 import { listProviders, recentReleases } from "../../lib/queries";
+import { stationId } from "../../lib/stations";
 
 export const revalidate = 300;
 
@@ -19,8 +20,10 @@ export default async function ProviderPage({
   return (
     <main>
       <div className="prose">
-        <h1>{provider.name}</h1>
-        <p style={{ color: "var(--ink-2)" }}>
+        <h1>
+          <span className="station">{stationId(slug)}</span> {provider.name}
+        </h1>
+        <p style={{ color: "var(--dim)" }}>
           {provider.snapshotCount} spec versions tracked
           {provider.earliest
             ? `, back to ${provider.earliest.slice(0, 10)}`

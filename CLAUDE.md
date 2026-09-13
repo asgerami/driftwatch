@@ -118,7 +118,10 @@ apps/worker/            the pipeline CLI
   store.ts              the ONE write path into SpecSnapshot
   diffing.ts            the ONE write path into DiffRun and Change
 apps/web/
+  app/page.tsx          landing (thesis, scope, compact live returns)
+  app/feed/page.tsx     the published plot
   lib/queries.ts        Prisma reads to plain view models
+  lib/stations.ts       station IDs (STRP, GHUB, …) — not vendor marks
   components/           pure presentation, no data access
   scripts/              render-check: verifies the UI with no database
 apps/mcp/               stdio MCP server over /api/feed.json

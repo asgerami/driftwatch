@@ -33,12 +33,20 @@ pnpm w backfill -n 25    # walk git history, ingest distinct versions
 pnpm w diff              # diff consecutive pairs, persist typed changes
 pnpm w review            # inspect what is pending (read-only)
 pnpm w review --publish  # open the gate
-pnpm web                 # the feed on :3000
+pnpm web                 # site on :3000  (`/` watch, `/feed` the plot)
 node apps/mcp/dist/index.js   # stdio MCP over that feed (after pnpm install)
 ```
 
 `verify` and `preview` need no database and no Prisma client, so they are the
 fastest way to confirm the whole acquisition and diff path works.
+
+## The site
+
+`/` is the watch floor: the thesis, the three direction flips, a scope of
+stations, and a compact live plot. `/feed` is the published feed. `/providers`
+is the station list. Station IDs (`STRP`, `GHUB`, `OAI`, `TWLO`, `HTZR`) are
+ours — official vendor marks would imply affiliation. Severity is a
+reflectivity scale (hook / cell / echo / clear), not a changelog traffic light.
 
 ## What it finds
 
@@ -253,7 +261,8 @@ apps/worker/
   diffing.ts     the one write path into DiffRun/Change
   commands/      verify · preview · discover · seed · backfill · diff · review · poll · status
 apps/web/
-  lib/           Prisma queries → plain view models
+  app/           `/` landing, `/feed` plot, `/providers` stations, `/method`
+  lib/           Prisma queries → plain view models; station IDs
   components/    pure presentation, no data access
   scripts/       render-check: verifies the UI with no database
 prisma/          full model, including the GitHub App tables

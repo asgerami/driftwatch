@@ -1,6 +1,7 @@
 import type { AdditiveLine, ChangeView, ReleaseView } from "../lib/types";
 import { SEVERITY_LABEL, SEVERITY_ORDER } from "../lib/types";
 import { additiveLineHeadline, requestPropertyHeadline } from "../lib/feed";
+import { stationId } from "../lib/stations";
 
 export function SeverityChip({ severity }: { severity: ChangeView["severity"] }) {
   return (
@@ -43,8 +44,16 @@ function whereText(change: ChangeView): string {
   return `${op}${field}${sites}`;
 }
 
-export function ChangeItem({ change }: { change: ChangeView }) {
-  const pattern = change.patterns.ts ?? change.patterns.py ?? change.patterns.go;
+export function ChangeItem({
+  change,
+  compact = false,
+}: {
+  change: ChangeView;
+  compact?: boolean;
+}) {
+  const pattern = compact
+    ? undefined
+    : (change.patterns.ts ?? change.patterns.py ?? change.patterns.go);
 
   return (
     <li className="change" data-severity={change.severity}>
@@ -105,10 +114,20 @@ function AdditiveLineRow({
   );
 }
 
-export function Release({ release }: { release: ReleaseView }) {
+export function Release({
+  release,
+  compact = false,
+}: {
+  release: ReleaseView;
+  compact?: boolean;
+}) {
+  const changes = compact ? release.changes.slice(0, 2) : release.changes;
+  const hidden = compact ? Math.max(0, release.changes.length - changes.length) : 0;
+
   return (
     <article className="release">
       <header className="release-head">
+        <span className="station">{stationId(release.providerSlug)}</span>
         <span className="release-provider">
           {release.providerName}
           {release.sourceKey !== "api" ? ` · ${release.sourceKey}` : ""}
@@ -119,12 +138,19 @@ export function Release({ release }: { release: ReleaseView }) {
         </span>
         <Tally counts={release.counts} />
       </header>
-      {release.changes.length > 0 ? (
+      {changes.length > 0 ? (
         <ul className="changes">
-          {release.changes.map((change) => (
-            <ChangeItem key={change.id} change={change} />
+          {changes.map((change) => (
+            <ChangeItem key={change.id} change={change} compact={compact} />
           ))}
         </ul>
+      ) : null}
+      {hidden > 0 ? (
+        <p className="additive-line">
+          <a href={`/${release.providerSlug}`}>
+            +{hidden} more on {stationId(release.providerSlug)}
+          </a>
+        </p>
       ) : null}
       {release.responseFieldAdds ? (
         <AdditiveLineRow

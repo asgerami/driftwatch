@@ -1,4 +1,9 @@
 import { RULES, PUBLISH_CONFIDENCE_THRESHOLD } from "@driftwatch/core";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Method · Driftwatch",
+};
 
 const ordered = Object.values(RULES).sort(
   (a, b) =>
@@ -81,56 +86,32 @@ export default function MethodPage() {
       </p>
 
       <h2>The ruleset</h2>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.86rem" }}>
+      <table>
         <thead>
           <tr>
-            <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "1px solid var(--rule-strong)" }}>
-              Rule
-            </th>
-            <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "1px solid var(--rule-strong)" }}>
-              Severity
-            </th>
-            <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "1px solid var(--rule-strong)" }}>
-              What it does to calling code
-            </th>
+            <th>Rule</th>
+            <th>Severity</th>
+            <th>What it does to calling code</th>
           </tr>
         </thead>
         <tbody>
           {ordered.map((rule) => (
             <tr key={rule.id}>
-              <td
-                style={{
-                  padding: "8px 10px",
-                  borderBottom: "1px solid var(--rule)",
-                  fontFamily: "var(--f-mono)",
-                  fontSize: "0.78rem",
-                  whiteSpace: "nowrap",
-                  verticalAlign: "top",
-                }}
-              >
+              <td className="rule">
                 {rule.id}
                 {rule.directionFlip ? " ⇄" : ""}
               </td>
-              <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--rule)", verticalAlign: "top" }}>
+              <td>
                 <span className="chip" data-severity={rule.severity}>
                   {rule.severity.toLowerCase()}
                 </span>
               </td>
-              <td
-                style={{
-                  padding: "8px 10px",
-                  borderBottom: "1px solid var(--rule)",
-                  color: "var(--ink-2)",
-                  verticalAlign: "top",
-                }}
-              >
-                {rule.consequence}
-              </td>
+              <td>{rule.consequence}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      <p style={{ color: "var(--ink-3)", fontSize: "0.85rem", marginTop: "12px" }}>
+      <p style={{ color: "var(--mute)", fontSize: "0.85rem", marginTop: "12px" }}>
         ⇄ marks a rule producer-side tools classify the other way.
       </p>
     </main>

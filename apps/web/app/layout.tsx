@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Scale } from "../components/Scale";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,7 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Overpass:wght@400;600&family=Chivo+Mono:wght@400;700&display=swap"
         />
       </head>
       <body>
@@ -24,16 +25,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <a className="wordmark" href="/">
               drift<span>watch</span>
             </a>
+            <Scale />
             <nav className="nav">
-              <a href="/">Feed</a>
-              <a href="/providers">Providers</a>
+              <a href="/">Watch</a>
+              <a href="/feed">Feed</a>
+              <a href="/providers">Stations</a>
               <a href="/method">Method</a>
               <a href="/api/feed.json">JSON</a>
             </nav>
           </header>
           {children}
           <footer className="footer">
-            <span>Spec-derived. Severity is deterministic.</span>
+            <span>Spec-derived. Severity is a reflectivity scale, not a model.</span>
             <span>Not affiliated with any provider listed.</span>
           </footer>
         </div>
