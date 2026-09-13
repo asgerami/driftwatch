@@ -4,7 +4,7 @@ import { recentReleases } from "../lib/queries";
 export const revalidate = 300;
 
 export default async function HomePage() {
-  const releases = await recentReleases(20);
+  const releases = await recentReleases(20, undefined, { preferSignal: true });
 
   return (
     <main>

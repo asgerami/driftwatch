@@ -1,5 +1,6 @@
 import { recentReleases } from "../../../lib/queries";
 import { SEVERITY_LABEL } from "../../../lib/types";
+import { additiveLineHeadline } from "../../../lib/feed";
 
 export const revalidate = 300;
 
@@ -10,6 +11,24 @@ function escapeXml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
+}
+
+function rssItem(fields: {
+  title: string;
+  link: string;
+  guid: string;
+  pubDate: string;
+  category: string;
+  description: string;
+}): string {
+  return `    <item>
+      <title>${escapeXml(fields.title)}</title>
+      <link>${escapeXml(fields.link)}</link>
+      <guid isPermaLink="false">${escapeXml(fields.guid)}</guid>
+      <pubDate>${new Date(fields.pubDate).toUTCString()}</pubDate>
+      <category>${escapeXml(fields.category)}</category>
+      <description>${escapeXml(fields.description)}</description>
+    </item>`;
 }
 
 /**
@@ -27,22 +46,37 @@ export async function GET(
   const releases = await recentReleases(50, provider);
 
   const items = releases
-    .flatMap((release) =>
-      release.changes.map((change) => {
+    .flatMap((release) => {
+      const changeItems = release.changes.map((change) => {
         const title = `[${SEVERITY_LABEL[change.severity]}] ${release.providerName}: ${change.headline}`;
         const where = change.componentName
           ? `${change.componentName}${change.fieldPath ? `.${change.fieldPath}` : ""}`
           : [change.method?.toUpperCase(), change.path].filter(Boolean).join(" ");
-        return `    <item>
-      <title>${escapeXml(title)}</title>
-      <link>${escapeXml(`${origin}/${release.providerSlug}#${change.id}`)}</link>
-      <guid isPermaLink="false">${escapeXml(change.id)}</guid>
-      <pubDate>${new Date(release.shippedAt).toUTCString()}</pubDate>
-      <category>${escapeXml(change.severity)}</category>
-      <description>${escapeXml(`${change.body}\n\nRule: ${change.ruleId}\nAt: ${where}`)}</description>
-    </item>`;
-      }),
-    )
+        return rssItem({
+          title,
+          link: `${origin}/${release.providerSlug}#${change.id}`,
+          guid: change.id,
+          pubDate: release.shippedAt,
+          category: change.severity,
+          description: `${change.body}\n\nRule: ${change.ruleId}\nAt: ${where}`,
+        });
+      });
+
+      if (!release.responseFieldAdds) return changeItems;
+
+      const line = release.responseFieldAdds;
+      changeItems.push(
+        rssItem({
+          title: `[${SEVERITY_LABEL.ADDITIVE}] ${release.providerName}: ${additiveLineHeadline(line)}`,
+          link: `${origin}/${release.providerSlug}#${release.id}-fields`,
+          guid: `${release.id}-response-fields`,
+          pubDate: release.shippedAt,
+          category: "ADDITIVE",
+          description: line.fields.join(", "),
+        }),
+      );
+      return changeItems;
+    })
     .join("\n");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>

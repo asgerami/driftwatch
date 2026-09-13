@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { Release, EmptyFeed, ChangeItem } from "../components/Change";
 import type { ChangeView, ReleaseView } from "../lib/types";
+import { additiveLineHeadline, leadWithSignal, splitCards } from "../lib/feed";
 
 /**
  * Renders the presentation layer against fixtures and asserts on the markup.
@@ -137,6 +138,52 @@ const bare: ChangeView = {
 };
 const bareHtml = decode(renderToStaticMarkup(<ChangeItem change={bare} />));
 check("a change with no location does not leak 'undefined'", !bareHtml.includes("undefined"), bareHtml);
+
+const fieldAdds = Array.from({ length: 11 }, (_, i) => ({
+  id: `f${i}`,
+  ruleId: "response.property.added" as const,
+  severity: "ADDITIVE" as const,
+  directionFlip: false,
+  headline: "New response field",
+  body: "No action needed.",
+  patterns: {},
+  fieldPath: `field_${i}`,
+  siteCount: 1,
+  sampleSites: [],
+}));
+
+const split = splitCards([...release.changes, ...fieldAdds]);
+check("path.added stays a card", split.cards.some((c) => c.ruleId === "path.added"));
+check("eleven response field adds collapse to one line", split.responseFieldAdds?.count === 11 && !split.cards.some((c) => c.ruleId === "response.property.added"));
+check("a single response field add stays a card", splitCards([fieldAdds[0]!]).cards.length === 1 && splitCards([fieldAdds[0]!]).responseFieldAdds === undefined);
+
+const collapsedRelease: ReleaseView = {
+  ...release,
+  counts: { BREAKING: 2, DEPRECATION: 0, BEHAVIORAL: 0, ADDITIVE: 12, COSMETIC: 0 },
+  changes: [flipChange, operationChange, additiveChange],
+  responseFieldAdds: split.responseFieldAdds,
+};
+const collapsedHtml = decode(renderToStaticMarkup(<Release release={collapsedRelease} />));
+check("collapsed additive is one line, not eleven cards", collapsedHtml.includes("11 new response fields") && (collapsedHtml.match(/New response field/g) ?? []).length === 0);
+check("collapsed line lists a sample of fields", collapsedHtml.includes("field_0") && collapsedHtml.includes("+3 more"));
+check("path.added and breaking cards still render next to the line", collapsedHtml.includes("Endpoint added") && collapsedHtml.includes("direction flip"));
+check("additiveLineHeadline is plural-aware", additiveLineHeadline({ count: 1, fields: ["a"] }) === "1 new response field" && additiveLineHeadline({ count: 11, fields: [] }) === "11 new response fields");
+
+const additiveOnly: ReleaseView = {
+  ...release,
+  id: "r-add",
+  shippedAt: "2026-09-12T00:00:00.000Z",
+  counts: { BREAKING: 0, DEPRECATION: 0, BEHAVIORAL: 0, ADDITIVE: 11, COSMETIC: 0 },
+  changes: [],
+  responseFieldAdds: { count: 11, fields: ["a"] },
+};
+const olderBreak: ReleaseView = {
+  ...release,
+  id: "r-break",
+  shippedAt: "2026-01-01T00:00:00.000Z",
+};
+const ranked = leadWithSignal([additiveOnly, olderBreak]);
+check("an additive-only release does not lead the feed", ranked[0]?.id === "r-break" && ranked[1]?.id === "r-add");
 
 console.log(
   failures === 0

@@ -138,7 +138,7 @@ function toRow(runId: string, change: Change) {
     severity: change.severity,
     confidence: change.confidence,
     directionFlip: change.directionFlip,
-    fingerprint: change.fingerprint,
+    fingerprint: clean(change.fingerprint),
     method: clean(change.method) ?? null,
     path: clean(change.path) ?? null,
     operationId: clean(change.operationId) ?? null,
@@ -147,8 +147,8 @@ function toRow(runId: string, change: Change) {
     affectedOperations: change.affectedOperations ?? null,
     fieldPath: clean(change.fieldPath) ?? null,
     detail: clean(change.detail) ?? null,
-    before: change.before === undefined ? null : (clean(change.before) as never),
-    after: change.after === undefined ? null : (clean(change.after) as never),
+    before: (change.before === undefined ? null : clean(change.before)) as never,
+    after: (change.after === undefined ? null : clean(change.after)) as never,
     // Nothing auto-publishes. Every change is held for review until the
     // confidence thresholds have been tuned against real backfilled data.
     publishedAt: null,
