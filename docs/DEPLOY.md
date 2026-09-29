@@ -62,10 +62,15 @@ Not yet verified end to end. Settings to start from:
 2. Build settings:
    - Base directory: *(empty)*
    - Package directory: `apps/web`
-   - Build command: `pnpm generate && pnpm --filter @driftwatch/web build`
+   - Build command: `pnpm generate && pnpm --filter @driftwatch/web... run build`
+     (the `...` also builds `packages/core`, which the site imports)
    - Publish directory: `apps/web/.next`
-3. Environment variable: `DATABASE_URL` (the pooled one).
-4. Deploy. Netlify detects Next.js and installs its adapter.
+3. Environment variables: `DATABASE_URL` (the pooled one, with
+   `connect_timeout=30`, no surrounding quotes) and `NODE_VERSION` = `22`.
+   Not `DIRECT_URL` or the `R2_*` keys: the site reads neither.
+4. Deploy from `master`. The Prisma engine the site needs on Netlify
+   (`rhel-openssl-3.0.x`) is only there once this branch is merged.
+5. Netlify detects Next.js and installs its adapter.
 
 `prisma/schema.prisma` already includes the `rhel-openssl-3.0.x` engine the
 site's server functions need on Netlify.
