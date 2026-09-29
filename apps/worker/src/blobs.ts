@@ -46,6 +46,14 @@ const local: Backend = {
 
 const R2_ATTEMPTS = 3;
 
+/**
+ * Per attempt, body included. Without it a connection that dies mid-request
+ * (a laptop going to sleep, a dropped route) hangs forever instead of
+ * failing: one backfill sat silent for over two hours before this existed.
+ * The largest blob is a few MB, so a minute is generous.
+ */
+const R2_TIMEOUT_MS = 60_000;
+
 function r2Backend(r2: typeof config.r2): Backend {
   const client = new AwsClient({
     accessKeyId: r2.accessKeyId,
@@ -61,6 +69,7 @@ function r2Backend(r2: typeof config.r2): Backend {
       try {
         const response = await client.fetch(`${r2.baseUrl}/${key}`, {
           method,
+          signal: AbortSignal.timeout(R2_TIMEOUT_MS),
           ...(body ? { body, headers: { "content-type": "application/gzip" } } : {}),
         });
         if (response.status < 500) return response;
