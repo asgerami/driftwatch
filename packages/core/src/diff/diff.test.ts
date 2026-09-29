@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { diffDocuments } from "./index.js";
+import { createHash } from "node:crypto";
+import { diffDocuments, fingerprintOf } from "./index.js";
 import type { JsonObject } from "../types.js";
 
 type Doc = Record<string, any>;
@@ -649,6 +650,44 @@ describe("fingerprints are storable", () => {
 
     expect(fpFor(dropA)).not.toBe(fpFor(dropB));
     expect(fpFor(dropA)).toBe(fpFor(structuredClone(dropA)));
+  });
+
+  it("give each removed endpoint its own fingerprint", () => {
+    // Regression: GitHub's 11 moved enterprise endpoints were "1 distinct fact".
+    const before = doc({ "/a": { get: jsonOp({}) }, "/b": { get: jsonOp({}) } });
+    const removed = only(diffDocuments(before, doc({})), "path.removed");
+    expect(removed).toHaveLength(2);
+    expect(removed[0].fingerprint).not.toBe(removed[1].fingerprint);
+
+    const ops = doc({ "/a": { get: jsonOp({}), post: jsonOp({}), put: jsonOp({}) } });
+    const dropped = only(
+      diffDocuments(ops, doc({ "/a": { get: jsonOp({}) } })),
+      "operation.removed",
+    );
+    expect(new Set(dropped.map((c) => c.fingerprint)).size).toBe(2);
+  });
+
+  it("leave every other rule's fingerprint exactly as it was", () => {
+    // Stored decisions are carried forward by fingerprint, so a fingerprint
+    // that silently changes would unpublish the feed on the next bump. The
+    // value is the pre-1.3.0 formula over the same parts.
+    const change = {
+      ruleId: "response.property.removed",
+      componentName: "charge",
+      fieldPath: "customer.address",
+      before: "address",
+      method: "get",
+      path: "/v1/charges",
+    } as const;
+    const old = createHash("sha256")
+      .update(
+        ["response.property.removed", "charge", "customer.address", '"address"', "null", ""].join(
+          "\u001f",
+        ),
+        "utf8",
+      )
+      .digest("hex");
+    expect(fingerprintOf(change as never)).toBe(old);
   });
 });
 

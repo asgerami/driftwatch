@@ -7,6 +7,7 @@ import { backfill } from "./commands/backfill.js";
 import { diff } from "./commands/diff.js";
 import { discover } from "./commands/discover.js";
 import { preview } from "./commands/preview.js";
+import { refingerprint } from "./commands/refingerprint.js";
 import { review } from "./commands/review.js";
 import { poll } from "./commands/poll.js";
 import { seed } from "./commands/seed.js";
@@ -120,6 +121,11 @@ program
   .command("status")
   .description("Show what is in the database")
   .action(status);
+
+program
+  .command("refingerprint")
+  .description("One-off: rewrite stored endpoint-rule fingerprints to the 1.3.0 formula")
+  .action(refingerprint);
 
 async function main(): Promise<void> {
   try {
