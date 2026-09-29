@@ -63,7 +63,13 @@ function r2Backend(r2: typeof config.r2): Backend {
   });
 
   // A 5xx or a dropped connection is retried; a 4xx is our mistake and is not.
-  async function send(method: string, key: string, body?: Buffer): Promise<Response> {
+  // The body is read inside the attempt, so a connection that drops halfway
+  // through a download is retried like one that drops before the headers.
+  async function send(
+    method: string,
+    key: string,
+    body?: Buffer,
+  ): Promise<{ status: number; bytes: Buffer }> {
     let lastError: Error | undefined;
     for (let attempt = 1; attempt <= R2_ATTEMPTS; attempt++) {
       try {
@@ -72,38 +78,54 @@ function r2Backend(r2: typeof config.r2): Backend {
           signal: AbortSignal.timeout(R2_TIMEOUT_MS),
           ...(body ? { body, headers: { "content-type": "application/gzip" } } : {}),
         });
-        if (response.status < 500) return response;
-        lastError = new Error(`R2 ${method} ${key} → ${response.status}`);
+        if (response.status < 500) {
+          return { status: response.status, bytes: Buffer.from(await response.arrayBuffer()) };
+        }
+        lastError = new Error(`HTTP ${response.status}`);
       } catch (err) {
         lastError = err as Error;
       }
       if (attempt < R2_ATTEMPTS) {
-        await new Promise((done) => setTimeout(done, 500 * 2 ** (attempt - 1)));
+        // 1s, then 4s: long enough to ride out a brief network drop.
+        await new Promise((done) => setTimeout(done, 1000 * 4 ** (attempt - 1)));
       }
     }
-    throw lastError;
+    throw new Error(
+      `R2 ${method} ${key} failed after ${R2_ATTEMPTS} attempts: ${describeError(lastError)}`,
+    );
   }
 
   return {
     name: `r2 (${r2.baseUrl.replace(/^https:\/\/[^/]+\//, "")})`,
     async has(key) {
-      const response = await send("HEAD", key);
-      if (response.status === 404) return false;
-      if (!response.ok) throw new Error(`R2 HEAD ${key} → ${response.status}`);
+      const { status } = await send("HEAD", key);
+      if (status === 404) return false;
+      if (status >= 300) throw new Error(`R2 HEAD ${key} → ${status}`);
       return true;
     },
     async put(key, body) {
       const response = await send("PUT", key, body);
-      if (!response.ok) {
-        throw new Error(`R2 PUT ${key} → ${response.status} ${await response.text()}`);
+      if (response.status >= 300) {
+        throw new Error(`R2 PUT ${key} → ${response.status} ${response.bytes.toString("utf8")}`);
       }
     },
     async get(key) {
-      const response = await send("GET", key);
-      if (!response.ok) throw new Error(`R2 GET ${key} → ${response.status}`);
-      return Buffer.from(await response.arrayBuffer());
+      const { status, bytes } = await send("GET", key);
+      if (status >= 300) throw new Error(`R2 GET ${key} → ${status}`);
+      return bytes;
     },
   };
+}
+
+/**
+ * Node's fetch reports every network failure as "fetch failed" and hides the
+ * reason (reset, DNS, TLS) in `cause`. Without it the log says nothing useful.
+ */
+function describeError(err: Error | undefined): string {
+  if (!err) return "unknown error";
+  const cause = (err as { cause?: { code?: string; message?: string } }).cause;
+  const detail = cause?.code ?? cause?.message;
+  return detail ? `${err.message} (${detail})` : err.message;
 }
 
 /**
