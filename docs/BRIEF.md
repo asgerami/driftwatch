@@ -234,3 +234,4 @@ Claude Code: add one dated line at the end of each session saying what got done 
 
 - 2026-09-28: Brief created. Next: Step 0.
 - 2026-09-28: Step 0 done. Install, typecheck and 73 tests pass; `pnpm check` needs `DATABASE_URL`; OpenAI ran end to end and idempotently but surfaced an allOf→anyOf nullable false positive. Next: M1, once the open questions are answered.
+- 2026-09-29: Hosting on free tiers: Neon (schema pushed, 6 sources seeded), Cloudflare R2 for spec blobs, GitHub Actions `poll.yml` every 6h, Netlify prepared but not connected. `pnpm check` no longer needs a database. First full poll stored all 6 sources. Next: merge #8 so the schedule runs, connect Netlify, then M1 step 2 (allOf→anyOf false positive).

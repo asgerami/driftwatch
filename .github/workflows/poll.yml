@@ -1,0 +1,73 @@
+# The scheduled pipeline: fetch every active source's current spec, store it if
+# the normalized surface changed, and diff consecutive versions. Nothing here
+# publishes; changes wait for `pnpm w review --publish`.
+#
+# Runs on a fresh runner each time. Postgres is Neon and spec blobs are R2, so
+# nothing that matters lives on the runner's disk. Git clones are cached
+# between runs only to save time; losing the cache costs a minute, not data.
+
+name: poll
+
+on:
+  schedule:
+    # Every 6 hours, off the top of the hour when GitHub's scheduler is busiest.
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Provider slug or source (e.g. stripe, twilio/messaging_v1). Empty for all."
+        required: false
+        default: ""
+
+# Two overlapping runs would race on the same snapshot rows.
+concurrency:
+  group: poll
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      R2_BASE_URL: ${{ secrets.R2_BASE_URL }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      # No GITHUB_TOKEN: the provider repos are public, and a token would be
+      # written into the cached clones' remote URL and be expired by next run.
+      TARGET: ${{ inputs.target }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Also builds packages/core via its prepare script.
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm generate
+
+      - name: Restore provider clones
+        uses: actions/cache@v4
+        with:
+          path: .data/repos
+          key: repos-${{ github.run_id }}
+          restore-keys: repos-
+
+      - name: Poll
+        run: pnpm w poll $TARGET
+
+      - name: Diff
+        run: pnpm w diff $TARGET
+
+      - name: Status
+        if: always()
+        run: pnpm w status

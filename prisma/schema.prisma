@@ -6,6 +6,9 @@
 
 generator client {
   provider = "prisma-client-js"
+  // The site's server functions run on Netlify's AWS Lambda (Amazon Linux,
+  // OpenSSL 3), not on the machine that builds them.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 // DATABASE_URL may go through a connection pooler (Neon's "-pooler" host).
