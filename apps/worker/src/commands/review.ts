@@ -2,6 +2,8 @@ import {
   PUBLISH_CONFIDENCE_THRESHOLD,
   RULES,
   RULESET_VERSION,
+  groupStories,
+  storyDetail,
   type Severity,
 } from "@driftwatch/core";
 
@@ -130,18 +132,13 @@ export async function review(
     return;
   }
 
-  // Group to facts, not rows: one inline enum across nine operations is one
-  // decision for a reviewer, not nine.
-  const facts = new Map<string, PendingRow[]>();
-  for (const row of pending) {
-    const list = facts.get(row.fingerprint) ?? [];
-    list.push(row);
-    facts.set(row.fingerprint, list);
-  }
-
-  const ordered = [...facts.values()];
+  // Group to stories, not rows or facts: one inline enum across nine
+  // operations is one fact, and one new enum value across seven components is
+  // one story. Either way it is one decision for a reviewer.
+  const ordered = groupStories(pending);
+  const factCount = new Set(pending.map((row) => row.fingerprint)).size;
   console.log(
-    `\n${ordered.length} distinct facts pending (${pending.length} rows)` +
+    `\n${ordered.length} stories pending (${factCount} distinct facts, ${pending.length} rows)` +
       (withheld > 0
         ? `, ${withheld} more held below confidence ${PUBLISH_CONFIDENCE_THRESHOLD} \u2014 --all to see them`
         : "") +
@@ -152,22 +149,20 @@ export async function review(
     const first = list[0]!;
     const rule = RULES[first.ruleId];
     const flip = first.directionFlip ? " \x1b[35m[flip]\x1b[0m" : "";
-    const where = first.componentName
-      ? `${first.componentName}${first.fieldPath ? `.${first.fieldPath}` : ""}` +
-        (first.affectedOperations ? ` [${first.affectedOperations} ops]` : "")
-      : `${first.method?.toUpperCase() ?? ""} ${first.path ?? ""}`.trim() +
-        (first.fieldPath ? ` · ${first.fieldPath}` : "");
+    const places = [...new Set(list.map(whereOf))];
+    const detail = storyDetail(list);
 
     console.log(
       `${COLOR[first.severity] ?? ""}▪${RESET} ${first.ruleId}${flip} ` +
         `${DIM}conf ${first.confidence}${list.length > 1 ? ` · ${list.length} rows` : ""}${RESET}`,
     );
-    console.log(`   ${rule?.headline ?? ""}`);
-    console.log(`   ${DIM}${where}${first.detail ? ` (${first.detail})` : ""}${RESET}`);
+    console.log(`   ${rule?.headline ?? ""}${detail ? ` ${DIM}(${detail})${RESET}` : ""}`);
+    for (const place of places.slice(0, 4)) console.log(`   ${DIM}${place}${RESET}`);
+    if (places.length > 4) console.log(`   ${DIM}… ${places.length - 4} more places${RESET}`);
   }
 
   if (ordered.length > limit) {
-    console.log(`${DIM}… ${ordered.length - limit} more facts${RESET}`);
+    console.log(`${DIM}… ${ordered.length - limit} more stories${RESET}`);
   }
 
   if (!options.publish) {
@@ -183,5 +178,13 @@ export async function review(
     data: { reviewedAt: now, publishedAt: now },
   });
 
-  log.ok(`published ${result.count} rows across ${ordered.length} distinct facts`);
+  log.ok(`published ${result.count} rows across ${ordered.length} stories`);
+}
+
+function whereOf(row: PendingRow): string {
+  return row.componentName
+    ? `${row.componentName}${row.fieldPath ? `.${row.fieldPath}` : ""}` +
+        (row.affectedOperations ? ` [${row.affectedOperations} ops]` : "")
+    : `${row.method?.toUpperCase() ?? ""} ${row.path ?? ""}`.trim() +
+        (row.fieldPath ? ` · ${row.fieldPath}` : "");
 }
