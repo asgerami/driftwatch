@@ -79,6 +79,14 @@ flips (`directionFlip: true`) are why anyone subscribes:
 - A `$ref` repoint is usually a **rename**. Targets are compared: identical
   shape is cosmetic, anything else is BEHAVIORAL at confidence 80, below the
   publish threshold on purpose.
+- **A response narrowing its type is a tighter guarantee.** OpenAI's
+  `ChatCompletionList.first_id` and Stripe's `expected_debit_date` went
+  `null|string → string` and were called breaking retypes at confidence 95.
+  Everything a narrowed response can return it could already return, so it
+  is `response.property.type-narrowed` (additive). Narrowed all the way to
+  `null` is `response.property.now-always-null`, behavioral at 80: nothing
+  throws but the value is gone, and the real cases (Twilio, Stripe) look like
+  generator artifacts. On a request, narrowing is still a break.
 - **Two spellings of "X or null" are one schema.** OAS 3.0's
   `allOf: [X, {nullable: true}]` and 3.1's `anyOf`/`oneOf: [X, {type: "null"}]`
   mean the same thing, but only `allOf` is flattened, so OpenAI switching
@@ -133,6 +141,10 @@ positive would sit in review beside its correction, and publishing would
 publish both. Human decisions survive a bump: `diffPair` carries `publishedAt`
 forward for a fact published on the same pair under an earlier ruleset with the
 same fingerprint and severity. Anything new or reclassified goes back to review.
+Rejections carry forward the same way: `review --reject <text>` sets
+`reviewedAt` without `publishedAt`, for facts no rule can see are wrong. First
+use: GitHub moved its enterprise-team endpoints from the `api.github.com`
+description into `ghec` on 2026-09-22, which reads as 10 removed endpoints.
 
 ## Layout
 
