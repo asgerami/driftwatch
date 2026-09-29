@@ -443,6 +443,86 @@ describe("relaxations are not breaks (found in real provider data)", () => {
   });
 });
 
+describe("nullable spellings are the same schema", () => {
+  // Real case: openai/openai-openapi 7140eb70 → 4399577e rewrote Upload.file
+  // from the OAS 3.0 spelling to the 3.1 one. Same meaning, but it was
+  // reported as every OpenAIFile field removed AND no longer guaranteed.
+  const components = (file: Doc) => ({
+    schemas: {
+      OpenAIFile: {
+        type: "object",
+        required: ["id", "bytes", "filename"],
+        properties: {
+          id: { type: "string" },
+          bytes: { type: "integer" },
+          filename: { type: "string" },
+        },
+      },
+      Upload: {
+        type: "object",
+        required: ["id"],
+        properties: { id: { type: "string" }, file },
+      },
+    },
+  });
+  const paths = {
+    "/uploads/{id}": { get: jsonOp({ $ref: "#/components/schemas/Upload" }) },
+  };
+  const ref = { $ref: "#/components/schemas/OpenAIFile" };
+  const oas30 = {
+    allOf: [ref, { nullable: true, description: "The ready File object." }],
+  };
+
+  for (const keyword of ["anyOf", "oneOf"] as const) {
+    it(`treats allOf+nullable and ${keyword} with a null arm as identical`, () => {
+      const oas31 = {
+        description: "The ready File object.",
+        [keyword]: [ref, { type: "null" }],
+      };
+      const forward = diffDocuments(doc(paths, components(oas30)), doc(paths, components(oas31)));
+      const back = diffDocuments(doc(paths, components(oas31)), doc(paths, components(oas30)));
+      expect(forward.changes).toEqual([]);
+      expect(back.changes).toEqual([]);
+    });
+  }
+
+  it("still catches a wrapped field gaining null on a response", () => {
+    const nonNull = { allOf: [ref] };
+    const nullable = { anyOf: [ref, { type: "null" }] };
+    const result = diffDocuments(doc(paths, components(nonNull)), doc(paths, components(nullable)));
+    expect(ids(result)).toEqual(["response.property.became-optional"]);
+    expect(result.changes[0]?.fieldPath).toBe("file");
+  });
+
+  it("still sees a real change inside the nullable wrapper", () => {
+    const before = components(oas30);
+    const after = components({ anyOf: [ref, { type: "null" }] });
+    after.schemas.OpenAIFile.required = ["id", "bytes"];
+    const result = diffDocuments(doc(paths, before), doc(paths, after));
+    const hits = only(result, "response.property.became-optional");
+    expect(hits.map((h) => h.fieldPath)).toContain("filename");
+    expect(ids(result)).not.toContain("response.property.removed");
+  });
+
+  it("reports a union gaining a variant once, not as every field removed", () => {
+    // Real case: FineTuningJob.error, X | null → X | null | {} (9654de53 → 883357cf).
+    const before = components({ anyOf: [ref, { type: "null" }] });
+    const after = components({ anyOf: [ref, { type: "null" }, { type: "object", maxProperties: 0 }] });
+    expect(ids(diffDocuments(doc(paths, before), doc(paths, after)))).toEqual([
+      "schema.composition-changed",
+    ]);
+  });
+
+  it("leaves a genuine two-schema union alone", () => {
+    const union = (arms: Doc[]) => components({ anyOf: arms });
+    const before = union([ref, { type: "string" }]);
+    const after = union([ref, { type: "string" }, { type: "integer" }]);
+    expect(ids(diffDocuments(doc(paths, before), doc(paths, after)))).toContain(
+      "schema.composition-changed",
+    );
+  });
+});
+
 describe("schema repoints", () => {
   const build = (ref: string, shapes: Doc) =>
     doc({ "/r": { get: jsonOp({ type: "object", properties: { f: { $ref: ref } } }) } }, { schemas: shapes });
