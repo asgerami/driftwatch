@@ -232,15 +232,19 @@ const RUN_INCLUDE = {
 } as const;
 
 /**
- * `next build` prerenders the ISR pages. With no database configured (CI,
- * `pnpm check`) they build empty and fill on the first revalidate. At runtime
- * a missing DATABASE_URL still throws, so a misconfigured deploy fails loudly
- * instead of serving an empty feed that looks like a quiet week.
+ * `next build` prerenders the ISR pages. With no database configured, or with
+ * DRIFTWATCH_OFFLINE_BUILD set (which `pnpm check` does), they build empty and
+ * fill on the first revalidate. `pnpm check` must not depend on the network:
+ * prerendering the published feed from Neon over a slow connection took past
+ * Next's 60s limit and failed the check. A real deploy leaves the flag unset
+ * and prerenders fresh data. At runtime a missing DATABASE_URL still throws,
+ * so a misconfigured deploy fails loudly instead of serving an empty feed that
+ * looks like a quiet week.
  */
 function buildingWithoutDatabase(): boolean {
   return (
     process.env.NEXT_PHASE === "phase-production-build" &&
-    !process.env.DATABASE_URL
+    (!process.env.DATABASE_URL || process.env.DRIFTWATCH_OFFLINE_BUILD === "1")
   );
 }
 
