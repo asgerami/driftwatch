@@ -27,6 +27,12 @@ export interface ChangeView {
   /** How many call sites share this fact. */
   siteCount: number;
   sampleSites: string[];
+  /**
+   * Every place this story occurs, when it groups more than one fact (the
+   * same enum value in seven components, one field under 26 countries).
+   * Absent for a single fact, which keeps its own location line.
+   */
+  locations?: string[];
 }
 
 /** Several new response fields, collapsed from individual cards. */
@@ -55,6 +61,8 @@ export interface ReleaseView {
   responseFieldAdds?: AdditiveLine;
   /** Several new request properties, as one line instead of N identical cards. */
   requestPropertyAdds?: AdditiveLine;
+  /** Provider context a reader needs to judge a break, e.g. API version pinning. */
+  providerNote?: string;
 }
 
 export interface ProviderView {

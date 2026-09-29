@@ -117,19 +117,47 @@ const singular = decode(
 );
 check("one operation is singular, not '1 operations'", singular.includes("reachable from 1 operation") && !singular.includes("1 operations"));
 
+const DEV_COMMANDS = ["pnpm", "publishedAt", "backfill", "seed"];
+const leaksDevCommands = (html: string) => DEV_COMMANDS.some((word) => html.includes(word));
+
 const emptyHtml = decode(renderToStaticMarkup(<EmptyFeed />));
-check("empty state names the next command", emptyHtml.includes("pnpm w seed"));
-check("empty state explains the review gate", emptyHtml.includes("publishedAt"));
+check("empty state is written for visitors, not operators", !leaksDevCommands(emptyHtml), emptyHtml);
+check("empty state explains that a person reviews changes", emptyHtml.includes("checked by a person"));
+check("empty state links to the method", emptyHtml.includes('href="/method"'));
 
-const emptyProvider = decode(renderToStaticMarkup(<EmptyFeed providerSlug="twilio" />));
-check("empty state is scoped when given a provider", emptyProvider.includes("for twilio"));
+const emptyProvider = decode(renderToStaticMarkup(<EmptyFeed providerName="Twilio" />));
+check("empty state is scoped when given a provider", emptyProvider.includes("for Twilio"));
 
-const emptyOne = decode(renderToStaticMarkup(<EmptyFeed providerSlug="hetzner" snapshotCount={1} />));
-check("one stored version does not tell you to seed", !emptyOne.includes("pnpm w seed") && emptyOne.includes("for hetzner"));
-check("one stored version names poll and diff", emptyOne.includes("poll") && emptyOne.includes("pnpm w diff"));
+const emptyOne = decode(renderToStaticMarkup(<EmptyFeed providerName="Hetzner" snapshotCount={1} />));
+check("one stored version explains tracking just started", emptyOne.includes("for Hetzner") && emptyOne.includes("next time the spec is updated"));
+check("one stored version leaks no commands", !leaksDevCommands(emptyOne), emptyOne);
 
-const emptyMany = decode(renderToStaticMarkup(<EmptyFeed providerSlug="stripe" snapshotCount={7} />));
-check("stored versions waiting on review name the publish gate", emptyMany.includes("pnpm w review --publish") && !emptyMany.includes("pnpm w seed"));
+const emptyMany = decode(renderToStaticMarkup(<EmptyFeed providerName="Stripe" snapshotCount={7} />));
+check("stored versions awaiting review leak no commands", !leaksDevCommands(emptyMany), emptyMany);
+
+// A story groups several facts: one card, every place listed.
+const story = decode(
+  renderToStaticMarkup(
+    <ChangeItem
+      change={{
+        ...flipChange,
+        componentName: "payment_method",
+        fieldPath: "type",
+        detail: 'can now return "payto"',
+        locations: ["payment_method.type", "mandate.type", "confirmation_token.type", "a.type", "b.type", "c.type", "d.type"],
+      }}
+    />,
+  ),
+);
+check("a story lists how many places it occurs", story.includes("7 places:"), story);
+check("a story lists the places and truncates the rest", story.includes("mandate.type") && story.includes("+1 more"), story);
+check("a story shows its detail once", story.includes('can now return "payto"'));
+
+const withNote = decode(
+  renderToStaticMarkup(<Release release={{ ...release, providerNote: "Pinned API versions apply." }} />),
+);
+check("a provider note renders on its release", withNote.includes("Pinned API versions apply."));
+check("no note renders when none is given", !releaseHtml.includes("provider-note"));
 
 // A change with no optional fields at all must not render "undefined".
 const bare: ChangeView = {

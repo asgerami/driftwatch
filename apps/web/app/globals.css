@@ -247,6 +247,19 @@ a {
   word-break: break-word;
 }
 
+.change-detail {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: var(--ink-2);
+}
+
+.provider-note {
+  margin: 8px 0 12px;
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  max-width: 68ch;
+}
+
 .additive-line {
   display: flex;
   flex-wrap: wrap;

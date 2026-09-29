@@ -28,7 +28,15 @@ export function FlipBadge() {
   );
 }
 
+const LOCATIONS_SHOWN = 6;
+
 function whereText(change: ChangeView): string {
+  const locations = change.locations;
+  if (locations && locations.length > 1) {
+    const shown = locations.slice(0, LOCATIONS_SHOWN).join(", ");
+    const more = locations.length - LOCATIONS_SHOWN;
+    return `${locations.length} places: ${shown}${more > 0 ? ` +${more} more` : ""}`;
+  }
   if (change.componentName) {
     const field = change.fieldPath ? `.${change.fieldPath}` : "";
     const reach = change.affectedOperations
@@ -55,6 +63,9 @@ export function ChangeItem({ change }: { change: ChangeView }) {
       </div>
       <h3 className="change-title">{change.headline}</h3>
       <p className="change-body">{change.body.split("\n\n")[0]}</p>
+      {change.locations && change.detail ? (
+        <p className="change-detail">{change.detail}</p>
+      ) : null}
       <div className="change-where">{whereText(change)}</div>
       {pattern ? <pre>{pattern}</pre> : null}
     </li>
@@ -119,6 +130,7 @@ export function Release({ release }: { release: ReleaseView }) {
         </span>
         <Tally counts={release.counts} />
       </header>
+      {release.providerNote ? <p className="provider-note">{release.providerNote}</p> : null}
       {release.changes.length > 0 ? (
         <ul className="changes">
           {release.changes.map((change) => (
@@ -143,48 +155,27 @@ export function Release({ release }: { release: ReleaseView }) {
 }
 
 /**
- * Shown until the first backfill has been reviewed and published.
+ * Shown when nothing is published for a page yet.
  *
- * An empty state that tells you the exact next command is worth more than a
- * shrug, because for the first week of this project's life it is the page
- * you will see most.
+ * This is a public page. It says what will appear here and why it is empty,
+ * never which command to run: the review gate is how the feed earns trust,
+ * so an empty page is honest, not broken.
  */
 export function EmptyFeed({
-  providerSlug,
+  providerName,
   snapshotCount,
 }: {
-  providerSlug?: string;
+  providerName?: string;
   snapshotCount?: number;
 }) {
-  const scoped = providerSlug ? ` for ${providerSlug}` : "";
+  const scoped = providerName ? ` for ${providerName}` : "";
 
   if ((snapshotCount ?? 0) === 1) {
     return (
       <div className="empty">
-        <p>
-          Nothing published yet{scoped}. One spec version is stored. Diff needs
-          two consecutive surfaces, so poll or backfill until a second one
-          appears, then <code>pnpm w diff</code> and{" "}
-          <code>pnpm w review</code>.
-        </p>
-        <p style={{ marginBottom: 0 }}>
-          Hosted URL sources have no git history: the first snapshot is now,
-          and the next change is the first pair.
-        </p>
-      </div>
-    );
-  }
-
-  if ((snapshotCount ?? 0) > 1) {
-    return (
-      <div className="empty">
-        <p>
-          Nothing published yet{scoped}. {snapshotCount} spec versions are
-          stored. Changes appear here only after a human sets{" "}
-          <code>publishedAt</code>, which is the review gate.
-        </p>
-        <p style={{ marginBottom: 0 }}>
-          To open it: <code>pnpm w diff</code> → <code>pnpm w review --publish</code>.
+        <p style={{ margin: 0 }}>
+          Nothing published yet{scoped}. Tracking started recently, and changes
+          appear from the next time the spec is updated.
         </p>
       </div>
     );
@@ -192,13 +183,11 @@ export function EmptyFeed({
 
   return (
     <div className="empty">
-      <p>
-        Nothing published yet{scoped}. Changes appear here only after a human
-        sets <code>publishedAt</code>, which is the review gate.
-      </p>
+      <p>No changes published yet{scoped}.</p>
       <p style={{ marginBottom: 0 }}>
-        To fill it: <code>pnpm w seed</code> → <code>pnpm w backfill</code> →{" "}
-        <code>pnpm w diff</code> → <code>pnpm w review</code>.
+        Every change is checked by a person before it appears here, so the
+        feed stays quiet rather than guess.{" "}
+        <a href="/method">How changes are classified</a>.
       </p>
     </div>
   );
