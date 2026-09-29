@@ -39,3 +39,11 @@ export {
 } from "./diff/index.js";
 
 export { renderImpact, enrich, type RenderedImpact } from "./impact/index.js";
+
+export {
+  storyKeyOf,
+  groupStories,
+  storyDetail,
+  leafOf,
+  type StoryInput,
+} from "./diff/story.js";

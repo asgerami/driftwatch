@@ -38,7 +38,7 @@ export default async function ProviderPage({
         </p>
       </div>
       {releases.length === 0 ? (
-        <EmptyFeed providerSlug={slug} snapshotCount={provider.snapshotCount} />
+        <EmptyFeed providerName={provider.name} snapshotCount={provider.snapshotCount} />
       ) : (
         releases.map((release) => <Release key={release.id} release={release} />)
       )}

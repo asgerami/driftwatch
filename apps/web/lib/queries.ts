@@ -1,12 +1,15 @@
 import {
   RULES,
   RULESET_VERSION,
+  groupStories,
   renderImpact,
+  storyDetail,
   type Change as CoreChange,
   type Severity,
 } from "@driftwatch/core";
 import { prisma } from "./db";
 import { leadWithSignal, splitCards } from "./feed";
+import { providerNote } from "./providers";
 import type { ChangeView, ProviderView, ReleaseView } from "./types";
 
 /**
@@ -69,26 +72,24 @@ function toCoreChange(row: ChangeRow): CoreChange {
 }
 
 /**
- * Collapse rows sharing a fingerprint into one item.
+ * Collapse rows into stories, one card each.
  *
- * The same inline enum can be recorded against many operations. That is one
- * piece of news observed in several places, and showing it several times is
- * how a feed becomes unreadable.
+ * Rows sharing a fingerprint are one fact seen at several call sites. Facts
+ * sharing a story key (`@driftwatch/core` storyKeyOf) are one thing that
+ * happened, seen in several places: a new enum value in seven components,
+ * one field removed under 26 countries. Showing each separately is how a
+ * feed becomes unreadable. Severity is part of the key, so nothing milder
+ * can absorb a break.
  */
-function groupByFingerprint(rows: ChangeRow[]): ChangeView[] {
-  const groups = new Map<string, ChangeRow[]>();
-  for (const row of rows) {
-    const list = groups.get(row.fingerprint) ?? [];
-    list.push(row);
-    groups.set(row.fingerprint, list);
-  }
-
+function groupIntoStories(rows: ChangeRow[]): ChangeView[] {
   const views: ChangeView[] = [];
-  for (const list of groups.values()) {
+  for (const list of groupStories(rows)) {
     const first = list[0]!;
     const core = toCoreChange(first);
     const rule = ruleMetadata(first.ruleId);
     const impact = renderImpact({ ...core, ...rule });
+    const facts = new Set(list.map((row) => row.fingerprint));
+    const locations = [...new Set(list.map(locationOf))];
 
     views.push({
       id: first.id,
@@ -99,24 +100,35 @@ function groupByFingerprint(rows: ChangeRow[]): ChangeView[] {
       body: impact.body,
       patterns: impact.patterns,
       componentName: first.componentName ?? undefined,
-      affectedOperations: first.affectedOperations ?? undefined,
+      affectedOperations:
+        Math.max(0, ...list.map((row) => row.affectedOperations ?? 0)) || undefined,
       method: first.method ?? undefined,
       path: first.path ?? undefined,
       fieldPath: first.fieldPath ?? undefined,
-      detail: first.detail ?? undefined,
+      detail: storyDetail(list),
       siteCount: list.length,
       sampleSites: list
         .filter((r) => r.path)
         .slice(0, 5)
         .map((r) => `${r.method?.toUpperCase() ?? ""} ${r.path}`.trim()),
+      locations: facts.size > 1 && locations.length > 1 ? locations : undefined,
     });
   }
 
   return views.sort(
     (a, b) =>
       severityRank(a.severity) - severityRank(b.severity) ||
+      (b.locations?.length ?? 1) - (a.locations?.length ?? 1) ||
       (b.affectedOperations ?? b.siteCount) - (a.affectedOperations ?? a.siteCount),
   );
+}
+
+function locationOf(row: ChangeRow): string {
+  if (row.componentName) {
+    return row.fieldPath ? `${row.componentName}.${row.fieldPath}` : row.componentName;
+  }
+  const op = [row.method?.toUpperCase(), row.path].filter(Boolean).join(" ");
+  return row.fieldPath ? `${op} · ${row.fieldPath}`.trim() : op;
 }
 
 function severityRank(severity: Severity): number {
@@ -175,7 +187,7 @@ interface RunRow {
 }
 
 function toRelease(run: RunRow): ReleaseView {
-  const grouped = groupByFingerprint(run.changes);
+  const grouped = groupIntoStories(run.changes);
   const counts = { ...EMPTY_COUNTS };
   for (const change of grouped) counts[change.severity]++;
   const { cards, responseFieldAdds, requestPropertyAdds } = splitCards(grouped);
@@ -193,6 +205,7 @@ function toRelease(run: RunRow): ReleaseView {
     changes: cards,
     responseFieldAdds,
     requestPropertyAdds,
+    providerNote: counts.BREAKING > 0 ? providerNote(run.to.source.provider.slug) : undefined,
   };
 }
 

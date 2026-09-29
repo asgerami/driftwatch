@@ -197,18 +197,26 @@ change and read the output before trusting it.
    release has two or more; `path.added` and `operation.added` stay as cards;
    additive headlines are specific; home ranks releases with a break,
    deprecation or behavioural shift first.
-3. **Verified.** `request.param.removed` on GitHub's classroom `page` /
+3. **Stories group repeated facts.** (`packages/core/src/diff/story.ts`)
+   A year of Stripe produced 214 distinct breaking facts but only 109 things
+   that happened: one new enum value lands in up to 7 components, one
+   correction removed `igic` under 26 countries, and a field that stops being
+   required *and* becomes nullable fires `became-optional` twice. `storyKeyOf`
+   decides what `review` approves as one decision and the feed shows as one
+   card. It never changes severity, which is part of every key, and every fact
+   is still stored on its own for the GitHub App.
+4. **Verified.** `request.param.removed` on GitHub's classroom `page` /
    `per_page` was not a walker bug. Commits `33438507 → 1048c01d` dropped the
    `$ref`s from three operations while the shared parameter components stayed,
    still referenced by 250+ other operations. Resolving `$ref`s before compare
    made that look like a withdrawal. Those drops are now
    `request.param.unlisted` (cosmetic, never published). A parameter that
    vanishes from the whole API is still `request.param.removed`.
-4. **Tier B acquisition shipped.** `acquire/http.ts` GETs a hosted spec URL.
+5. **Tier B acquisition shipped.** `acquire/http.ts` GETs a hosted spec URL.
    Seed, poll, backfill, verify and discover branch on tier. The first B
    source is Hetzner Cloud (`https://docs.hetzner.cloud/cloud.spec.json`).
    Hosted sources have no git history: the first snapshot is "now".
-5. **The GitHub App is deliberately not built.** It is the revenue half, and
+6. **The GitHub App is deliberately not built.** It is the revenue half, and
    building it before the feed proves anyone cares is how this becomes a
    portfolio project with a business model nobody asked for. The signal to wait
    for is one person saying the digest caught something before it hit their
