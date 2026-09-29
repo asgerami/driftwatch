@@ -55,7 +55,7 @@ export function ChangeItem({ change }: { change: ChangeView }) {
   const pattern = change.patterns.ts ?? change.patterns.py ?? change.patterns.go;
 
   return (
-    <li className="change" data-severity={change.severity}>
+    <li className="change" id={change.id} data-severity={change.severity}>
       <div className="change-head">
         <SeverityChip severity={change.severity} />
         {change.directionFlip ? <FlipBadge /> : null}
@@ -94,14 +94,17 @@ function formatDate(iso: string): string {
 function AdditiveLineRow({
   line,
   headline,
+  id,
 }: {
   line: AdditiveLine;
   headline: string;
+  /** Anchor the RSS feed links to. */
+  id: string;
 }) {
   const shown = line.fields.slice(0, 8);
   const more = line.fields.length - shown.length;
   return (
-    <p className="additive-line">
+    <p className="additive-line" id={id}>
       <span className="chip" data-severity="ADDITIVE">
         Additive
       </span>
@@ -118,7 +121,7 @@ function AdditiveLineRow({
 
 export function Release({ release }: { release: ReleaseView }) {
   return (
-    <article className="release">
+    <article className="release" id={release.id}>
       <header className="release-head">
         <span className="release-provider">
           {release.providerName}
@@ -142,12 +145,14 @@ export function Release({ release }: { release: ReleaseView }) {
         <AdditiveLineRow
           line={release.responseFieldAdds}
           headline={additiveLineHeadline(release.responseFieldAdds)}
+          id={`${release.id}-fields`}
         />
       ) : null}
       {release.requestPropertyAdds ? (
         <AdditiveLineRow
           line={release.requestPropertyAdds}
           headline={requestPropertyHeadline(release.requestPropertyAdds)}
+          id={`${release.id}-request-fields`}
         />
       ) : null}
     </article>

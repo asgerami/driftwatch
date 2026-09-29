@@ -135,6 +135,10 @@ check("one stored version leaks no commands", !leaksDevCommands(emptyOne), empty
 const emptyMany = decode(renderToStaticMarkup(<EmptyFeed providerName="Stripe" snapshotCount={7} />));
 check("stored versions awaiting review leak no commands", !leaksDevCommands(emptyMany), emptyMany);
 
+// RSS items link to #<change id>, #<release>-fields and #<release>-request-fields.
+check("each card carries its id as an anchor", release.changes.every((c) => releaseHtml.includes(`id="${c.id}"`)));
+check("the release carries its id as an anchor", releaseHtml.includes(`id="${release.id}"`));
+
 // A story groups several facts: one card, every place listed.
 const story = decode(
   renderToStaticMarkup(
@@ -219,6 +223,7 @@ const collapsedRelease: ReleaseView = {
   responseFieldAdds: split.responseFieldAdds,
 };
 const collapsedHtml = decode(renderToStaticMarkup(<Release release={collapsedRelease} />));
+check("the collapsed fields line carries the anchor RSS links to", collapsedHtml.includes(`id="${release.id}-fields"`));
 check("collapsed additive is one line, not eleven cards", collapsedHtml.includes("11 new response fields") && (collapsedHtml.match(/New response field/g) ?? []).length === 0);
 check("collapsed line lists a sample of fields", collapsedHtml.includes("field_0") && collapsedHtml.includes("+3 more"));
 check("path.added and breaking cards still render next to the line", collapsedHtml.includes("Endpoint added") && collapsedHtml.includes("direction flip"));
