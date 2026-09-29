@@ -18,11 +18,17 @@ and Netlify environment variables. Only the site needs a subset.
 
 | Name | What | `.env` | GitHub | Netlify |
 | --- | --- | --- | --- | --- |
-| `DATABASE_URL` | Neon connection string, pooled (host contains `-pooler`) | yes | yes | yes |
+| `DATABASE_URL` | Neon connection string, pooled (host contains `-pooler`), plus `&connect_timeout=30` | yes | yes | yes |
 | `DIRECT_URL` | Same, without `-pooler`. Used by `prisma db push` | yes | yes | no |
 | `R2_BASE_URL` | `https://<account-id>.r2.cloudflarestorage.com/<bucket>` | yes | yes | no |
 | `R2_ACCESS_KEY_ID` | R2 API token, Object Read & Write on the bucket | yes | yes | no |
 | `R2_SECRET_ACCESS_KEY` | Shown once when the token is created | yes | yes | no |
+
+**Keep `connect_timeout=30` on both Neon URLs.** Neon's free tier suspends the
+database after about 5 minutes idle and takes a few seconds to wake. Prisma
+gives up connecting after 5 seconds by default, so without it the first
+command after a pause fails with a connection error. The scheduled job runs
+every 6 hours, so it always finds the database asleep.
 
 Copy the GitHub ones from `.env` with the `gh` CLI, from the repo root:
 
@@ -81,5 +87,7 @@ Run it locally; it reads the same Neon database the job writes.
   in use. The job prints it at the end of every run.
 - **"R2 is partly configured"** means one of the three `R2_*` values is missing.
   This is deliberate: falling back to the runner's disk would lose every blob.
+- **"Can't reach database server"** on the first command after a pause: the
+  Neon URL is missing `connect_timeout=30` (see Secrets).
 - **A source fails** (for example a hosted URL returning 403): the others still
   run. Check the job log for the line naming it.

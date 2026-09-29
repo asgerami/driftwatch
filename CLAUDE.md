@@ -113,6 +113,13 @@ throws rather than falling back to local disk, because a silent fallback on a
 runner stores every blob somewhere about to be thrown away. Git clones still
 live under `DATA_DIR`; they are cheap to rebuild (partial, blobless).
 
+**14. Neon URLs carry `connect_timeout=30`.** Neon's free tier suspends after
+about 5 minutes idle and wakes in a few seconds; Prisma's default connect
+timeout is 5 seconds. Without the parameter, the first command after any pause
+fails with a connection error, and the scheduled job (every 6 hours) always
+starts after a pause. It showed up as a persist test failing at 5.16s and a
+`seed` that failed once and then worked.
+
 ## Layout
 
 ```
