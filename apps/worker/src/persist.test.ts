@@ -177,7 +177,30 @@ describe.skipIf(!hasDatabase)("persist path against Postgres", () => {
 
     const leftover = await prisma.diffRun.findUnique({ where: { id: created.runId! } });
     expect(leftover).toBeNull();
+
+    // A ruleset bump: pretend the redone run came from an older ruleset, with
+    // one fact already published. Re-diffing under the current version must
+    // keep that fact published and send the rest back to review.
+    await prisma.diffRun.update({
+      where: { id: redone.runId! },
+      data: { rulesetVer: "0.0.0-persist-test" },
+    });
+    const kept = redoneRows.find((row) => row.ruleId === "response.property.added")!;
+    const publishedAt = new Date("2024-03-01T00:00:00Z");
+    await prisma.change.updateMany({
+      where: { runId: redone.runId!, fingerprint: kept.fingerprint },
+      data: { reviewedAt: publishedAt, publishedAt },
+    });
+
+    const bumped = await diffPair(from, to);
+    expect(bumped.status).toBe("created");
+    const bumpedRows = await prisma.change.findMany({ where: { runId: bumped.runId } });
+    const carried = bumpedRows.filter((row) => row.publishedAt !== null);
+    expect(carried.length).toBeGreaterThan(0);
+    expect(carried.every((row) => row.fingerprint === kept.fingerprint)).toBe(true);
+    expect(carried[0]!.publishedAt!.toISOString()).toBe(publishedAt.toISOString());
+    expect(bumpedRows.some((row) => row.publishedAt === null)).toBe(true);
     // A hosted Postgres (Neon) costs tens of milliseconds per round trip, and
     // this test makes dozens. The 5s default only fits a local database.
-  }, 60_000);
+  }, 120_000);
 });

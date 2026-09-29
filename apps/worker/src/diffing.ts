@@ -81,6 +81,7 @@ export async function diffPair(
       await prisma.change.createMany({
         data: result.changes.map((change) => toRow(run.id, change)),
       });
+      await carryForwardPublished(run.id, from.id, to.id);
     }
 
     await prisma.diffRun.update({
@@ -104,6 +105,43 @@ export async function diffPair(
       data: { finishedAt: new Date(), error: message },
     });
     return { status: "failed", runId: run.id, error: message };
+  }
+}
+
+/**
+ * Keep human review decisions across a ruleset bump.
+ *
+ * Review and the feed read only runs at the current RULESET_VERSION, so a rule
+ * fix replaces the previous classification instead of sitting beside it. On
+ * its own that would empty the feed on every bump until someone re-published
+ * years of history. A fact published for this same pair under an earlier
+ * ruleset, with the same fingerprint and the same severity, stays published.
+ * Anything new or reclassified goes back to review, which is the point.
+ */
+async function carryForwardPublished(
+  runId: string,
+  fromId: string,
+  toId: string,
+): Promise<void> {
+  const published = await prisma.change.findMany({
+    where: {
+      publishedAt: { not: null },
+      run: { fromId, toId, rulesetVer: { not: RULESET_VERSION } },
+    },
+    select: { fingerprint: true, severity: true, reviewedAt: true, publishedAt: true },
+    distinct: ["fingerprint", "severity"],
+  });
+
+  for (const prior of published) {
+    await prisma.change.updateMany({
+      where: {
+        runId,
+        fingerprint: prior.fingerprint,
+        severity: prior.severity,
+        publishedAt: null,
+      },
+      data: { reviewedAt: prior.reviewedAt, publishedAt: prior.publishedAt },
+    });
   }
 }
 

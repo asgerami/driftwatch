@@ -1,5 +1,6 @@
 import {
   RULES,
+  RULESET_VERSION,
   renderImpact,
   type Change as CoreChange,
   type Severity,
@@ -239,6 +240,9 @@ export async function recentReleases(
   const take = opts?.preferSignal ? Math.max(limit * 3, 60) : limit;
   const runs = (await prisma.diffRun.findMany({
     where: {
+      // Only the current ruleset's runs. Published facts carry forward on a
+      // bump (apps/worker/src/diffing.ts), so an older run is superseded.
+      rulesetVer: RULESET_VERSION,
       changes: { some: { publishedAt: { not: null } } },
       ...(providerSlug
         ? { to: { source: { provider: { slug: providerSlug } } } }
@@ -286,7 +290,10 @@ export async function listProviders(): Promise<ProviderView[]> {
       where: {
         severity: "BREAKING",
         publishedAt: { not: null },
-        run: { to: { source: { provider: { slug: provider.slug } } } },
+        run: {
+          rulesetVer: RULESET_VERSION,
+          to: { source: { provider: { slug: provider.slug } } },
+        },
       },
     });
 
