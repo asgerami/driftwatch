@@ -38,8 +38,11 @@ describe("stdio MCP against a live feed", () => {
     await transport?.close();
   });
 
-  it("lists tools and returns OpenAI breaking changes from the published feed", async () => {
-    if (!live || !client) return;
+  it("lists tools and returns OpenAI breaking changes from the published feed", async (ctx) => {
+    // Report a skip, not a pass: returning early here once let an unreachable
+    // feed show up as a green test that had checked nothing.
+    if (!live || !client) ctx.skip();
+    if (!client) return;
 
     const tools = await client.listTools();
     expect(tools.tools.map((t) => t.name).sort()).toEqual([

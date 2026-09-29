@@ -6,8 +6,10 @@
  * sees the same reviewed facts a human would.
  */
 
+// The public feed. Point DRIFTWATCH_FEED_URL at http://localhost:3000/api/feed.json
+// to read a local site instead.
 export const DEFAULT_FEED_URL =
-  process.env.DRIFTWATCH_FEED_URL ?? "http://localhost:3000/api/feed.json";
+  process.env.DRIFTWATCH_FEED_URL ?? "https://driftwatch.et/api/feed.json";
 
 export type Severity =
   | "BREAKING"
