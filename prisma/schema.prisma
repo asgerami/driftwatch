@@ -6,11 +6,18 @@
 
 generator client {
   provider = "prisma-client-js"
+  // The site's server functions run on Netlify's AWS Lambda (Amazon Linux,
+  // OpenSSL 3), not on the machine that builds them.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
+// DATABASE_URL may go through a connection pooler (Neon's "-pooler" host).
+// Schema pushes need a session a pooler will not hold, so they use DIRECT_URL.
+// Without a pooler, set both to the same value.
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Tier {

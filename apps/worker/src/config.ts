@@ -32,6 +32,12 @@ export const config = {
   dataDir: dataDirOf(process.env["DATA_DIR"] ?? "./.data"),
   githubToken: process.env["GITHUB_TOKEN"] ?? "",
   databaseUrl: process.env["DATABASE_URL"] ?? "",
+  r2: {
+    /** "https://<account>.r2.cloudflarestorage.com/<bucket>" */
+    baseUrl: (process.env["R2_BASE_URL"] ?? "").replace(/\/+$/, ""),
+    accessKeyId: process.env["R2_ACCESS_KEY_ID"] ?? "",
+    secretAccessKey: process.env["R2_SECRET_ACCESS_KEY"] ?? "",
+  },
 };
 
 export function requireDatabaseUrl(): string {

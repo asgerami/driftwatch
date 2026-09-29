@@ -12,6 +12,7 @@
   "dependencies": {
     "@driftwatch/core": "workspace:*",
     "@prisma/client": "^6.1.0",
+    "aws4fetch": "^1.0.20",
     "commander": "^12.1.0"
   },
   "devDependencies": {

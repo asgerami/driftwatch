@@ -79,6 +79,13 @@ flips (`directionFlip: true`) are why anyone subscribes:
 - A `$ref` repoint is usually a **rename**. Targets are compared: identical
   shape is cosmetic, anything else is BEHAVIORAL at confidence 80, below the
   publish threshold on purpose.
+- **Two spellings of "X or null" are one schema.** OAS 3.0's
+  `allOf: [X, {nullable: true}]` and 3.1's `anyOf`/`oneOf: [X, {type: "null"}]`
+  mean the same thing, but only `allOf` is flattened, so OpenAI switching
+  spelling on `Upload.file` read as 16 breaking changes. `unwrapNullable`
+  rewrites the union form, but only when neither side is left as a genuine
+  union: rewriting one side of `X | null` → `X | null | {}` produced 6 new
+  false breaks, where the raw forms give one composition change.
 
 **8. `allOf` members are never sorted.** Later members override earlier ones,
 so order carries meaning. `enum`, `required`, `security`, `tags` and
@@ -104,6 +111,29 @@ pnpm runs filtered scripts inside their own package, so a cwd-relative path
 would give `pnpm w` and a root-run command two different caches, and a second
 multi-gigabyte clone of every provider repo.
 
+**13. Spec blobs live in R2 when it is configured.** (`apps/worker/src/blobs.ts`)
+The scheduled job runs on a GitHub Actions runner whose disk is wiped after
+every run, and `diff` reads the previous version's normalized blob back, so
+local disk cannot be the store there. Postgres holds only the keys. Keys are
+identical on both backends. All three `R2_*` settings or none: a partial set
+throws rather than falling back to local disk, because a silent fallback on a
+runner stores every blob somewhere about to be thrown away. Git clones still
+live under `DATA_DIR`; they are cheap to rebuild (partial, blobless).
+
+**14. Neon URLs carry `connect_timeout=30`.** Neon's free tier suspends after
+about 5 minutes idle and wakes in a few seconds; Prisma's default connect
+timeout is 5 seconds. Without the parameter, the first command after any pause
+fails with a connection error, and the scheduled job (every 6 hours) always
+starts after a pause. It showed up as a persist test failing at 5.16s and a
+`seed` that failed once and then worked.
+
+**15. Review and the feed read only the current `RULESET_VERSION`.** A bump
+re-diffs every pair and keeps the old runs, so without the filter a fixed false
+positive would sit in review beside its correction, and publishing would
+publish both. Human decisions survive a bump: `diffPair` carries `publishedAt`
+forward for a fact published on the same pair under an earlier ruleset with the
+same fingerprint and severity. Anything new or reclassified goes back to review.
+
 ## Layout
 
 ```
@@ -115,6 +145,7 @@ apps/worker/            the pipeline CLI
   registry.ts           seed list with ordered filePathCandidates
   acquire/git.ts        partial clone, rename-aware history, read-at-commit
   acquire/http.ts       hosted URL fetch for tier B
+  blobs.ts              content-addressed blob store: R2, or DATA_DIR/blobs
   store.ts              the ONE write path into SpecSnapshot
   diffing.ts            the ONE write path into DiffRun and Change
 apps/web/

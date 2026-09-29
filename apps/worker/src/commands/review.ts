@@ -1,6 +1,7 @@
 import {
   PUBLISH_CONFIDENCE_THRESHOLD,
   RULES,
+  RULESET_VERSION,
   type Severity,
 } from "@driftwatch/core";
 
@@ -82,7 +83,10 @@ export async function review(
       publishedAt: null,
       ...gate,
       ...(options.severity ? { severity: options.severity } : {}),
-      ...(providerFilter ? { run: { to: { source: providerFilter } } } : {}),
+      run: {
+        rulesetVer: RULESET_VERSION,
+        ...(providerFilter ? { to: { source: providerFilter } } : {}),
+      },
     },
     select: {
       id: true,
@@ -110,7 +114,10 @@ export async function review(
             { confidence: { lt: PUBLISH_CONFIDENCE_THRESHOLD } },
             { severity: "COSMETIC" },
           ],
-          ...(providerFilter ? { run: { to: { source: providerFilter } } } : {}),
+          run: {
+            rulesetVer: RULESET_VERSION,
+            ...(providerFilter ? { to: { source: providerFilter } } : {}),
+          },
         },
       });
 

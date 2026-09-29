@@ -1,4 +1,5 @@
 import { prisma } from "../db.js";
+import { blobStoreName } from "../blobs.js";
 
 function pad(value: string, width: number): string {
   return value.length > width ? `${value.slice(0, width - 1)}…` : value.padEnd(width);
@@ -59,6 +60,7 @@ export async function status(): Promise<void> {
     _max: { opCount: true },
   });
   console.log(
-    `\n${total} snapshots stored. Largest surface seen: ${distinctOps._max.opCount ?? 0} operations.\n`,
+    `\n${total} snapshots stored. Largest surface seen: ${distinctOps._max.opCount ?? 0} operations.`,
   );
+  console.log(`Blob store: ${blobStoreName()}\n`);
 }

@@ -1,5 +1,6 @@
 import {
   RULES,
+  RULESET_VERSION,
   renderImpact,
   type Change as CoreChange,
   type Severity,
@@ -217,14 +218,31 @@ const RUN_INCLUDE = {
   },
 } as const;
 
+/**
+ * `next build` prerenders the ISR pages. With no database configured (CI,
+ * `pnpm check`) they build empty and fill on the first revalidate. At runtime
+ * a missing DATABASE_URL still throws, so a misconfigured deploy fails loudly
+ * instead of serving an empty feed that looks like a quiet week.
+ */
+function buildingWithoutDatabase(): boolean {
+  return (
+    process.env.NEXT_PHASE === "phase-production-build" &&
+    !process.env.DATABASE_URL
+  );
+}
+
 export async function recentReleases(
   limit = 20,
   providerSlug?: string,
   opts?: { preferSignal?: boolean },
 ): Promise<ReleaseView[]> {
+  if (buildingWithoutDatabase()) return [];
   const take = opts?.preferSignal ? Math.max(limit * 3, 60) : limit;
   const runs = (await prisma.diffRun.findMany({
     where: {
+      // Only the current ruleset's runs. Published facts carry forward on a
+      // bump (apps/worker/src/diffing.ts), so an older run is superseded.
+      rulesetVer: RULESET_VERSION,
       changes: { some: { publishedAt: { not: null } } },
       ...(providerSlug
         ? { to: { source: { provider: { slug: providerSlug } } } }
@@ -246,6 +264,7 @@ export async function recentReleases(
 }
 
 export async function listProviders(): Promise<ProviderView[]> {
+  if (buildingWithoutDatabase()) return [];
   const providers = (await prisma.provider.findMany({
     include: {
       sources: { select: { id: true } },
@@ -271,7 +290,10 @@ export async function listProviders(): Promise<ProviderView[]> {
       where: {
         severity: "BREAKING",
         publishedAt: { not: null },
-        run: { to: { source: { provider: { slug: provider.slug } } } },
+        run: {
+          rulesetVer: RULESET_VERSION,
+          to: { source: { provider: { slug: provider.slug } } },
+        },
       },
     });
 

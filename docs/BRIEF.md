@@ -1,0 +1,238 @@
+# Driftwatch Build Brief
+
+> For Claude Code working in this repo. Read this file and `CLAUDE.md` before doing anything.
+> `CLAUDE.md` records architecture decisions and traps. This file covers product direction and the next 6 weeks of work.
+> If the two disagree, stop and ask Amir.
+
+---
+
+## 1. What Driftwatch is
+
+Driftwatch is a breaking-change radar for the third-party APIs a team depends on. It watches public OpenAPI specs, detects and classifies changes, and publishes the breaking ones as a free public feed.
+
+The paid product comes later: a GitHub App that finds the affected code in a customer's repo and opens the fix PR.
+
+It maps to YC's Fall 2026 Request for Startups, "Self-Maintaining APIs." Amir is a solo founder. The goal for the next 6 weeks is to prove two things: people want the feed, and people want their repo fixed. Those signals go into Antler and YC applications.
+
+## 2. Positioning (read carefully)
+
+- **Producer-side diff tools** (oasdiff, Bump.sh, Optic, Specway) help API owners check their own specs. API owners are not our user.
+- **Consumer-side alerting already exists.** FlareCanary sends schema drift alerts, PageCrawl watches changelogs and specs, and several Apify actors run scheduled OpenAPI diffs to Slack. "We alert you" is a commodity.
+- **Our product is the fix:** "these call sites in your repo break, and here is the patch." The feed is distribution, not the business.
+- **Trust is everything.** One false BREAKING label on the public feed costs more than ten missed minor changes. Favor precision over recall.
+
+If `CLAUDE.md`, the README, or site copy says every existing tool is producer-side, update it to match this section.
+
+## 3. Known state (verify; may be stale)
+
+As of mid September 2026:
+
+- **pnpm monorepo:**
+  - `packages/core`: normalize, diff, classify
+  - `apps/worker`: cron pipeline
+  - `apps/web`: Next.js site
+  - `prisma/schema.prisma`
+- **Pipeline complete:** acquire → normalize → diff → classify → impact render → review gate → feed (HTML, JSON, RSS)
+- **Diff engine:** in-house TypeScript engine. oasdiff was dropped because it needs a Go toolchain.
+- **Reused code:** parsers and schema resolver come from Wrangl. The Babel AST engine from AegisPulse is intended for the repo scanner.
+- **Size:** roughly 13 commits and 51 tests.
+
+## 4. Step 0: orient before coding
+
+Do this first, then report back to Amir in one short message. Do not write feature code yet.
+
+1. Read `CLAUDE.md`, the README, every `package.json`, and the Prisma schema.
+2. Install dependencies, then run the full test suite and a typecheck. Report pass/fail.
+3. If possible, run the pipeline end to end locally on one API. Note what breaks.
+4. List which APIs are tracked today and where each spec is fetched from.
+5. Write a gap list comparing this brief with the repo. Flag anything in this brief that is wrong about the repo.
+6. Propose the order you will tackle Milestone 1 in.
+
+## 5. Milestones
+
+Each milestone ends with three things: tests passing, a clean typecheck, and a short summary to Amir.
+
+### M1: Coverage and trust (weeks 1 to 2)
+
+**Goal:** track about 25 APIs that developers actually integrate, reliably, with nothing wrong ever published.
+
+**Source registry.** One entry per API with these fields:
+- name and category
+- spec URL (prefer the provider's official repo)
+- format
+- fetch cadence
+- last successful fetch
+- last detected change
+
+**Candidate APIs.** Verify each one. Keep only those with an official, machine-readable OpenAPI spec, and replace the rest.
+- Stripe, GitHub REST, Twilio, SendGrid, OpenAI, Anthropic, Plaid
+- Adyen, Square, Cloudflare, DigitalOcean, Discord, PagerDuty, Asana
+- Box, Datadog, Jira Cloud, Vercel, Resend, Mailgun, Slack Web API
+- Zoom, HubSpot, Mux, Clerk
+
+GraphQL-only APIs (Shopify Admin, Linear) are out of scope for now.
+
+**Fetch robustness.**
+- Timeouts, plus retries with backoff.
+- ETag and Last-Modified support.
+- Content hashing, so unchanged specs skip the diff.
+- Fetch failures and stale sources must surface visibly. Never let a source go stale silently.
+
+**Classifier fixtures.** Every rule gets a pair of fixture specs and an expected classification. Rules include at least:
+- endpoint removed
+- method removed
+- required parameter added
+- parameter removed
+- response field removed
+- type changed
+- enum value removed
+- auth or security scheme changed
+
+Add fixtures built from real historical changes where possible.
+
+**Noise control.**
+- Ignore changes that touch only descriptions or examples.
+- Ignore reordering.
+- Ignore vendor extensions unless they change behavior.
+- Spec restructuring, such as `$ref` moves, must not produce false positives.
+
+**Review gate.** It stays mandatory for anything labeled breaking. In v1, nothing breaking is published automatically.
+
+Acceptance:
+- [ ] Registry holds at least 20 verified APIs, each fetching on schedule
+- [ ] Every classifier rule has fixture tests
+- [ ] Re-running the pipeline on unchanged specs creates zero new items (idempotent)
+- [ ] A refactor-only spec change (`$ref` moves, reordering) creates no breaking items
+
+### M2: The public site as distribution (weeks 2 to 3)
+
+**Stable URLs.** Slugged, permanent, shareable:
+- `/apis/[api]`
+- `/changes/[id]`
+
+**Change page contents.**
+- A plain-English summary of what changed
+- Who is affected
+- A before/after snippet
+- Severity
+- A link to the source spec diff or commit
+- A detected-at timestamp
+
+**Feeds.** Per-API RSS and JSON, in addition to the global feeds.
+
+**SEO basics.**
+- A title and description for every page
+- `sitemap.xml`
+- Canonical URLs
+- A generated OG image for each change
+
+**"Watch my repo" waitlist.**
+- Collects email, GitHub repo URL, and which APIs they use.
+- Stored in Postgres via Prisma.
+- No email provider yet. Ask Amir before adding one.
+
+**Analytics.** Privacy-friendly only. Amir has used Umami before, but confirm with him before adding anything.
+
+**Performance.** Static generation or ISR wherever possible.
+
+Acceptance:
+- [ ] Every published change has a permanent URL with an OG image
+- [ ] Per-API and global RSS/JSON feeds validate
+- [ ] Sitemap includes every API and change page
+- [ ] Waitlist form stores submissions and rejects junk input
+
+### M3: Share kit (week 3)
+
+For each published breaking change, generate two draft posts:
+- a short one for X
+- a longer one for HN or Reddit
+
+Each draft states the key fact and links to the change page. Store the drafts in the database or as files. Amir posts them manually. Never auto-post.
+
+### M4: Concierge fixer CLI (weeks 3 to 5)
+
+This is the prototype of the paid product. After real breaking changes, Amir uses it by hand to open fix PRs on public repos. Support TypeScript and JavaScript only at first.
+
+**`driftwatch scan --change <id> --repo <path>`** finds call sites affected by a change. It looks for:
+- **Official SDK calls:** map operationId and path to SDK methods for the tracked providers' official SDKs.
+- **Raw HTTP calls:** `fetch`, `axios` and `ky` calls whose URL matches the affected path. Handle template literals and base-URL constants.
+- **Field access:** reads of removed or renamed response fields downstream of the call. This is best effort, and every finding carries a confidence label.
+
+The output is a report listing each finding's file, line, snippet, why it breaks, and confidence.
+
+**`driftwatch fix`** generates a patch for high-confidence mechanical cases:
+- renamed fields
+- removed optional parameters
+- newly required parameters with a documented value
+
+Every patch must typecheck, and repo tests must run when they exist. Low-confidence findings get a report only, never a patch.
+
+**`driftwatch pr-body`** writes the PR description:
+- what changed upstream, with a link
+- what the patch changes
+- how it was verified
+- a one-line disclosure that Driftwatch found the issue
+
+**Human in the loop.** The CLI never opens PRs itself. Amir reviews every PR and opens it himself, and keeps it to a handful per upstream change.
+
+Acceptance:
+- [ ] Fixture consumer repos with known call sites, covering SDK calls, raw HTTP and field access
+- [ ] Scan precision and recall measured against those fixtures and reported
+- [ ] Every generated patch typechecks against its fixture repo
+
+### M5: GitHub App (gated; do not start)
+
+Amir decides whether to build this based on the signals at weeks 5 to 6. Do not scaffold it early.
+
+## 6. Signals to track
+
+Build a small CLI script (not an admin UI) that prints:
+
+- Views of change pages and API pages
+- RSS and JSON feed fetches, approximated from logs
+- Waitlist signups, broken down by API
+- Fix PRs opened, merged and rejected, logged in a simple table
+
+**Decision point at week 6.** Strong waitlist signups plus merged PRs mean build the App. Readers but no waitlist and no merges mean Amir rethinks. In that case, `packages/core` must stay reusable.
+
+## 7. Engineering standard
+
+- **Types:** TypeScript strict mode. No `any` without a comment explaining why.
+- **Tests:** every diff or classifier change ships with tests. Unit tests never touch the network; use fixtures.
+- **Pipeline:** deterministic and idempotent. The worker must be safe to re-run at any time.
+- **Pure core:** `packages/core` has no database or network access, so the fixer and the future App can reuse it.
+- **Dependencies:** keep them minimal, and justify each new one in the commit message. No Go toolchain.
+- **Errors:** fetch failures, parse failures and stale sources are loud in logs and in the stats script. Never swallow them.
+- **Evidence:** every published claim links to its evidence (the spec diff or commit).
+- **Commits:**
+  - Small and focused, using conventional commit messages.
+  - Commit after each working step.
+  - Never add Co-Authored-By lines, attribution trailers, or "generated with Claude" text to commits, PR descriptions, or code.
+- **Records:** update `CLAUDE.md` whenever you make an architecture decision or hit a trap. Update the status log (section 10) at the end of every session.
+
+## 8. Out of scope for now
+
+- User accounts, auth, billing, dashboards
+- The GitHub App
+- Languages other than TS/JS in the fixer
+- GraphQL APIs
+- LLM-only classification. Any LLM use sits on top of the deterministic diff output and never decides "breaking" on its own.
+- Auto-posting to social media, or opening PRs automatically
+- Any paid service without Amir's approval
+
+## 9. Ask Amir before
+
+- Changing architecture recorded in `CLAUDE.md`
+- Adding a paid service, an external API key, or new infrastructure
+- Deleting data, rewriting migrations, or force-pushing
+- Publishing anything externally
+- Starting anything this brief doesn't cover that would take more than a day
+
+## 10. Status log
+
+Claude Code: add one dated line at the end of each session saying what got done and what's next.
+
+- 2026-09-28: Brief created. Next: Step 0.
+- 2026-09-28: Step 0 done. Install, typecheck and 73 tests pass; `pnpm check` needs `DATABASE_URL`; OpenAI ran end to end and idempotently but surfaced an allOf→anyOf nullable false positive. Next: M1, once the open questions are answered.
+- 2026-09-29: Hosting on free tiers: Neon (schema pushed, 6 sources seeded), Cloudflare R2 for spec blobs, GitHub Actions `poll.yml` every 6h, Netlify prepared but not connected. `pnpm check` no longer needs a database. First full poll stored all 6 sources. Next: merge #8 so the schedule runs, connect Netlify, then M1 step 2 (allOf→anyOf false positive).
+- 2026-09-29: M1 step 2 done. allOf/anyOf nullable false positive fixed (ruleset 1.2.0): 19 false breaks gone across 100 real pairs, nothing else changed. Review and the feed read only the current ruleset; published facts carry forward on a bump. R2 retries hardened after 3 transient read failures. Next: spot-check Stripe's breaking changes before any publish, then rule fixtures (M1 step 3).

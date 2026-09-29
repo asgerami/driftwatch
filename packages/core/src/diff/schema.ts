@@ -138,6 +138,43 @@ function isNullable(schema: JsonObject): boolean {
   return typeSet(schema).includes("null");
 }
 
+function isNullArm(arm: Json): boolean {
+  if (!isObject(arm) || typeof arm["$ref"] === "string") return false;
+  const types = typeSet(arm);
+  return types.length === 1 && types[0] === "null";
+}
+
+/**
+ * "This schema, or null" has two common spellings: OAS 3.0's
+ * `allOf: [X, {nullable: true}]` and 3.1's `anyOf: [X, {type: "null"}]`
+ * (or `oneOf`). They mean the same thing, but only `allOf` is flattened, so a
+ * provider switching spelling read as every field of X removed and no longer
+ * guaranteed. Found in real OpenAI history (Upload.file, 7140eb70 → 4399577e):
+ * 16 false breaks from one edit. Rewrite the union form into the `allOf` form
+ * so both sides reach the comparison in the same shape. Only an exact pair of
+ * one schema and one null arm is rewritten; any other union is a real union.
+ */
+function isUnion(schema: JsonObject): boolean {
+  return Array.isArray(schema["anyOf"]) || Array.isArray(schema["oneOf"]);
+}
+
+export function unwrapNullable(schema: JsonObject): JsonObject {
+  for (const keyword of ["anyOf", "oneOf"] as const) {
+    const arms = schema[keyword];
+    if (!Array.isArray(arms) || arms.length !== 2) continue;
+    const nullIndex = arms.findIndex(isNullArm);
+    if (nullIndex === -1) continue;
+    const other = arms[1 - nullIndex]!;
+    if (isNullArm(other)) continue;
+
+    const rest: JsonObject = { ...schema };
+    delete rest[keyword];
+    const allOf = Array.isArray(rest["allOf"]) ? rest["allOf"] : [];
+    return { ...rest, allOf: [...allOf, other], nullable: true };
+  }
+  return schema;
+}
+
 function enumSet(schema: JsonObject): string[] {
   const values = schema["enum"];
   if (!Array.isArray(values)) return [];
@@ -220,8 +257,20 @@ export function diffSchema(
   const afterResolved = deref(ctx.afterDoc, afterRaw ?? null);
   if (!beforeResolved || !afterResolved) return;
 
-  const before = flattenAllOf(ctx.beforeDoc, beforeResolved);
-  const after = flattenAllOf(ctx.afterDoc, afterResolved);
+  // Rewrite the nullable spelling only when it makes the sides comparable. If
+  // either side is still a genuine union, compare both as written: the
+  // composition check below then reports the union change once, instead of
+  // every field of the flattened side reading as removed. Real case:
+  // FineTuningJob.error went `X | null` to `X | null | {}` (9654de53 →
+  // 883357cf); unwrapping only the before side produced 6 false breaks.
+  let beforeShape = unwrapNullable(beforeResolved);
+  let afterShape = unwrapNullable(afterResolved);
+  if (isUnion(beforeShape) || isUnion(afterShape)) {
+    beforeShape = beforeResolved;
+    afterShape = afterResolved;
+  }
+  const before = flattenAllOf(ctx.beforeDoc, beforeShape);
+  const after = flattenAllOf(ctx.afterDoc, afterShape);
 
   const { direction, emit, location } = ctx;
   const base = { ...location, fieldPath };
