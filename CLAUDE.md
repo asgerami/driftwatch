@@ -104,6 +104,15 @@ pnpm runs filtered scripts inside their own package, so a cwd-relative path
 would give `pnpm w` and a root-run command two different caches, and a second
 multi-gigabyte clone of every provider repo.
 
+**13. Spec blobs live in R2 when it is configured.** (`apps/worker/src/blobs.ts`)
+The scheduled job runs on a GitHub Actions runner whose disk is wiped after
+every run, and `diff` reads the previous version's normalized blob back, so
+local disk cannot be the store there. Postgres holds only the keys. Keys are
+identical on both backends. All three `R2_*` settings or none: a partial set
+throws rather than falling back to local disk, because a silent fallback on a
+runner stores every blob somewhere about to be thrown away. Git clones still
+live under `DATA_DIR`; they are cheap to rebuild (partial, blobless).
+
 ## Layout
 
 ```
@@ -115,6 +124,7 @@ apps/worker/            the pipeline CLI
   registry.ts           seed list with ordered filePathCandidates
   acquire/git.ts        partial clone, rename-aware history, read-at-commit
   acquire/http.ts       hosted URL fetch for tier B
+  blobs.ts              content-addressed blob store: R2, or DATA_DIR/blobs
   store.ts              the ONE write path into SpecSnapshot
   diffing.ts            the ONE write path into DiffRun and Change
 apps/web/
