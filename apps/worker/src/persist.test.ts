@@ -177,5 +177,7 @@ describe.skipIf(!hasDatabase)("persist path against Postgres", () => {
 
     const leftover = await prisma.diffRun.findUnique({ where: { id: created.runId! } });
     expect(leftover).toBeNull();
-  });
+    // A hosted Postgres (Neon) costs tens of milliseconds per round trip, and
+    // this test makes dozens. The 5s default only fits a local database.
+  }, 60_000);
 });

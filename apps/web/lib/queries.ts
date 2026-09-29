@@ -217,11 +217,25 @@ const RUN_INCLUDE = {
   },
 } as const;
 
+/**
+ * `next build` prerenders the ISR pages. With no database configured (CI,
+ * `pnpm check`) they build empty and fill on the first revalidate. At runtime
+ * a missing DATABASE_URL still throws, so a misconfigured deploy fails loudly
+ * instead of serving an empty feed that looks like a quiet week.
+ */
+function buildingWithoutDatabase(): boolean {
+  return (
+    process.env.NEXT_PHASE === "phase-production-build" &&
+    !process.env.DATABASE_URL
+  );
+}
+
 export async function recentReleases(
   limit = 20,
   providerSlug?: string,
   opts?: { preferSignal?: boolean },
 ): Promise<ReleaseView[]> {
+  if (buildingWithoutDatabase()) return [];
   const take = opts?.preferSignal ? Math.max(limit * 3, 60) : limit;
   const runs = (await prisma.diffRun.findMany({
     where: {
@@ -246,6 +260,7 @@ export async function recentReleases(
 }
 
 export async function listProviders(): Promise<ProviderView[]> {
+  if (buildingWithoutDatabase()) return [];
   const providers = (await prisma.provider.findMany({
     include: {
       sources: { select: { id: true } },
