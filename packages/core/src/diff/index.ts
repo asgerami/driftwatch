@@ -65,7 +65,7 @@ export interface DiffResult {
   counts: Record<Severity, number>;
 }
 
-export const RULESET_VERSION = "1.2.0";
+export const RULESET_VERSION = "1.3.0";
 
 /** A single pair of specs should never produce more than this. */
 const MAX_CHANGES = 5000;

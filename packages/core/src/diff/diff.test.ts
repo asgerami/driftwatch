@@ -523,6 +523,67 @@ describe("nullable spellings are the same schema", () => {
   });
 });
 
+describe("a response narrowing its type is not a break", () => {
+  const field = (schema: Doc) =>
+    doc({ "/list": { get: jsonOp({ type: "object", properties: { first_id: schema } }) } });
+
+  it("treats null|string → string on a response as a tighter guarantee", () => {
+    // Real case: OpenAI ChatCompletionList.first_id, 2026-09-28.
+    const result = diffDocuments(
+      field({ type: ["string", "null"] }),
+      field({ type: "string" }),
+    );
+    expect(ids(result)).toEqual(["response.property.type-narrowed"]);
+    expect(result.changes[0]?.severity).toBe("ADDITIVE");
+  });
+
+  it("also for the OAS 3.0 nullable spelling", () => {
+    // Real case: Stripe expected_debit_date, 2026-02-23.
+    const result = diffDocuments(
+      field({ type: "string", nullable: true }),
+      field({ type: "string" }),
+    );
+    expect(ids(result)).toEqual(["response.property.type-narrowed"]);
+  });
+
+  it("holds a field narrowed to always-null below the publish threshold", () => {
+    // Real case: Twilio messaging.v1 rate_limits, null|object → null.
+    const result = diffDocuments(
+      field({ type: ["object", "null"] }),
+      field({ type: "null" }),
+    );
+    expect(ids(result)).toEqual(["response.property.now-always-null"]);
+    expect(result.changes[0]?.severity).toBe("BEHAVIORAL");
+    expect(result.changes[0]?.publishable).toBe(false);
+  });
+
+  it("still calls a request that stops accepting null a break", () => {
+    const body = (schema: Doc) =>
+      doc({
+        "/x": {
+          post: {
+            requestBody: {
+              content: {
+                "application/json": {
+                  schema: { type: "object", properties: { v: schema } },
+                },
+              },
+            },
+            responses: { "200": { description: "ok" } },
+          },
+        },
+      });
+    const result = diffDocuments(body({ type: ["string", "null"] }), body({ type: "string" }));
+    expect(ids(result)).toEqual(["request.property.type-changed"]);
+    expect(result.changes[0]?.severity).toBe("BREAKING");
+  });
+
+  it("still calls a genuine response retype a break", () => {
+    const result = diffDocuments(field({ type: "string" }), field({ type: "integer" }));
+    expect(ids(result)).toEqual(["response.property.type-changed"]);
+  });
+});
+
 describe("schema repoints", () => {
   const build = (ref: string, shapes: Doc) =>
     doc({ "/r": { get: jsonOp({ type: "object", properties: { f: { $ref: ref } } }) } }, { schemas: shapes });
