@@ -31,6 +31,11 @@ export async function GET(request: Request) {
     {
       headers: {
         "cache-control": "public, max-age=300, stale-while-revalidate=3600",
+        // Netlify's CDN keys its cache on the path plus only the query
+        // parameters named here. Without this, ?provider=stripe was served
+        // whichever response was cached first for /api/feed.json, which is
+        // every provider: the MCP tool asked for Stripe and got OpenAI.
+        "netlify-vary": "query=provider|limit|signal",
       },
     },
   );
