@@ -200,6 +200,27 @@ describe.skipIf(!hasDatabase)("persist path against Postgres", () => {
     expect(carried.every((row) => row.fingerprint === kept.fingerprint)).toBe(true);
     expect(carried[0]!.publishedAt!.toISOString()).toBe(publishedAt.toISOString());
     expect(bumpedRows.some((row) => row.publishedAt === null)).toBe(true);
+
+    // A rejection must survive a bump too, or every rejected fact would come
+    // back for review after each ruleset change.
+    const rejected = bumpedRows.find((row) => row.publishedAt === null)!;
+    const rejectedAt = new Date("2024-04-01T00:00:00Z");
+    await prisma.change.updateMany({
+      where: { runId: bumped.runId!, fingerprint: rejected.fingerprint },
+      data: { reviewedAt: rejectedAt },
+    });
+    await prisma.diffRun.update({
+      where: { id: bumped.runId! },
+      data: { rulesetVer: "0.0.1-persist-test" },
+    });
+    const again2 = await diffPair(from, to);
+    const again2Rows = await prisma.change.findMany({ where: { runId: again2.runId } });
+    const stillRejected = again2Rows.filter((row) => row.fingerprint === rejected.fingerprint);
+    expect(stillRejected.length).toBeGreaterThan(0);
+    expect(stillRejected.every((row) => row.reviewedAt?.toISOString() === rejectedAt.toISOString())).toBe(true);
+    expect(stillRejected.every((row) => row.publishedAt === null)).toBe(true);
+    const stillPublished = again2Rows.filter((row) => row.fingerprint === kept.fingerprint);
+    expect(stillPublished.every((row) => row.publishedAt !== null)).toBe(true);
     // A hosted Postgres (Neon) costs tens of milliseconds per round trip, and
     // this test makes dozens. The 5s default only fits a local database.
   }, 120_000);

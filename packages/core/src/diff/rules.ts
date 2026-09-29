@@ -228,6 +228,22 @@ export const RULES: Record<string, Rule> = Object.fromEntries(
       consequence: "Parse failure, or silent coercion depending on your client.",
     }),
     rule({
+      id: "response.property.type-narrowed",
+      severity: "ADDITIVE",
+      confidence: 100,
+      headline: "Response type narrowed",
+      consequence:
+        "A tighter guarantee, not a break. Every value you can receive now was already possible, so existing handling still covers it; a null check here may now be dead code.",
+    }),
+    rule({
+      id: "response.property.now-always-null",
+      severity: "BEHAVIORAL",
+      confidence: 80,
+      headline: "Response field is now always null",
+      consequence:
+        "Nothing throws, since the field could already be null, but the value you read here is gone. Often a spec-generator artifact, so it is held for a person to check.",
+    }),
+    rule({
       id: "response.status-code.added",
       severity: "BEHAVIORAL",
       confidence: 90,

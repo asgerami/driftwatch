@@ -310,6 +310,32 @@ export function diffSchema(
         after: afterTypes.join("|"),
         detail: "can now be null",
       });
+    } else if (
+      direction === "response" &&
+      afterTypes.every((t) => beforeTypes.includes(t))
+    ) {
+      // A response that can return fewer types than before is a tighter
+      // guarantee: everything it can return now, it could return already, so
+      // existing handling still covers it. Found in real data: OpenAI's
+      // ChatCompletionList.first_id and Stripe's expected_debit_date went
+      // null|string → string, reported as breaking retypes at confidence 95.
+      // On a request the same edit IS a break (you can no longer send the
+      // dropped type) and stays type-changed below.
+      //
+      // Narrowed all the way to null is different: nothing throws, but the
+      // value is gone. Twilio and Stripe both did this in ways that look like
+      // generator artifacts, so it is held below the publish threshold.
+      const alwaysNull = afterTypes.length === 1 && afterTypes[0] === "null";
+      emit({
+        ...base,
+        ruleId: alwaysNull
+          ? "response.property.now-always-null"
+          : "response.property.type-narrowed",
+        jsonPointer: at,
+        before: beforeTypes.join("|"),
+        after: afterTypes.join("|"),
+        detail: `${beforeTypes.join("|")} → ${afterTypes.join("|")}`,
+      });
     } else {
       emit({
         ...base,

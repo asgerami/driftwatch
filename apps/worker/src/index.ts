@@ -91,17 +91,28 @@ program
   .option("-n, --limit <count>", "facts to list", "40")
   .option("--publish", "actually publish what is listed (read-only without it)")
   .option("--all", "include low-confidence and cosmetic changes (never publish these)")
-  .description("The review gate: inspect pending changes, then publish them")
+  .option(
+    "--reject <text>",
+    "mark pending stories whose rule or location contains <text> as reviewed and not published",
+  )
+  .description("The review gate: inspect pending changes, then publish or reject them")
   .action(
     (
       target: string | undefined,
-      opts: { severity?: string; limit: string; publish?: boolean; all?: boolean },
+      opts: {
+        severity?: string;
+        limit: string;
+        publish?: boolean;
+        all?: boolean;
+        reject?: string;
+      },
     ) =>
       review(target, {
         severity: opts.severity?.toUpperCase() as never,
         limit: Number(opts.limit),
         publish: opts.publish === true,
         all: opts.all === true,
+        reject: opts.reject,
       }),
   );
 

@@ -30,6 +30,12 @@ export interface ReviewOptions {
    * threshold, plus cosmetic ones. Useful for tuning; never for publishing.
    */
   all?: boolean;
+  /**
+   * Reject every pending story whose rule id or any location contains this
+   * text: reviewed, never published. For facts no rule can see are wrong, like
+   * GitHub moving endpoints into a different description file.
+   */
+  reject?: string;
 }
 
 interface PendingRow {
@@ -80,9 +86,15 @@ export async function review(
         severity: { not: "COSMETIC" as Severity },
       };
 
+  if (options.reject && options.publish) {
+    throw new Error("--reject and --publish are separate decisions; run them one at a time");
+  }
+
   const pending = (await prisma.change.findMany({
     where: {
       publishedAt: null,
+      // A rejected row is reviewed but unpublished; it is not pending anymore.
+      reviewedAt: null,
       ...gate,
       ...(options.severity ? { severity: options.severity } : {}),
       run: {
@@ -112,6 +124,7 @@ export async function review(
     : await prisma.change.count({
         where: {
           publishedAt: null,
+          reviewedAt: null,
           OR: [
             { confidence: { lt: PUBLISH_CONFIDENCE_THRESHOLD } },
             { severity: "COSMETIC" },
@@ -135,10 +148,21 @@ export async function review(
   // Group to stories, not rows or facts: one inline enum across nine
   // operations is one fact, and one new enum value across seven components is
   // one story. Either way it is one decision for a reviewer.
-  const ordered = groupStories(pending);
-  const factCount = new Set(pending.map((row) => row.fingerprint)).size;
+  let ordered = groupStories(pending);
+  if (options.reject) {
+    const needle = options.reject;
+    ordered = ordered.filter((list) =>
+      list.some((row) => row.ruleId.includes(needle) || whereOf(row).includes(needle)),
+    );
+    if (ordered.length === 0) {
+      log.warn(`no pending story matches "${needle}"`);
+      return;
+    }
+  }
+  const rows = ordered.flat();
+  const factCount = new Set(rows.map((row) => row.fingerprint)).size;
   console.log(
-    `\n${ordered.length} stories pending (${factCount} distinct facts, ${pending.length} rows)` +
+    `\n${ordered.length} stories ${options.reject ? "to reject" : "pending"} (${factCount} distinct facts, ${rows.length} rows)` +
       (withheld > 0
         ? `, ${withheld} more held below confidence ${PUBLISH_CONFIDENCE_THRESHOLD} \u2014 --all to see them`
         : "") +
@@ -165,16 +189,25 @@ export async function review(
     console.log(`${DIM}… ${ordered.length - limit} more stories${RESET}`);
   }
 
+  if (options.reject) {
+    const result = await prisma.change.updateMany({
+      where: { id: { in: rows.map((row) => row.id) } },
+      data: { reviewedAt: new Date() },
+    });
+    log.ok(`rejected ${result.count} rows across ${ordered.length} stories; they will not be published`);
+    return;
+  }
+
   if (!options.publish) {
     console.log(
-      `\n${DIM}Read-only. Re-run with --publish to publish these ${pending.length} rows.${RESET}\n`,
+      `\n${DIM}Read-only. Re-run with --publish to publish these ${rows.length} rows.${RESET}\n`,
     );
     return;
   }
 
   const now = new Date();
   const result = await prisma.change.updateMany({
-    where: { id: { in: pending.map((row) => row.id) } },
+    where: { id: { in: rows.map((row) => row.id) } },
     data: { reviewedAt: now, publishedAt: now },
   });
 

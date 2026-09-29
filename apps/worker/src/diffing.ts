@@ -81,7 +81,7 @@ export async function diffPair(
       await prisma.change.createMany({
         data: result.changes.map((change) => toRow(run.id, change)),
       });
-      await carryForwardPublished(run.id, from.id, to.id);
+      await carryForwardDecisions(run.id, from.id, to.id);
     }
 
     await prisma.diffRun.update({
@@ -114,31 +114,34 @@ export async function diffPair(
  * Review and the feed read only runs at the current RULESET_VERSION, so a rule
  * fix replaces the previous classification instead of sitting beside it. On
  * its own that would empty the feed on every bump until someone re-published
- * years of history. A fact published for this same pair under an earlier
- * ruleset, with the same fingerprint and the same severity, stays published.
- * Anything new or reclassified goes back to review, which is the point.
+ * years of history, and bring every rejected fact back for another look. A
+ * fact decided on this same pair under an earlier ruleset, with the same
+ * fingerprint and the same severity, keeps that decision: published stays
+ * published, rejected stays rejected. Anything new or reclassified goes back
+ * to review, which is the point.
  */
-async function carryForwardPublished(
+async function carryForwardDecisions(
   runId: string,
   fromId: string,
   toId: string,
 ): Promise<void> {
-  const published = await prisma.change.findMany({
+  const decided = await prisma.change.findMany({
     where: {
-      publishedAt: { not: null },
+      reviewedAt: { not: null },
       run: { fromId, toId, rulesetVer: { not: RULESET_VERSION } },
     },
     select: { fingerprint: true, severity: true, reviewedAt: true, publishedAt: true },
+    orderBy: { reviewedAt: "desc" },
     distinct: ["fingerprint", "severity"],
   });
 
-  for (const prior of published) {
+  for (const prior of decided) {
     await prisma.change.updateMany({
       where: {
         runId,
         fingerprint: prior.fingerprint,
         severity: prior.severity,
-        publishedAt: null,
+        reviewedAt: null,
       },
       data: { reviewedAt: prior.reviewedAt, publishedAt: prior.publishedAt },
     });
