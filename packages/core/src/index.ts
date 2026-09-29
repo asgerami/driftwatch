@@ -23,6 +23,8 @@ export {
 export {
   diffDocuments,
   classify,
+  fingerprintOf,
+  LOCATION_KEYED_RULES,
   RULESET_VERSION,
   RULES,
   ruleFor,

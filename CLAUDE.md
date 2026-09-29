@@ -57,6 +57,16 @@ concatenating with control characters. NUL is also stripped at the write
 boundary in `diffing.ts`, since JSON permits it inside a string and a provider
 description could carry one.
 
+Endpoint-surface rules (`path.*`, `operation.*`) also hash method and path
+(`LOCATION_KEYED_RULES`). Without them every endpoint removed in a release was
+one fact, so a review decision on one carried to the others; GitHub's 11 moved
+enterprise endpoints came up as "1 distinct fact". Every other fingerprint is
+unchanged, and a test pins the old formula, because decisions are carried
+across ruleset bumps by fingerprint and a silent change would unpublish the
+feed. Rows stored before the change need `pnpm w refingerprint` (idempotent,
+endpoint rules only: recomputing the rest from jsonb, which reorders keys, is
+not safe).
+
 **6. Direction is load-bearing, and three rules invert.**
 
 On a request, losing a property and gaining a requirement are the breaks. On a

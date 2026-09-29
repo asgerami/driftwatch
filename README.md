@@ -94,8 +94,10 @@ github/rest  2026-09-11   2 behavioral
 
 `target` is a provider slug (`stripe`) or a source (`twilio/messaging_v1`).
 
-Point a coding agent at the feed with `DRIFTWATCH_FEED_URL` (defaults to
-`http://localhost:3000/api/feed.json`). Invoke the built binary directly so
+The live feed is at [driftwatch.et](https://driftwatch.et), and the MCP server
+reads it by default. Point `DRIFTWATCH_FEED_URL` at
+`http://localhost:3000/api/feed.json` to use a local site instead. Invoke the
+built binary directly so
 the stdio channel stays JSON-RPC — `pnpm mcp` prints a script banner and
 breaks the protocol:
 
@@ -105,7 +107,7 @@ breaks the protocol:
     "driftwatch": {
       "command": "node",
       "args": ["apps/mcp/dist/index.js"],
-      "env": { "DRIFTWATCH_FEED_URL": "http://localhost:3000/api/feed.json" }
+      "env": { "DRIFTWATCH_FEED_URL": "https://driftwatch.et/api/feed.json" }
     }
   }
 }

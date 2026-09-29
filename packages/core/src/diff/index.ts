@@ -55,8 +55,29 @@ export function fingerprintOf(change: RawChange): string {
     JSON.stringify(change.after ?? null),
     change.detail ?? "",
   ];
+  // For endpoint-surface rules the location IS the fact, and none of the
+  // parts above carry it: every endpoint removed in a release shared one
+  // fingerprint, so a review decision on one could carry to another. Found
+  // when GitHub's 11 moved enterprise endpoints came up as "1 distinct fact".
+  // Appended only for these rules, so every other fingerprint is unchanged.
+  if (LOCATION_KEYED_RULES.has(change.ruleId)) {
+    parts.push(change.method ?? "", change.path ?? "");
+  }
   return createHash("sha256").update(parts.join("\u001f"), "utf8").digest("hex");
 }
+
+/**
+ * Rules whose fingerprint includes method and path (since ruleset 1.3.0).
+ * Stored rows from before that need `pnpm w refingerprint`.
+ */
+export const LOCATION_KEYED_RULES: ReadonlySet<string> = new Set([
+  "path.removed",
+  "path.added",
+  "operation.removed",
+  "operation.added",
+  "operation.deprecated",
+  "operation.undeprecated",
+]);
 
 export interface DiffResult {
   changes: Change[];
