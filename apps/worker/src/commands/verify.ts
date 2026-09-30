@@ -84,7 +84,9 @@ export async function verify(slug?: string): Promise<void> {
           continue;
         }
 
-        const history = await fileHistory(dir, ref, resolved);
+        const history = await fileHistory(dir, ref, resolved, {
+          followRenames: source.followRenames,
+        });
         if (history.length === 0) {
           failures++;
           log.error(`  ${resolved} resolved but has no history`);

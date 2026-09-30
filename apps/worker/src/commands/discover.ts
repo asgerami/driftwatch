@@ -4,10 +4,21 @@ import { log } from "../log.js";
 import { findProvider, sourceTier } from "../registry.js";
 
 const SPEC_EXT = /\.(json|ya?ml)$/i;
-const SPEC_HINT = /(openapi|swagger|spec|api|descriptions?)/i;
 
-/** Peek at the head of a blob rather than parsing megabytes of JSON. */
-const MARKER = /"?(openapi|swagger)"?\s*:/;
+/**
+ * A spec declares its version as a top-level key. Searched through the whole
+ * text, not just its head: generators that sort keys put "swagger" after
+ * megabytes of "definitions" (Slack's web API spec). Anchored to a line
+ * start for YAML; in JSON, anywhere, since minified JSON has one line.
+ */
+const MARKER = /(^|[{,]\s*)"?(openapi|swagger)"?\s*:\s*["']?[23]\./m;
+
+/**
+ * Every content check in a blobless clone is its own fetch, so a repo with
+ * thousands of JSON files (Datadog's client) would take the whole job. Check
+ * the largest files only: a real spec is rarely small.
+ */
+const CONTENT_CHECKS = 60;
 
 function human(bytes: number): string {
   if (bytes > 1_048_576) return `${(bytes / 1_048_576).toFixed(1)} MB`;
@@ -63,14 +74,14 @@ export async function discover(target: string, limit = 40): Promise<void> {
 async function discoverUrl(name: string, url: string): Promise<void> {
   try {
     const fetched = await fetchSpecUrl(url);
-    const confirmed = MARKER.test(fetched.text.slice(0, 4096));
+    const confirmed = MARKER.test(fetched.text);
     const mark = confirmed ? "✓" : " ";
     console.log(
       `\n${name}  hosted\n` +
         `  ${mark} ${human(Buffer.byteLength(fetched.text, "utf8")).padStart(8)}  ${url}`,
     );
     if (!confirmed) {
-      log.warn("  body does not declare openapi/swagger in the first 4KB");
+      log.warn("  body does not declare a top-level openapi/swagger version");
     }
   } catch (err) {
     log.error(`${name}: ${(err as Error).message.split("\n")[0]}`);
@@ -88,30 +99,30 @@ async function discoverRepo(repo: string, limit: number): Promise<void> {
   const ref = await defaultRef(dir);
   const tree = await listTree(dir, ref);
 
-  const candidates = tree
-    .filter((e) => SPEC_EXT.test(e.path) && SPEC_HINT.test(e.path))
-    .sort((a, b) => b.bytes - a.bytes)
-    .slice(0, limit);
+  // No filename filter: Plaid's spec is `2020-09-14.yml`, Resend's has no
+  // "openapi" in its name either. Content decides.
+  const files = tree.filter((e) => SPEC_EXT.test(e.path)).sort((a, b) => b.bytes - a.bytes);
+  const checked = files.slice(0, CONTENT_CHECKS);
 
-  log.info(`${repo} @ ${ref} — ${candidates.length} candidate files`);
-
-  for (const entry of candidates) {
-    // Cheap confirmation: a real spec declares its version near the top.
-    let confirmed = false;
-    if (entry.bytes < 64 * 1024 * 1024) {
-      try {
-        const head = (await readAtCommit(dir, ref, entry.path)).slice(0, 4096);
-        confirmed = MARKER.test(head);
-      } catch {
-        confirmed = false;
-      }
+  const confirmed: typeof checked = [];
+  for (const entry of checked) {
+    if (entry.bytes > 64 * 1024 * 1024) continue;
+    try {
+      if (MARKER.test(await readAtCommit(dir, ref, entry.path))) confirmed.push(entry);
+    } catch {
+      // unreadable: not a candidate
     }
-    const mark = confirmed ? "✓" : " ";
-    console.log(`  ${mark} ${human(entry.bytes).padStart(8)}  ${entry.path}`);
+  }
+
+  log.info(
+    `${repo} @ ${ref} — ${confirmed.length} spec file(s) among the ${checked.length} largest of ${files.length} JSON/YAML files`,
+  );
+  for (const entry of confirmed.slice(0, limit)) {
+    console.log(`  ✓ ${human(entry.bytes).padStart(8)}  ${entry.path}`);
   }
 
   console.log(
-    `\n  ✓ marks files declaring openapi/swagger in the first 4KB.` +
+    `\n  ✓ files declare a top-level openapi or swagger version.` +
       `\n  Put the one you want into filePathCandidates in registry.ts, then re-run seed.\n`,
   );
 }
