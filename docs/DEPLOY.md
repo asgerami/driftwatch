@@ -105,6 +105,10 @@ Run it locally; it reads the same Neon database the job writes.
 
 ## When something breaks
 
+- **The `review-queue` issue** is the first place to look. The scheduled job
+  opens it when stories are waiting for review or a source is failing or stale
+  (no success for 24h), comments when the counts change, and closes it when
+  both are clear. `pnpm w report` prints the same thing locally.
 - **`pnpm w status`** shows snapshot counts per source and which blob store is
   in use. The job prints it at the end of every run.
 - **"R2 is partly configured"** means one of the three `R2_*` values is missing.

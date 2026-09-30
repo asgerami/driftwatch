@@ -1,5 +1,6 @@
 import { prisma } from "../db.js";
 import { blobStoreName } from "../blobs.js";
+import { sourceHealth } from "../health.js";
 
 function pad(value: string, width: number): string {
   return value.length > width ? `${value.slice(0, width - 1)}…` : value.padEnd(width);
@@ -21,9 +22,11 @@ export async function status(): Promise<void> {
   }
 
   console.log(
-    `\n${pad("SOURCE", 26)}${pad("TIER", 6)}${"SNAPSHOTS".padStart(9)}  ${pad("EARLIEST", 12)}${pad("LATEST", 12)}FILE`,
+    `\n${pad("SOURCE", 26)}${pad("TIER", 6)}${"SNAPSHOTS".padStart(9)}  ${pad("EARLIEST", 12)}${pad("LATEST", 12)}${pad("LAST OK", 18)}${pad("HEALTH", 12)}FILE`,
   );
-  console.log("-".repeat(100));
+  console.log("-".repeat(130));
+  const now = new Date();
+  const problems: string[] = [];
 
   for (const source of sources) {
     const name = `${source.provider.slug}/${source.key}`;
@@ -41,6 +44,7 @@ export async function status(): Promise<void> {
       }),
     ]);
 
+    const health = sourceHealth(source, now);
     const iso = (d: Date | null | undefined) =>
       d ? d.toISOString().slice(0, 10) : "—";
 
@@ -51,8 +55,15 @@ export async function status(): Promise<void> {
         "  " +
         pad(iso(earliest?.providerTime), 12) +
         pad(iso(latest?.providerTime), 12) +
+        pad(source.lastSuccessAt ? source.lastSuccessAt.toISOString().slice(0, 16).replace("T", " ") : "—", 18) +
+        pad(health.state, 12) +
         (source.tier === "B" ? (source.url ?? "—") : (source.filePath ?? "—")),
     );
+    if (health.reason) problems.push(`  ${name}: ${health.reason}`);
+  }
+
+  if (problems.length > 0) {
+    console.log(`\n${problems.length} source(s) not fetching:\n${problems.join("\n")}`);
   }
 
   const total = await prisma.specSnapshot.count();

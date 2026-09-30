@@ -8,6 +8,7 @@ import { diff } from "./commands/diff.js";
 import { discover } from "./commands/discover.js";
 import { preview } from "./commands/preview.js";
 import { refingerprint } from "./commands/refingerprint.js";
+import { report } from "./commands/report.js";
 import { review } from "./commands/review.js";
 import { poll } from "./commands/poll.js";
 import { seed } from "./commands/seed.js";
@@ -121,6 +122,12 @@ program
   .command("status")
   .description("Show what is in the database")
   .action(status);
+
+program
+  .command("report")
+  .option("--out <file>", "write the body here and the title to <file>.title; remove both when all clear")
+  .description("What needs a person: stories to review and sources not fetching")
+  .action((opts: { out?: string }) => report(opts));
 
 program
   .command("refingerprint")
