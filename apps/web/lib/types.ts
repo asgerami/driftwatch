@@ -61,6 +61,8 @@ export interface ReleaseView {
   responseFieldAdds?: AdditiveLine;
   /** Several new request properties, as one line instead of N identical cards. */
   requestPropertyAdds?: AdditiveLine;
+  /** Several request fields newly accepting null, as one line. */
+  requestNullableAdds?: AdditiveLine;
   /** Provider context a reader needs to judge a break, e.g. API version pinning. */
   providerNote?: string;
 }

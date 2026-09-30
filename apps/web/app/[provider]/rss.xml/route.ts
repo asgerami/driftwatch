@@ -1,6 +1,6 @@
 import { recentReleases } from "../../../lib/queries";
 import { SEVERITY_LABEL } from "../../../lib/types";
-import { additiveLineHeadline, requestPropertyHeadline } from "../../../lib/feed";
+import { additiveLineHeadline, requestPropertyHeadline, requestNullableHeadline } from "../../../lib/feed";
 
 export const revalidate = 300;
 
@@ -83,6 +83,20 @@ export async function GET(
             title: `[${SEVERITY_LABEL.ADDITIVE}] ${release.providerName}: ${requestPropertyHeadline(line)}`,
             link: `${origin}/${release.providerSlug}#${release.id}-request-fields`,
             guid: `${release.id}-request-fields`,
+            pubDate: release.shippedAt,
+            category: "ADDITIVE",
+            description: line.fields.join(", "),
+          }),
+        );
+      }
+
+      if (release.requestNullableAdds) {
+        const line = release.requestNullableAdds;
+        changeItems.push(
+          rssItem({
+            title: `[${SEVERITY_LABEL.ADDITIVE}] ${release.providerName}: ${requestNullableHeadline(line)}`,
+            link: `${origin}/${release.providerSlug}#${release.id}-request-nullable`,
+            guid: `${release.id}-request-nullable`,
             pubDate: release.shippedAt,
             category: "ADDITIVE",
             description: line.fields.join(", "),

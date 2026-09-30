@@ -73,6 +73,10 @@ export function formatReleases(
           (release.requestPropertyAdds.count === 1 ? "property" : "properties"),
       );
     }
+    if (release.requestNullableAdds) {
+      const n = release.requestNullableAdds.count;
+      lines.push(`  ▪ ADDITIVE  ${n} request ${n === 1 ? "field now accepts" : "fields now accept"} null`);
+    }
     lines.push("");
   }
   return lines.join("\n").trimEnd();

@@ -190,7 +190,7 @@ function toRelease(run: RunRow): ReleaseView {
   const grouped = groupIntoStories(run.changes);
   const counts = { ...EMPTY_COUNTS };
   for (const change of grouped) counts[change.severity]++;
-  const { cards, responseFieldAdds, requestPropertyAdds } = splitCards(grouped);
+  const { cards, responseFieldAdds, requestPropertyAdds, requestNullableAdds } = splitCards(grouped);
 
   return {
     id: run.id,
@@ -205,6 +205,7 @@ function toRelease(run: RunRow): ReleaseView {
     changes: cards,
     responseFieldAdds,
     requestPropertyAdds,
+    requestNullableAdds,
     providerNote: counts.BREAKING > 0 ? providerNote(run.to.source.provider.slug) : undefined,
   };
 }

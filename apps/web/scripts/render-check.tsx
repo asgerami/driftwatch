@@ -135,6 +135,19 @@ check("one stored version leaks no commands", !leaksDevCommands(emptyOne), empty
 const emptyMany = decode(renderToStaticMarkup(<EmptyFeed providerName="Stripe" snapshotCount={7} />));
 check("stored versions awaiting review leak no commands", !leaksDevCommands(emptyMany), emptyMany);
 
+// Square's OpenAPI 3.0 migration: 797 request fields newly nullable in one release.
+const nullableChanges: ChangeView[] = Array.from({ length: 5 }, (_, i) => ({
+  ...additiveChange,
+  id: `nullable-${i}`,
+  ruleId: "request.property.became-nullable",
+  headline: `Request field f${i} now accepts null`,
+  fieldPath: `f${i}`,
+}));
+const splitNullable = splitCards(nullableChanges);
+check("request fields newly accepting null collapse to one line", splitNullable.requestNullableAdds?.count === 5 && splitNullable.cards.length === 0);
+const nullableHtml = decode(renderToStaticMarkup(<Release release={{ ...release, changes: [], requestNullableAdds: splitNullable.requestNullableAdds }} />));
+check("the nullable line renders with its anchor", nullableHtml.includes("5 request fields now accept null") && nullableHtml.includes(`id="${release.id}-request-nullable"`), nullableHtml);
+
 // RSS items link to #<change id>, #<release>-fields and #<release>-request-fields.
 check("each card carries its id as an anchor", release.changes.every((c) => releaseHtml.includes(`id="${c.id}"`)));
 check("the release carries its id as an anchor", releaseHtml.includes(`id="${release.id}"`));
