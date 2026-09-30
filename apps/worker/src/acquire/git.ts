@@ -1,11 +1,12 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
 import { config, paths } from "../config.js";
 import { log } from "../log.js";
+import { withRetry } from "../retry.js";
 
 const run = promisify(execFile);
 
@@ -48,20 +49,25 @@ export async function ensureClone(repo: string): Promise<string> {
 
   if (existsSync(join(dir, ".git"))) {
     log.step(`fetching ${repo}`);
-    await git(dir, ["fetch", "--prune", "--quiet", "origin"]);
+    await withRetry(() => git(dir, ["fetch", "--prune", "--quiet", "origin"]));
     return dir;
   }
 
   await mkdir(paths.repos, { recursive: true });
   log.step(`cloning ${repo} (partial, blobs on demand)`);
-  await git(paths.repos, [
-    "clone",
-    "--filter=blob:none",
-    "--no-checkout",
-    "--quiet",
-    remoteUrl(repo),
-    dir,
-  ]);
+  await withRetry(async () => {
+    // A clone that died halfway leaves a directory the next attempt would
+    // refuse to clone into.
+    await rm(dir, { recursive: true, force: true });
+    await git(paths.repos, [
+      "clone",
+      "--filter=blob:none",
+      "--no-checkout",
+      "--quiet",
+      remoteUrl(repo),
+      dir,
+    ]);
+  });
   return dir;
 }
 
