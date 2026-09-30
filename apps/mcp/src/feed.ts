@@ -40,6 +40,8 @@ export interface FeedChange {
   fieldPath?: string;
   detail?: string;
   siteCount: number;
+  /** Every place a grouped story occurs; absent for a single fact. */
+  locations?: string[];
 }
 
 export interface FeedRelease {

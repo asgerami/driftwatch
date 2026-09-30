@@ -56,7 +56,8 @@ Or add them by hand under the repo's **Settings → Secrets and variables → Ac
 
 ## Netlify
 
-Not yet verified end to end. Settings to start from:
+Live at https://driftwatch.et (custom domain; `www.` and `http://` redirect to
+it) and https://driftwatchhq.netlify.app.
 
 1. **Add new site → Import an existing project**, pick `asgerami/driftwatch`.
 2. Build settings:
@@ -68,12 +69,28 @@ Not yet verified end to end. Settings to start from:
 3. Environment variables: `DATABASE_URL` (the pooled one, with
    `connect_timeout=30`, no surrounding quotes) and `NODE_VERSION` = `22`.
    Not `DIRECT_URL` or the `R2_*` keys: the site reads neither.
-4. Deploy from `master`. The Prisma engine the site needs on Netlify
-   (`rhel-openssl-3.0.x`) is only there once this branch is merged.
-5. Netlify detects Next.js and installs its adapter.
+4. Netlify detects Next.js and installs its adapter. `prisma/schema.prisma`
+   includes the `rhel-openssl-3.0.x` engine its server functions need.
 
-`prisma/schema.prisma` already includes the `rhel-openssl-3.0.x` engine the
-site's server functions need on Netlify.
+Every PR gets a deploy preview at `deploy-preview-<n>--driftwatchhq.netlify.app`,
+reading the production database.
+
+`/api/feed.json` sends `netlify-vary: query=provider|limit|signal`. Without it
+Netlify's CDN cached one response per path and ignored `?provider=`.
+
+## Bumping RULESET_VERSION
+
+The site shows only runs at its own `RULESET_VERSION`. Merge a bump before the
+database has runs at the new version and the live feed is empty until the next
+scheduled diff. Order:
+
+1. Push the branch, then run the job from it:
+   `gh workflow run poll --ref <branch>`. It re-diffs every stored pair with the
+   new rules, carrying published and rejected decisions forward.
+2. Compare the old and new versions' facts (the query in the PR that bumped to
+   1.2.0 is a starting point) and read anything that changed.
+3. `pnpm w review` for anything new, then merge. Netlify deploys the site
+   already matching the database.
 
 ## Publishing
 
