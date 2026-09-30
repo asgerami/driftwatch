@@ -18,6 +18,10 @@ on:
         description: "Provider slug or source (e.g. stripe, twilio/messaging_v1). Empty for all."
         required: false
         default: ""
+      backfill:
+        description: "Also import this many past versions per source (e.g. 20 for newly added APIs). 0 for none."
+        required: false
+        default: "0"
 
 # Two overlapping runs would race on the same snapshot rows.
 concurrency:
@@ -42,6 +46,7 @@ jobs:
       # No GITHUB_TOKEN: the provider repos are public, and a token would be
       # written into the cached clones' remote URL and be expired by next run.
       TARGET: ${{ inputs.target }}
+      BACKFILL: ${{ inputs.backfill || '0' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -71,6 +76,10 @@ jobs:
 
       - name: Poll
         run: pnpm w poll $TARGET
+
+      - name: Backfill
+        if: env.BACKFILL != '0'
+        run: pnpm w backfill $TARGET -n "$BACKFILL"
 
       - name: Diff
         run: pnpm w diff $TARGET
