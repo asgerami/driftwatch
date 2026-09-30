@@ -221,6 +221,32 @@ describe.skipIf(!hasDatabase)("persist path against Postgres", () => {
     expect(stillRejected.every((row) => row.publishedAt === null)).toBe(true);
     const stillPublished = again2Rows.filter((row) => row.fingerprint === kept.fingerprint);
     expect(stillPublished.every((row) => row.publishedAt !== null)).toBe(true);
+
+    // A pair split by a later backfill. Publish the "name" field on A→C, then
+    // insert B (which adds only that field) between them. A→B is a new pair
+    // no decision was made on, but A→C spans it, so the decision carries.
+    const nameAddedAt = new Date("2024-05-01T00:00:00Z");
+    await prisma.change.updateMany({
+      where: { runId: again2.runId!, ruleId: "response.property.added", fieldPath: "name" },
+      data: { reviewedAt: nameAddedAt, publishedAt: nameAddedAt },
+    });
+    const middle = await ingestSpec({
+      source,
+      text: spec({ properties: { id: { type: "string" }, name: { type: "string" } } }),
+      commitSha: "abc150",
+      providerTime: new Date("2024-01-15T00:00:00Z"),
+    });
+    expect(middle.status).toBe("stored");
+    const mid = await prisma.specSnapshot.findUniqueOrThrow({
+      where: { id: middle.snapshotId! },
+      select: { id: true, normBlobKey: true, contentHash: true, providerTime: true, commitSha: true },
+    });
+    const split = await diffPair(from, mid);
+    expect(split.status).toBe("created");
+    const splitRows = await prisma.change.findMany({ where: { runId: split.runId } });
+    const name = splitRows.filter((row) => row.fieldPath === "name");
+    expect(name.length).toBeGreaterThan(0);
+    expect(name.every((row) => row.publishedAt?.toISOString() === nameAddedAt.toISOString())).toBe(true);
     // A hosted Postgres (Neon) costs tens of milliseconds per round trip, and
     // this test makes dozens. The 5s default only fits a local database.
   }, 120_000);

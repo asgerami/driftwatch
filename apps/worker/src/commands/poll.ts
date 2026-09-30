@@ -2,6 +2,7 @@ import { ensureClone, fileHistory, readAtCommit } from "../acquire/git.js";
 import { fetchSpecUrlIfChanged } from "../acquire/http.js";
 import { prisma } from "../db.js";
 import { log } from "../log.js";
+import { historyOptions } from "../registry.js";
 import { ingestSpec } from "../store.js";
 
 /**
@@ -40,7 +41,7 @@ export async function poll(target?: string): Promise<void> {
     const startedAt = new Date();
 
     try {
-      const outcome = await pollOne(source);
+      const outcome = await pollOne({ ...source, providerSlug: source.provider.slug });
       await prisma.specSource.update({
         where: { id: source.id },
         data: {
@@ -83,7 +84,12 @@ interface PollOutcome {
   validators?: { etag: string | null; lastModified: string | null };
 }
 
-type Source = Awaited<ReturnType<typeof prisma.specSource.findMany>>[number];
+type Source = Awaited<ReturnType<typeof prisma.specSource.findMany>>[number] & {
+  providerSlug: string;
+};
+
+/** A source quiet for months then rewritten daily should not take the whole job. */
+const MAX_REVISIONS_PER_POLL = 30;
 
 async function pollOne(source: Source): Promise<PollOutcome> {
   if (source.tier === "B") {
@@ -110,23 +116,52 @@ async function pollOne(source: Source): Promise<PollOutcome> {
   if (!source.repo || !source.filePath) throw new Error("tier A source is missing repo or filePath");
 
   const dir = await ensureClone(source.repo);
-  const revisions = await fileHistory(dir, source.ref ?? "origin/HEAD", source.filePath);
+  const revisions = await fileHistory(
+    dir,
+    source.ref ?? "origin/HEAD",
+    source.filePath,
+    historyOptions(source.providerSlug, source.key),
+  );
   const head = revisions.at(-1);
   if (!head) throw new Error(`no history for ${source.filePath}`);
 
-  const text = await readAtCommit(dir, head.sha, head.path);
-  const result = await ingestSpec({
-    source,
-    text,
-    commitSha: head.sha,
-    providerTime: head.date,
+  // Every revision since the newest one stored, not just HEAD. Taking only
+  // HEAD skipped any commit made between two polls; a later backfill then
+  // inserted it, splitting a pair that had already been diffed and reviewed.
+  // A source with nothing stored starts from HEAD: history is backfill's job.
+  const latest = await prisma.specSnapshot.findFirst({
+    where: { sourceId: source.id, providerTime: { not: null } },
+    orderBy: { providerTime: "desc" },
+    select: { providerTime: true },
   });
-  if (result.status === "failed") throw new Error(result.error);
+  const pending = latest?.providerTime
+    ? revisions.filter((r) => r.date > latest.providerTime!).slice(-MAX_REVISIONS_PER_POLL)
+    : [head];
+
+  let stored = 0;
+  let last = "";
+  for (const revision of pending) {
+    const text = await readAtCommit(dir, revision.sha, revision.path);
+    const result = await ingestSpec({
+      source,
+      text,
+      commitSha: revision.sha,
+      providerTime: revision.date,
+    });
+    if (result.status === "failed") throw new Error(`${revision.sha.slice(0, 8)}: ${result.error}`);
+    if (result.status === "stored") {
+      stored++;
+      last = `${revision.sha.slice(0, 8)} (${result.opCount} ops)`;
+    }
+  }
+
   return {
-    stored: result.status === "stored",
+    stored: stored > 0,
     message:
-      result.status === "stored"
-        ? `new surface at ${head.sha.slice(0, 8)} (${result.opCount} ops)`
-        : "unchanged",
+      stored === 0
+        ? pending.length > 0
+          ? `unchanged (${pending.length} new commit${pending.length === 1 ? "" : "s"}, same surface)`
+          : "unchanged"
+        : `${stored} new surface${stored === 1 ? "" : "s"}, latest at ${last}`,
   };
 }

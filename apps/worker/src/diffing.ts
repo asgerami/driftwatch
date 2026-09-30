@@ -81,7 +81,7 @@ export async function diffPair(
       await prisma.change.createMany({
         data: result.changes.map((change) => toRow(run.id, change)),
       });
-      await carryForwardDecisions(run.id, from.id, to.id);
+      await carryForwardDecisions(run.id, from, to);
     }
 
     await prisma.diffRun.update({
@@ -122,13 +122,34 @@ export async function diffPair(
  */
 async function carryForwardDecisions(
   runId: string,
-  fromId: string,
-  toId: string,
+  from: SnapshotRef,
+  to: SnapshotRef,
 ): Promise<void> {
+  // A decision on this exact pair, or on any pair of the same source that
+  // spans it. The second case exists because poll used to store only HEAD:
+  // when a provider committed twice between polls, the pair A→C was diffed and
+  // published, and a later backfill inserted B, splitting it into A→B and
+  // B→C. Matching the exact pair only, 24 published OpenAI facts fell back
+  // into review on the next ruleset bump.
+  const source = await prisma.specSnapshot.findUnique({
+    where: { id: to.id },
+    select: { sourceId: true },
+  });
+  const spanning =
+    source && from.providerTime && to.providerTime
+      ? [
+          {
+            from: { sourceId: source.sourceId, providerTime: { lte: from.providerTime } },
+            to: { sourceId: source.sourceId, providerTime: { gte: to.providerTime } },
+          },
+        ]
+      : [];
+
   const decided = await prisma.change.findMany({
     where: {
       reviewedAt: { not: null },
-      run: { fromId, toId, rulesetVer: { not: RULESET_VERSION } },
+      runId: { not: runId },
+      run: { OR: [{ fromId: from.id, toId: to.id }, ...spanning] },
     },
     select: { fingerprint: true, severity: true, reviewedAt: true, publishedAt: true },
     orderBy: { reviewedAt: "desc" },
