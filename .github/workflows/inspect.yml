@@ -1,0 +1,45 @@
+# Run the worker's no-database commands on GitHub's network, by hand.
+#
+# Verifying a registry candidate means cloning its repo, and some are tens of
+# megabytes. On a slow connection that takes hours; here it takes seconds.
+# Only commands that never touch Postgres or R2 are allowed, so no secrets are
+# exposed to it.
+
+name: inspect
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "verify | discover | preview"
+        required: true
+        type: choice
+        options: [verify, discover, preview]
+      args:
+        description: 'e.g. "plaid", "plaid/plaid-openapi", "https://…", or "stripe -n 3"'
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run
+        env:
+          COMMAND: ${{ inputs.command }}
+          ARGS: ${{ inputs.args }}
+        # ARGS is split on spaces and passed as arguments, never evaluated.
+        run: |
+          read -ra argv <<< "$ARGS"
+          pnpm w "$COMMAND" "${argv[@]}"

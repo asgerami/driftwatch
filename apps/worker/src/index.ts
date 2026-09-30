@@ -29,7 +29,7 @@ program
 
 program
   .command("discover")
-  .argument("<provider>", "provider slug, e.g. stripe")
+  .argument("<target>", "provider slug, or a candidate's owner/repo or hosted URL")
   .option("-n, --limit <count>", "max files to list", "40")
   .description("List spec-shaped files in a repo, or confirm a hosted URL")
   .action((provider: string, opts: { limit: string }) =>
