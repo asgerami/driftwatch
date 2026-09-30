@@ -26,6 +26,8 @@ concurrency:
 
 permissions:
   contents: read
+  # The review-queue issue: opened when something needs a person, closed when not.
+  issues: write
 
 jobs:
   poll:
@@ -62,6 +64,11 @@ jobs:
           key: repos-${{ github.run_id }}
           restore-keys: repos-
 
+      # Idempotent upsert of the registry, so adding an API is a merge, not a
+      # manual step against production.
+      - name: Seed
+        run: pnpm w seed
+
       - name: Poll
         run: pnpm w poll $TARGET
 
@@ -71,3 +78,28 @@ jobs:
       - name: Status
         if: always()
         run: pnpm w status
+
+      # One open issue, labelled review-queue, lists stories waiting for review
+      # and sources not fetching. A new issue notifies; so does a comment when
+      # the counts in its title change. Editing the body alone would not, and a
+      # queue nobody is told about grows forever.
+      - name: Review-queue issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pnpm w report --out report.md
+          number=$(gh issue list --label review-queue --state open --json number --jq '.[0].number // empty')
+          if [ -s report.md ]; then
+            title=$(cat report.md.title)
+            if [ -n "$number" ]; then
+              old=$(gh issue view "$number" --json title --jq .title)
+              gh issue edit "$number" --title "$title" --body-file report.md
+              if [ "$old" != "$title" ]; then gh issue comment "$number" --body "$title"; fi
+            else
+              gh label create review-queue --color d93f0b --description "Driftwatch needs a person" 2>/dev/null || true
+              gh issue create --title "$title" --label review-queue --body-file report.md
+            fi
+          elif [ -n "$number" ]; then
+            gh issue close "$number" --comment "Nothing waiting for review and every source is fetching."
+          fi
