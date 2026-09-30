@@ -89,7 +89,8 @@ github/rest  2026-09-11   2 behavioral
 | `pnpm w diff [target]` | yes | Diff consecutive pairs, persist typed changes |
 | `pnpm w review [target]` | yes | The publish gate. Read-only without `--publish` |
 | `pnpm w poll [target]` | yes | Fetch current head, ingest only if the surface changed |
-| `pnpm w status` | yes | Snapshot counts, date range, resolved path or URL per source |
+| `pnpm w status` | yes | Snapshot counts, date range, last success and health per source |
+| `pnpm w report` | yes | What needs a person: stories to review, sources not fetching |
 | `node apps/mcp/dist/index.js` | no | Stdio MCP server. Reads `/api/feed.json`, not Postgres |
 
 `target` is a provider slug (`stripe`) or a source (`twilio/messaging_v1`).

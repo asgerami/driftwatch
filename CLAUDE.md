@@ -172,6 +172,23 @@ was always required.
 emitted by nothing, while `/method` told readers description edits were
 stored as cosmetic; they are ignored entirely.
 
+**18. A conditional GET sets its own `Cache-Control: max-age=0`.**
+(`apps/worker/src/acquire/http.ts`) The Fetch standard puts a request carrying
+`If-None-Match`/`If-Modified-Since` into cache mode "no-store", which appends
+`Cache-Control: no-cache` unless the request sets one. Hetzner's server answers
+no-cache with a full 200 and ignores the validators, so every poll downloaded
+3.5MB it already had while curl, sending the same validators, got a 304.
+
+**19. Every poll records each source's health, and a person is told.**
+`lastFetchAt`, `lastSuccessAt`, `lastChangeAt`, `lastError` and
+`consecutiveFailures` on `SpecSource`; `health.ts` calls a source failing after
+one failed attempt and stale after 24h without success. `pnpm w report` lists
+unhealthy sources and stories waiting for review, and the scheduled job keeps
+one GitHub issue (label `review-queue`) in sync with it, commenting when the
+counts change so it notifies. Before this, a failing source was logged once
+and forgotten, and twelve new facts sat unreviewed for a day.
+
+
 ## Layout
 
 ```
@@ -204,7 +221,7 @@ visual layer be checked without a database.
 | `pnpm w verify [slug]` | no |
 | `pnpm w preview <target>` | no |
 | `pnpm w discover <slug>` | no |
-| `pnpm w seed` / `backfill` / `diff` / `review` / `poll` / `status` | yes |
+| `pnpm w seed` / `backfill` / `diff` / `review` / `poll` / `status` / `report` | yes |
 | `pnpm check` (build and test everything) | no |
 
 `pnpm w verify` and `pnpm w preview` are the real integration tests. They run
