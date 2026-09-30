@@ -97,7 +97,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          pnpm w report --out report.md
+          pnpm w report --out "$GITHUB_WORKSPACE/report.md"
+          cd "$GITHUB_WORKSPACE"
           number=$(gh issue list --label review-queue --state open --json number --jq '.[0].number // empty')
           if [ -s report.md ]; then
             title=$(cat report.md.title)

@@ -342,22 +342,6 @@ export const REGISTRY: RegistryProvider[] = [
       },
     ],
   },
-  {
-    slug: "slack",
-    category: "communications",
-    name: "Slack",
-    docsUrl: "https://api.slack.com/methods",
-    sources: [
-      {
-        key: "web",
-        label: "Slack Web API",
-        repo: "slackapi/slack-api-specs",
-        filePathCandidates: [
-          "web-api/slack_web_openapi_v2.json",
-        ],
-      },
-    ],
-  },
   // Dated API versions, one file each, like Adyen: tracks the newest.
   {
     slug: "clerk",

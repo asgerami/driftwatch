@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildReport } from "./report.js";
+import { buildReport, outputPath } from "./report.js";
 
 describe("buildReport", () => {
   it("returns nothing when nothing needs attention, so the issue can close", () => {
@@ -45,5 +45,15 @@ describe("buildReport", () => {
   it("uses singulars", () => {
     const report = buildReport([{ severity: "ADDITIVE", ruleId: "path.added", where: "x", places: 1 }], [])!;
     expect(report.title).toBe("Driftwatch: 1 story to review");
+  });
+});
+
+describe("outputPath", () => {
+  it("resolves against the directory pnpm was invoked from, not apps/worker", () => {
+    expect(outputPath("report.md", { INIT_CWD: "/repo" })).toBe("/repo/report.md");
+  });
+
+  it("leaves an absolute path alone", () => {
+    expect(outputPath("/tmp/r.md", { INIT_CWD: "/repo" })).toBe("/tmp/r.md");
   });
 });

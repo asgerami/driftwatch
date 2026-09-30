@@ -99,7 +99,7 @@ export async function review(
       ...(options.severity ? { severity: options.severity } : {}),
       run: {
         rulesetVer: RULESET_VERSION,
-        ...(providerFilter ? { to: { source: providerFilter } } : {}),
+        to: { source: { active: true, ...(providerFilter ?? {}) } },
       },
     },
     select: {
@@ -131,7 +131,7 @@ export async function review(
           ],
           run: {
             rulesetVer: RULESET_VERSION,
-            ...(providerFilter ? { to: { source: providerFilter } } : {}),
+            to: { source: { active: true, ...(providerFilter ?? {}) } },
           },
         },
       });
