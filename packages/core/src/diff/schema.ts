@@ -206,6 +206,13 @@ export function diffSchema(
   at: string,
   fieldPath?: string,
   depth = 0,
+  /**
+   * True when this schema is a property its parent did not require before.
+   * Such a field never guaranteed a value, which changes what gaining null
+   * means. Anything else (a root, array items, a required property) is
+   * treated as guaranteed.
+   */
+  optionalInParent = false,
 ): void {
   if (depth > MAX_DEPTH) return;
 
@@ -299,12 +306,21 @@ export function diffSchema(
       // still valid. Reporting that as a breaking retype was a false
       // positive found in real GitHub data (custom-property-value.value,
       // string -> null|string).
+      //
+      // A response field that was never required had no guarantee of a
+      // value to lose: callers already handle it being absent, and null is a
+      // far smaller step than a required field going missing. Found when
+      // Square moved its spec from Swagger 2.0 to OpenAPI 3.0 (9bb37051) and
+      // annotated 1759 fields nullable, 6 of them required: 841 "breaking"
+      // changes from one format migration. Held for review, not published.
       emit({
         ...base,
         ruleId:
-          direction === "response"
-            ? "response.property.became-optional"
-            : "request.property.became-nullable",
+          direction === "request"
+            ? "request.property.became-nullable"
+            : optionalInParent
+              ? "response.property.optional-now-nullable"
+              : "response.property.became-optional",
         jsonPointer: at,
         before: beforeTypes.join("|"),
         after: afterTypes.join("|"),
@@ -511,6 +527,7 @@ export function diffSchema(
       childPointer,
       childField,
       depth + 1,
+      !beforeRequired.has(key),
     );
   }
 
