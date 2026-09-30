@@ -31,9 +31,25 @@ export function sourceTier(source: RegistrySource): "A" | "B" {
   return source.tier ?? (source.url && !source.repo ? "B" : "A");
 }
 
+export const CATEGORIES = [
+  "payments",
+  "communications",
+  "ai",
+  "developer-platform",
+  "infrastructure",
+  "productivity",
+  "identity",
+  "commerce",
+  "media",
+  "observability",
+] as const;
+
+export type Category = (typeof CATEGORIES)[number];
+
 export interface RegistryProvider {
   slug: string;
   name: string;
+  category: Category;
   docsUrl: string;
   sources: RegistrySource[];
 }
@@ -41,6 +57,7 @@ export interface RegistryProvider {
 export const REGISTRY: RegistryProvider[] = [
   {
     slug: "stripe",
+    category: "payments",
     name: "Stripe",
     docsUrl: "https://docs.stripe.com/api",
     sources: [
@@ -61,6 +78,7 @@ export const REGISTRY: RegistryProvider[] = [
   },
   {
     slug: "openai",
+    category: "ai",
     name: "OpenAI",
     docsUrl: "https://platform.openai.com/docs/api-reference",
     sources: [
@@ -74,6 +92,7 @@ export const REGISTRY: RegistryProvider[] = [
   },
   {
     slug: "twilio",
+    category: "communications",
     name: "Twilio",
     docsUrl: "https://www.twilio.com/docs/api",
     sources: [
@@ -99,6 +118,7 @@ export const REGISTRY: RegistryProvider[] = [
   },
   {
     slug: "github",
+    category: "developer-platform",
     name: "GitHub",
     docsUrl: "https://docs.github.com/rest",
     sources: [
@@ -115,6 +135,7 @@ export const REGISTRY: RegistryProvider[] = [
   },
   {
     slug: "hetzner",
+    category: "infrastructure",
     name: "Hetzner",
     docsUrl: "https://docs.hetzner.cloud/",
     sources: [

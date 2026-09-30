@@ -22,9 +22,10 @@ export async function seed(): Promise<void> {
       create: {
         slug: provider.slug,
         name: provider.name,
+        category: provider.category,
         docsUrl: provider.docsUrl,
       },
-      update: { name: provider.name, docsUrl: provider.docsUrl },
+      update: { name: provider.name, category: provider.category, docsUrl: provider.docsUrl },
     });
 
     for (const source of provider.sources) {
