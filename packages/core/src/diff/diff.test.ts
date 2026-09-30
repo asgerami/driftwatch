@@ -311,17 +311,197 @@ describe("pagination and defaults", () => {
 });
 
 describe("security", () => {
-  it("flags a newly required scope, which no deploy can fix", () => {
-    const secured = (scopes: string[]) => ({
-      security: [{ oauth: scopes }],
-      responses: { "200": { description: "ok" } },
-    });
-    const before = doc({ "/p": { get: secured(["read"]) } });
-    const after = doc({ "/p": { get: secured(["read", "write"]) } });
+  const secured = (security: Doc[]) => doc({ "/r": { get: jsonOp({}, { security }) } });
+  const run = (before: Doc[], after: Doc[]) => diffDocuments(secured(before), secured(after));
 
-    const hits = only(diffDocuments(before, after), "security.scope-added");
-    expect(hits[0].severity).toBe("BREAKING");
-    expect(hits[0].detail).toBe("requires write");
+  it("flags a newly required scope, which no deploy can fix", () => {
+    const result = run([{ oauth: ["repo"] }], [{ oauth: ["repo", "admin:org"] }]);
+    expect(ids(result)).toEqual(["security.scope-added"]);
+    expect(result.changes[0]?.detail).toBe("requires admin:org");
+  });
+
+  it("flags a swapped scheme once, not as changed plus removed", () => {
+    const result = run([{ basicAuth: [] }], [{ bearerAuth: [] }]);
+    expect(ids(result)).toEqual(["security.scheme-changed"]);
+    expect(result.changes[0]?.severity).toBe("BREAKING");
+    expect(result.changes[0]?.detail).toBe("basicAuth → bearerAuth");
+  });
+
+  it("does not call a new ALTERNATIVE a break: any one alternative is enough", () => {
+    // Regression: alternatives were flattened into one map, so "you may now
+    // also use an API key" read as "authentication scheme changed".
+    const result = run([{ oauth: ["repo"] }], [{ oauth: ["repo"] }, { apiKey: [] }]);
+    expect(result.changes).toEqual([]);
+  });
+
+  it("does not call extra scopes on a new alternative a break", () => {
+    const result = run([{ oauth: ["repo"] }], [{ oauth: ["repo"] }, { oauth: ["admin"] }]);
+    expect(result.changes).toEqual([]);
+  });
+
+  it("flags removing the alternative a caller may be using", () => {
+    const result = run([{ oauth: [] }, { apiKey: [] }], [{ oauth: [] }]);
+    expect(ids(result)).toEqual(["security.scheme-changed"]);
+    expect(result.changes[0]?.before).toBe("apiKey");
+  });
+
+  it("treats a dropped credential as a relaxation held below the threshold", () => {
+    // Both were required together; now one is enough.
+    const result = run([{ oauth: [], apiKey: [] }], [{ oauth: [] }]);
+    expect(ids(result)).toEqual(["security.requirement-removed"]);
+    expect(result.changes[0]?.severity).toBe("BEHAVIORAL");
+    expect(result.changes[0]?.publishable).toBe(false);
+  });
+
+  it("treats an operation made public as a relaxation", () => {
+    expect(ids(run([{ oauth: [] }], []))).toEqual(["security.requirement-removed"]);
+  });
+
+  it("stays silent when security is documented for the first time", () => {
+    const before = doc({ "/r": { get: jsonOp({}) } });
+    expect(diffDocuments(before, secured([{ oauth: [] }])).changes).toEqual([]);
+  });
+});
+
+describe("rules without earlier coverage", () => {
+  it("lifting a deprecation is additive", () => {
+    const before = doc({ "/a": { get: jsonOp({}, { deprecated: true }) } });
+    const after = doc({ "/a": { get: jsonOp({}) } });
+    const result = diffDocuments(before, after);
+    expect(ids(result)).toEqual(["operation.undeprecated"]);
+    expect(result.changes[0]?.severity).toBe("ADDITIVE");
+  });
+
+  it("an optional parameter becoming required is breaking", () => {
+    const param = (required: boolean) => ({
+      name: "customer",
+      in: "query",
+      required,
+      schema: { type: "string" },
+    });
+    const before = doc({ "/a": { get: jsonOp({}, { parameters: [param(false)] }) } });
+    const after = doc({ "/a": { get: jsonOp({}, { parameters: [param(true)] }) } });
+    const result = diffDocuments(before, after);
+    expect(ids(result)).toEqual(["request.param.became-required"]);
+    expect(result.changes[0]?.fieldPath).toBe("customer");
+    expect(result.changes[0]?.severity).toBe("BREAKING");
+  });
+
+  const body = (schema: Doc) =>
+    doc({
+      "/a": {
+        post: {
+          requestBody: { content: { "application/json": { schema } } },
+          responses: { "200": { description: "ok" } },
+        },
+      },
+    });
+
+  it("a request body property becoming required is breaking", () => {
+    // Real case: Stripe billing_cycle_anchor.type, 2026-09-23.
+    const shape = (required: string[]) => ({
+      type: "object",
+      required,
+      properties: { type: { type: "string" }, date: { type: "integer" } },
+    });
+    const result = diffDocuments(body(shape([])), body(shape(["type"])));
+    expect(ids(result)).toEqual(["request.property.became-required"]);
+    expect(result.changes[0]?.fieldPath).toBe("type");
+  });
+
+  it("a request body property no longer accepted is breaking, and a direction flip", () => {
+    // Real case: Stripe POST /v1/terminal/refunds kept only `expand`, 2026-05-23.
+    const before = body({ type: "object", properties: { amount: { type: "integer" }, expand: { type: "array" } } });
+    const after = body({ type: "object", properties: { expand: { type: "array" } } });
+    const result = diffDocuments(before, after);
+    expect(ids(result)).toEqual(["request.property.removed"]);
+    expect(result.changes[0]?.fieldPath).toBe("amount");
+    expect(result.changes[0]?.directionFlip).toBe(true);
+  });
+
+  it("a newly documented status code is behavioral", () => {
+    // Real case: GitHub began documenting 503 on several operations.
+    const before = doc({ "/a": { get: jsonOp({}) } });
+    const after = doc({
+      "/a": {
+        get: {
+          responses: {
+            "200": { description: "ok", content: { "application/json": { schema: {} } } },
+            "503": { description: "unavailable" },
+          },
+        },
+      },
+    });
+    const result = diffDocuments(before, after);
+    expect(ids(result)).toEqual(["response.status-code.added"]);
+    expect(result.changes[0]?.detail).toBe("503 is now documented");
+    expect(result.changes[0]?.severity).toBe("BEHAVIORAL");
+  });
+
+  it("a status code no longer documented is behavioral", () => {
+    const before = doc({
+      "/a": {
+        get: {
+          responses: {
+            "200": { description: "ok" },
+            "410": { description: "gone" },
+          },
+        },
+      },
+    });
+    const after = doc({ "/a": { get: { responses: { "200": { description: "ok" } } } } });
+    const result = diffDocuments(before, after);
+    expect(ids(result)).toEqual(["response.status-code.removed"]);
+    expect(result.changes[0]?.detail).toBe("410 no longer documented");
+  });
+
+  it("a new endpoint and a new verb are additive", () => {
+    const before = doc({ "/a": { get: jsonOp({}) } });
+    const after = doc({ "/a": { get: jsonOp({}), post: jsonOp({}) }, "/b": { get: jsonOp({}) } });
+    const result = diffDocuments(before, after);
+    expect(ids(result).sort()).toEqual(["operation.added", "path.added"]);
+    expect(result.changes.every((c) => c.severity === "ADDITIVE")).toBe(true);
+  });
+
+  it("new optional request and response fields are additive", () => {
+    const op = (props: Doc) => ({
+      requestBody: { content: { "application/json": { schema: { type: "object", properties: props } } } },
+      responses: {
+        "200": {
+          description: "ok",
+          content: { "application/json": { schema: { type: "object", properties: props } } },
+        },
+      },
+    });
+    const before = doc({ "/a": { post: op({ id: { type: "string" } }) } });
+    const after = doc({ "/a": { post: op({ id: { type: "string" }, note: { type: "string" } }) } });
+    const result = diffDocuments(before, after);
+    expect(ids(result).sort()).toEqual(["request.property.added", "response.property.added"]);
+    expect(result.changes.every((c) => c.severity === "ADDITIVE")).toBe(true);
+  });
+
+  it("an edit to description text alone produces nothing at all", () => {
+    const schema = (description: string) => ({
+      type: "object",
+      description,
+      properties: { id: { type: "string", description } },
+    });
+    const before = doc({ "/a": { get: jsonOp(schema("The id."), { summary: "Get it", description: "Old." }) } });
+    const after = doc({ "/a": { get: jsonOp(schema("The identifier."), { summary: "Fetch it", description: "New." }) } });
+    expect(diffDocuments(before, after).changes).toEqual([]);
+  });
+});
+
+describe("every rule in the catalog", () => {
+  it("is exercised by at least one test in this file", async () => {
+    // A rule listed on /method that no test fires is a claim nobody checks.
+    // cosmetic.description-changed sat in the catalog for months, emitted by
+    // nothing, while /method told readers description edits were stored.
+    const { readFile } = await import("node:fs/promises");
+    const source = await readFile(new URL("./diff.test.ts", import.meta.url), "utf8");
+    const { RULES } = await import("./rules.js");
+    const unexercised = Object.keys(RULES).filter((id) => !source.includes(`"${id}"`));
+    expect(unexercised).toEqual([]);
   });
 });
 

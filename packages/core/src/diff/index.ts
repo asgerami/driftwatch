@@ -86,7 +86,7 @@ export interface DiffResult {
   counts: Record<Severity, number>;
 }
 
-export const RULESET_VERSION = "1.3.0";
+export const RULESET_VERSION = "1.4.0";
 
 /** A single pair of specs should never produce more than this. */
 const MAX_CHANGES = 5000;
@@ -184,22 +184,47 @@ function mediaSchemas(container: Json | undefined): Map<string, Json> {
   return out;
 }
 
-function scopesOf(security: Json | undefined): Map<string, Set<string>> {
-  const out = new Map<string, Set<string>>();
-  if (!Array.isArray(security)) return out;
-  for (const requirement of security) {
-    if (!isObject(requirement)) continue;
-    for (const [scheme, scopes] of Object.entries(requirement)) {
-      const set = out.get(scheme) ?? new Set<string>();
+/** One entry of a `security` list: every scheme in it is required, with these scopes. */
+type Requirement = Map<string, Set<string>>;
+
+/**
+ * A `security` list is a set of ALTERNATIVES, any one of which is enough; the
+ * schemes inside one alternative are all required together. `[]` means no
+ * authentication. Flattening the list into one scheme→scopes map, as an
+ * earlier version did, turned "you may now also use an API key" into
+ * "authentication scheme changed", BREAKING at confidence 90.
+ */
+function requirementsOf(security: Json | undefined): Requirement[] {
+  if (!Array.isArray(security)) return [];
+  if (security.length === 0) return [new Map()];
+  const out: Requirement[] = [];
+  for (const entry of security) {
+    if (!isObject(entry)) continue;
+    const requirement: Requirement = new Map();
+    for (const [scheme, scopes] of Object.entries(entry)) {
+      const set = new Set<string>();
       if (Array.isArray(scopes)) {
-        for (const scope of scopes) {
-          if (typeof scope === "string") set.add(scope);
-        }
+        for (const scope of scopes) if (typeof scope === "string") set.add(scope);
       }
-      out.set(scheme, set);
+      requirement.set(scheme, set);
     }
+    out.push(requirement);
   }
   return out;
+}
+
+/** Can a caller holding `held` credentials meet `need`? */
+function satisfies(held: Requirement, need: Requirement): boolean {
+  for (const [scheme, scopes] of need) {
+    const heldScopes = held.get(scheme);
+    if (!heldScopes) return false;
+    for (const scope of scopes) if (!heldScopes.has(scope)) return false;
+  }
+  return true;
+}
+
+function schemesOf(requirement: Requirement): string {
+  return [...requirement.keys()].sort().join(" + ");
 }
 
 /**
@@ -576,38 +601,59 @@ function diffOperation(input: OperationDiffInput): void {
   }
 
   // ── security ────────────────────────────────────────────────────────
-  const beforeSecurity = scopesOf(beforeOp["security"] ?? beforeDoc["security"]);
-  const afterSecurity = scopesOf(afterOp["security"] ?? afterDoc["security"]);
+  // A caller authenticates with one of the old alternatives; which one is
+  // unknown. The change breaks them only if that alternative's credentials no
+  // longer meet ANY new alternative. An operation that declared no security
+  // before is skipped, as it always has been: providers routinely start
+  // documenting auth that was always required, and reporting every such
+  // operation as newly locked would be a wave of false breaks.
+  const beforeRequirements = requirementsOf(beforeOp["security"] ?? beforeDoc["security"]);
+  const afterRequirements = requirementsOf(afterOp["security"] ?? afterDoc["security"]);
+  const brokenSchemes = new Set<string>();
 
-  for (const [scheme, afterScopes] of afterSecurity) {
-    const beforeScopes = beforeSecurity.get(scheme);
-    if (!beforeScopes) {
-      if (beforeSecurity.size > 0) {
+  if (afterRequirements.length > 0) {
+    for (const held of beforeRequirements) {
+      if (held.size === 0) continue;
+      if (afterRequirements.some((need) => satisfies(held, need))) continue;
+
+      // Same schemes, more scopes: the credential is right, the grant is not.
+      const sameSchemes = afterRequirements.find(
+        (need) => need.size > 0 && [...need.keys()].every((scheme) => held.has(scheme)),
+      );
+      if (sameSchemes) {
+        const missing = [...sameSchemes].flatMap(([scheme, scopes]) =>
+          [...scopes].filter((scope) => !held.get(scheme)?.has(scope)),
+        );
+        emit({
+          ...location,
+          ruleId: "security.scope-added",
+          jsonPointer: `${at}/security`,
+          before: schemesOf(held),
+          after: schemesOf(sameSchemes),
+          detail: `requires ${[...new Set(missing)].sort().join(", ")}`,
+        });
+      } else {
         emit({
           ...location,
           ruleId: "security.scheme-changed",
           jsonPointer: `${at}/security`,
-          before: [...beforeSecurity.keys()].join(", "),
-          after: scheme,
+          before: schemesOf(held),
+          after: afterRequirements.map(schemesOf).join(" or "),
+          detail: `${schemesOf(held)} → ${afterRequirements.map(schemesOf).join(" or ")}`,
         });
       }
-      continue;
-    }
-    const added = [...afterScopes].filter((s) => !beforeScopes.has(s));
-    if (added.length > 0) {
-      emit({
-        ...location,
-        ruleId: "security.scope-added",
-        jsonPointer: `${at}/security`,
-        before: [...beforeScopes].sort().join(", "),
-        after: [...afterScopes].sort().join(", "),
-        detail: `requires ${added.join(", ")}`,
-      });
+      for (const scheme of held.keys()) brokenSchemes.add(scheme);
     }
   }
 
-  for (const [scheme] of beforeSecurity) {
-    if (afterSecurity.has(scheme)) continue;
+  // A scheme no alternative asks for any more. Only a relaxation when it was
+  // not part of a break already reported above; otherwise a swap would read
+  // as two facts, "changed" and "removed".
+  const stillAsked = new Set(afterRequirements.flatMap((need) => [...need.keys()]));
+  const wasAsked = new Set(beforeRequirements.flatMap((held) => [...held.keys()]));
+  for (const scheme of [...wasAsked].sort()) {
+    if (stillAsked.has(scheme) || brokenSchemes.has(scheme)) continue;
+    if (afterRequirements.length === 0) continue;
     emit({
       ...location,
       ruleId: "security.requirement-removed",

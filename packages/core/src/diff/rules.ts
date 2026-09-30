@@ -330,14 +330,6 @@ export const RULES: Record<string, Rule> = Object.fromEntries(
         "The set of shapes this value can take changed. Worth a look, but the structural diff cannot say precisely how.",
     }),
 
-    // ── noise sink ─────────────────────────────────────────────────────
-    rule({
-      id: "cosmetic.description-changed",
-      severity: "COSMETIC",
-      confidence: 100,
-      headline: "Documentation text changed",
-      consequence: "None.",
-    }),
   ].map((r) => [r.id, r]),
 );
 

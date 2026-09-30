@@ -154,7 +154,23 @@ same fingerprint and severity. Anything new or reclassified goes back to review.
 Rejections carry forward the same way: `review --reject <text>` sets
 `reviewedAt` without `publishedAt`, for facts no rule can see are wrong. First
 use: GitHub moved its enterprise-team endpoints from the `api.github.com`
-description into `ghec` on 2026-09-22, which reads as 10 removed endpoints.
+description into `ghec` on 2026-09-22, which reads as 10 removed endpoints. Because the site filters
+on its own version, a bump must be re-diffed *before* it is merged, or the live
+feed is empty until the next scheduled run: see "Bumping RULESET_VERSION" in
+`docs/DEPLOY.md`.
+
+**16. `security` is a list of alternatives.** Any one entry is enough; the
+schemes inside one entry are required together. Flattening the list into one
+scheme→scopes map read "you may now also use an API key" as "authentication
+scheme changed", BREAKING at 90. A change breaks a caller only if an old
+alternative's credentials meet no new one. An operation that declared no
+security before is still skipped: providers often start documenting auth that
+was always required.
+
+**17. Every rule in the catalog has a test that fires it.** A test in
+`diff.test.ts` enforces it. `cosmetic.description-changed` sat in the catalog,
+emitted by nothing, while `/method` told readers description edits were
+stored as cosmetic; they are ignored entirely.
 
 ## Layout
 
