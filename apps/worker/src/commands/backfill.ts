@@ -4,6 +4,7 @@ import { ensureClone, fileHistory, readAtCommit } from "../acquire/git.js";
 import { fetchSpecUrl } from "../acquire/http.js";
 import { prisma } from "../db.js";
 import { log } from "../log.js";
+import { historyOptions } from "../registry.js";
 import { ingestSpec } from "../store.js";
 
 export interface BackfillOptions {
@@ -67,6 +68,7 @@ export async function backfill(options: BackfillOptions = {}): Promise<void> {
       dir,
       source.ref ?? "origin/HEAD",
       source.filePath,
+      historyOptions(source.provider.slug, source.key),
     );
 
     if (options.since) {

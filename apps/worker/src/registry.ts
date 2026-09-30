@@ -25,6 +25,12 @@ export interface RegistrySource {
   url?: string;
   /** Stripped before hashing. See SpecSource.volatilePointers. */
   volatilePointers?: string[];
+  /**
+   * Tier A. Default true. False when each API version is its own file, so
+   * history stays on this version instead of stitching earlier versions in.
+   * See fileHistory.
+   */
+  followRenames?: boolean;
 }
 
 export function sourceTier(source: RegistrySource): "A" | "B" {
@@ -194,6 +200,7 @@ export const REGISTRY: RegistryProvider[] = [
         key: "checkout",
         label: "Adyen Checkout API v72",
         repo: "Adyen/adyen-openapi",
+        followRenames: false,
         filePathCandidates: [
           "json/CheckoutService-v72.json",
           "yaml/CheckoutService-v72.yaml",
@@ -277,6 +284,7 @@ export const REGISTRY: RegistryProvider[] = [
         key: "api",
         label: "Asana API",
         repo: "Asana/openapi",
+        followRenames: false,
         filePathCandidates: [
           "defs/asana_oas.yaml",
         ],
@@ -361,6 +369,7 @@ export const REGISTRY: RegistryProvider[] = [
         key: "backend",
         label: "Clerk Backend API (2026-05-12)",
         repo: "clerk/openapi-specs",
+        followRenames: false,
         filePathCandidates: [
           "bapi/2026-05-12.yml",
         ],
@@ -427,4 +436,10 @@ export const REGISTRY: RegistryProvider[] = [
 
 export function findProvider(slug: string): RegistryProvider | undefined {
   return REGISTRY.find((p) => p.slug === slug);
+}
+
+/** History options for a stored source, looked up by provider slug and key. */
+export function historyOptions(slug: string, key: string): { followRenames?: boolean } {
+  const source = findProvider(slug)?.sources.find((s) => s.key === key);
+  return source?.followRenames === false ? { followRenames: false } : {};
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { findProvider, sourceTier } from "./registry.js";
+import { findProvider, historyOptions, sourceTier } from "./registry.js";
 
 describe("sourceTier", () => {
   it("treats an explicit B as B", () => {
@@ -43,3 +43,23 @@ describe("sourceTier", () => {
     expect(hetzner!.sources[0]!.url).toBe("https://docs.hetzner.cloud/cloud.spec.json");
   });
 });
+
+describe("history options", () => {
+  it("keeps version-per-file providers on the current file", () => {
+    // Adyen and Clerk keep one file per API version; Asana's history was
+    // linked back to README.md by git's rename detection.
+    for (const [slug, key] of [
+      ["adyen", "checkout"],
+      ["clerk", "backend"],
+      ["asana", "api"],
+    ] as const) {
+      expect(historyOptions(slug, key)).toEqual({ followRenames: false });
+    }
+  });
+
+  it("follows renames everywhere else, which Twilio's four moves need", () => {
+    expect(historyOptions("twilio", "api_v2010")).toEqual({});
+    expect(historyOptions("nope", "nope")).toEqual({});
+  });
+});
+

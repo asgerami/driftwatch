@@ -97,7 +97,9 @@ export async function preview(
       continue;
     }
 
-    const history = await fileHistory(dir, ref, filePath);
+    const history = await fileHistory(dir, ref, filePath, {
+      followRenames: source.followRenames,
+    });
     const window = history.slice(-(pairs + 1));
     if (window.length < 2) {
       log.warn(`${label}: not enough history to diff`);

@@ -149,10 +149,23 @@ const COMMIT_LINE = /^([0-9a-f]{40})\t(\S+)\t(.*)$/;
  * quietly and looks like a provider that never changes anything. We take
  * git's newest-first order, which is correct, and reverse in JS.
  */
+export interface HistoryOptions {
+  /**
+   * Default true. False keeps only revisions written at `filePath` itself.
+   * Some providers keep one file per API version (Adyen CheckoutService-v71,
+   * -v72; Clerk bapi/2025-11-10.yml, 2026-05-12.yml), and git's rename
+   * detection stitches those into one history, so a version upgrade that
+   * callers opt into would read as breaking changes to the version they are
+   * on. It also linked Asana's spec back to README.md.
+   */
+  followRenames?: boolean;
+}
+
 export async function fileHistory(
   dir: string,
   ref: string,
   filePath: string,
+  options: HistoryOptions = {},
 ): Promise<Revision[]> {
   const out = await git(dir, [
     "log",
@@ -194,7 +207,10 @@ export async function fileHistory(
   if (pending) flush(filePath);
 
   // git emits newest-first; callers want to walk forward through time.
-  return revisions.reverse();
+  const forward = revisions.reverse();
+  return options.followRenames === false
+    ? forward.filter((revision) => revision.path === filePath)
+    : forward;
 }
 
 /** Read the file as it existed at a commit. Triggers a lazy blob fetch. */
