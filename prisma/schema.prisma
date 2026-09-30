@@ -47,6 +47,7 @@ model Provider {
   id        String   @id @default(cuid())
   slug      String   @unique // "stripe"
   name      String
+  category  String? // "payments", "communications", …
   docsUrl   String?
   createdAt DateTime @default(now())
 
@@ -81,6 +82,18 @@ model SpecSource {
   // a rotating example value that would otherwise look like a change on
   // every single poll.
   volatilePointers String[] @default([])
+
+  // Health, written by every poll. A source that stops fetching must never
+  // go quiet: `status` and the review-queue issue flag it from these.
+  lastFetchAt         DateTime? // every attempt, success or not
+  lastSuccessAt       DateTime?
+  lastChangeAt        DateTime? // last poll that stored a new surface
+  lastError           String?
+  consecutiveFailures Int       @default(0)
+
+  // Tier B conditional requests: an unchanged spec answers 304, not megabytes.
+  etag         String?
+  lastModified String?
 
   snapshots SpecSnapshot[]
 
