@@ -135,6 +135,37 @@ describe("formatReleases", () => {
   });
 });
 
+describe("stories", () => {
+  it("lists every place a grouped story occurs, not just the first", () => {
+    // Real case: Stripe removed igic under 27 countries' tax options at once.
+    const countries = ["at", "be", "bg", "cy", "cz", "de", "dk", "ee", "es", "fi", "fr", "gr"];
+    const story: FeedRelease = {
+      ...sample,
+      changes: [
+        {
+          ...sample.changes[0]!,
+          ruleId: "request.property.removed",
+          headline: "igic is no longer accepted",
+          method: "post",
+          path: "/v1/tax/registrations",
+          fieldPath: "country_options.at.igic",
+          componentName: undefined,
+          detail: undefined,
+          locations: countries.map((cc) => `POST /v1/tax/registrations · country_options.${cc}.igic`),
+        },
+      ],
+    };
+    const text = formatReleases([story], "BEHAVIORAL");
+    expect(text).toContain("12 places:");
+    expect(text).toContain("country_options.fi.igic");
+    expect(text).toContain("+2 more");
+  });
+
+  it("keeps the single-fact location line when there is no story", () => {
+    expect(formatReleases([sample], "BEHAVIORAL")).not.toContain("places:");
+  });
+});
+
 describe("formatBreakingSummary", () => {
   it("says so when nothing broke", () => {
     expect(formatBreakingSummary([additiveOnly])).toMatch(/Nothing breaking/);

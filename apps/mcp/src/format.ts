@@ -5,7 +5,16 @@ import {
   hasSignal,
 } from "./feed.js";
 
+/** Enough for an agent to grep its code for each place, without a wall of text. */
+const LOCATIONS_SHOWN = 10;
+
 function where(change: FeedRelease["changes"][number]): string {
+  const locations = change.locations;
+  if (locations && locations.length > 1) {
+    const shown = locations.slice(0, LOCATIONS_SHOWN).join(", ");
+    const more = locations.length - LOCATIONS_SHOWN;
+    return `${locations.length} places: ${shown}${more > 0 ? ` +${more} more` : ""}`;
+  }
   if (change.componentName && change.fieldPath) {
     return `${change.componentName}.${change.fieldPath}`;
   }
@@ -50,6 +59,7 @@ export function formatReleases(
       const flip = change.directionFlip ? " [flip]" : "";
       lines.push(`  ▪ ${change.severity}${flip}  ${change.headline}`);
       lines.push(`      ${change.ruleId}  ${where(change)}`);
+      if (change.locations && change.detail) lines.push(`      ${change.detail}`);
     }
     if (release.responseFieldAdds) {
       lines.push(
