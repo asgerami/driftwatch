@@ -203,6 +203,14 @@ export const RULES: Record<string, Rule> = Object.fromEntries(
         "Producer-side tools call this non-breaking. For a consumer it is a null dereference on an unknown future date.",
     }),
     rule({
+      id: "response.property.optional-now-nullable",
+      severity: "BEHAVIORAL",
+      confidence: 80,
+      headline: "Optional response field can now be null",
+      consequence:
+        "The field was never guaranteed, so code already handles it missing. Code that checks only for undefined, not null, will now see null.",
+    }),
+    rule({
       id: "response.enum.value-added",
       severity: "BREAKING",
       directionFlip: true,

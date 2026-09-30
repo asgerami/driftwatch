@@ -125,5 +125,21 @@ export async function seed(): Promise<void> {
     }
   }
 
+  // A source dropped from the registry stops polling. Its history stays, so
+  // putting it back is a registry change, not a re-backfill.
+  const registered = new Set(
+    REGISTRY.flatMap((provider) => provider.sources.map((source) => `${provider.slug}/${source.key}`)),
+  );
+  const stored = await prisma.specSource.findMany({
+    where: { active: true },
+    select: { id: true, key: true, provider: { select: { slug: true } } },
+  });
+  for (const source of stored) {
+    const name = `${source.provider.slug}/${source.key}`;
+    if (registered.has(name)) continue;
+    await prisma.specSource.update({ where: { id: source.id }, data: { active: false } });
+    log.warn(`${name}: no longer in the registry, deactivated`);
+  }
+
   log.info(`seed complete — ${resolved} resolved, ${unresolved} unresolved`);
 }

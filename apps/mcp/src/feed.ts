@@ -57,6 +57,7 @@ export interface FeedRelease {
   changes: FeedChange[];
   responseFieldAdds?: { count: number; fields: string[] };
   requestPropertyAdds?: { count: number; fields: string[] };
+  requestNullableAdds?: { count: number; fields: string[] };
 }
 
 export interface FeedDocument {
@@ -120,12 +121,14 @@ export function filterReleases(
     const changes = release.changes.filter((c) => atLeast(c.severity, minimum));
     const keepResponse = atLeast("ADDITIVE", minimum) ? release.responseFieldAdds : undefined;
     const keepRequest = atLeast("ADDITIVE", minimum) ? release.requestPropertyAdds : undefined;
-    if (changes.length === 0 && !keepResponse && !keepRequest) continue;
+    const keepNullable = atLeast("ADDITIVE", minimum) ? release.requestNullableAdds : undefined;
+    if (changes.length === 0 && !keepResponse && !keepRequest && !keepNullable) continue;
     out.push({
       ...release,
       changes,
       responseFieldAdds: keepResponse,
       requestPropertyAdds: keepRequest,
+      requestNullableAdds: keepNullable,
     });
   }
   return out;

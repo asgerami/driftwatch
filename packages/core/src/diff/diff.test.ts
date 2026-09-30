@@ -79,9 +79,10 @@ describe("direction flip 1 — response field loses its guarantee", () => {
     expect(hits[0].directionFlip).toBe(true);
   });
 
-  it("also fires when a response field merely becomes nullable", () => {
-    const before = doc({ "/u": { get: jsonOp({ type: "object", properties: { name: { type: "string" } } }) } });
-    const after = doc({ "/u": { get: jsonOp({ type: "object", properties: { name: { type: "string", nullable: true } } }) } });
+  it("also fires when a required response field merely becomes nullable", () => {
+    // Real case: OpenAI EvalRun.model, required, string → string|null (2026-09-29).
+    const before = doc({ "/u": { get: jsonOp({ type: "object", required: ["name"], properties: { name: { type: "string" } } }) } });
+    const after = doc({ "/u": { get: jsonOp({ type: "object", required: ["name"], properties: { name: { type: "string", nullable: true } } }) } });
 
     const hits = only(diffDocuments(before, after), "response.property.became-optional");
     expect(hits).toHaveLength(1);
@@ -617,10 +618,41 @@ describe("relaxations are not breaks (found in real provider data)", () => {
     expect(hits[0].severity).toBe("ADDITIVE");
   });
 
-  it("but a response field gaining null is still a lost guarantee", () => {
-    const before = doc({ "/p": { get: jsonOp({ type: "object", properties: { v: { type: "string" } } }) } });
-    const after = doc({ "/p": { get: jsonOp({ type: "object", properties: { v: { type: "string", nullable: true } } }) } });
+  it("but a required response field gaining null is still a lost guarantee", () => {
+    const before = doc({ "/p": { get: jsonOp({ type: "object", required: ["v"], properties: { v: { type: "string" } } }) } });
+    const after = doc({ "/p": { get: jsonOp({ type: "object", required: ["v"], properties: { v: { type: "string", nullable: true } } }) } });
     expect(ids(diffDocuments(before, after))).toContain("response.property.became-optional");
+  });
+
+  it("an OPTIONAL response field gaining null is held for review, not published", () => {
+    // Real case: Square's move from Swagger 2.0 to OpenAPI 3.0 (9bb37051,
+    // 2024-11-07) annotated 1759 fields nullable, 6 of them required. The
+    // optional ones never guaranteed a value, so callers already handle absence.
+    const shape = (nullable: boolean) => ({
+      type: "object",
+      required: ["id"],
+      properties: {
+        id: { type: "string" },
+        account_number_suffix: { type: "string", ...(nullable ? { nullable: true } : {}) },
+      },
+    });
+    const result = diffDocuments(
+      doc({ "/p": { get: jsonOp(shape(false)) } }),
+      doc({ "/p": { get: jsonOp(shape(true)) } }),
+    );
+    expect(ids(result)).toEqual(["response.property.optional-now-nullable"]);
+    expect(result.changes[0]?.severity).toBe("BEHAVIORAL");
+    expect(result.changes[0]?.publishable).toBe(false);
+  });
+
+  it("items of an array gaining null are still a lost guarantee", () => {
+    const list = (nullable: boolean) => ({
+      type: "object",
+      required: ["data"],
+      properties: { data: { type: "array", items: { type: "string", ...(nullable ? { nullable: true } : {}) } } },
+    });
+    const result = diffDocuments(doc({ "/p": { get: jsonOp(list(false)) } }), doc({ "/p": { get: jsonOp(list(true)) } }));
+    expect(ids(result)).toEqual(["response.property.became-optional"]);
   });
 });
 
@@ -641,7 +673,7 @@ describe("nullable spellings are the same schema", () => {
       },
       Upload: {
         type: "object",
-        required: ["id"],
+        required: ["id", "file"],
         properties: { id: { type: "string" }, file },
       },
     },

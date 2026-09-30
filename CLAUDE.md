@@ -97,6 +97,14 @@ flips (`directionFlip: true`) are why anyone subscribes:
   `null` is `response.property.now-always-null`, behavioral at 80: nothing
   throws but the value is gone, and the real cases (Twilio, Stripe) look like
   generator artifacts. On a request, narrowing is still a break.
+- **An optional response field gaining null has no guarantee to lose.**
+  Square's move from Swagger 2.0 to OpenAPI 3.0 annotated 1759 fields
+  nullable, 6 of them required: 841 "breaking" changes from one format
+  migration. A field its parent did not require is now
+  `response.property.optional-now-nullable`, behavioral at 80 (held). A
+  required field, array items, or a root schema gaining null is still
+  `response.property.became-optional`, BREAKING. Real case: OpenAI's required
+  `EvalRun.model` went `string → string|null`.
 - **Two spellings of "X or null" are one schema.** OAS 3.0's
   `allOf: [X, {nullable: true}]` and 3.1's `anyOf`/`oneOf: [X, {type: "null"}]`
   mean the same thing, but only `allOf` is flattened, so OpenAI switching
@@ -187,6 +195,20 @@ unhealthy sources and stories waiting for review, and the scheduled job keeps
 one GitHub issue (label `review-queue`) in sync with it, commenting when the
 counts change so it notifies. Before this, a failing source was logged once
 and forgotten, and twelve new facts sat unreviewed for a day.
+
+**20. Version-per-file specs set `followRenames: false`.** (`registry.ts`)
+Adyen keeps `CheckoutService-v71.json`, `-v72.json`; Clerk keeps one dated file
+per version. Git's rename detection stitched those into one history, so a
+version upgrade callers opt into would read as breaking changes to the version
+they are on. It also linked Asana's spec to `README.md`. With the flag,
+history keeps only revisions written at the current path. A new major version
+is a registry change.
+
+**21. A spec that stopped being maintained is removed, not tracked.** Slack's
+`slack-api-specs` has not changed since 2020; everything it produced was five
+years old and describes an API Slack has since moved on from. Removing a source
+from the registry makes `seed` deactivate it, and `review`/`report` skip
+inactive sources.
 
 
 ## Layout

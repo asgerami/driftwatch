@@ -10,6 +10,11 @@ import type { AdditiveLine, ChangeView, ReleaseView } from "./types";
 /** Drowns a release when each occurrence is its own card. */
 export const COLLAPSED_RESPONSE_RULE = "response.property.added";
 export const COLLAPSED_REQUEST_RULE = "request.property.added";
+/**
+ * Square's move to OpenAPI 3.0 marked 797 request fields nullable in one
+ * release: additive, harmless, and 797 cards.
+ */
+export const COLLAPSED_NULLABLE_RULE = "request.property.became-nullable";
 
 export function hasSignal(release: Pick<ReleaseView, "counts">): boolean {
   return (
@@ -42,6 +47,10 @@ export function additiveLineHeadline(line: AdditiveLine): string {
   return `${line.count} new response field${line.count === 1 ? "" : "s"}`;
 }
 
+export function requestNullableHeadline(line: AdditiveLine): string {
+  return `${line.count} request ${line.count === 1 ? "field now accepts" : "fields now accept"} null`;
+}
+
 export function requestPropertyHeadline(line: AdditiveLine): string {
   return `${line.count} new request ${line.count === 1 ? "property" : "properties"}`;
 }
@@ -68,13 +77,16 @@ export function splitCards(changes: ChangeView[]): {
   cards: ChangeView[];
   responseFieldAdds?: AdditiveLine;
   requestPropertyAdds?: AdditiveLine;
+  requestNullableAdds?: AdditiveLine;
 } {
   const response: ChangeView[] = [];
   const request: ChangeView[] = [];
+  const nullable: ChangeView[] = [];
   const cards: ChangeView[] = [];
   for (const change of changes) {
     if (change.ruleId === COLLAPSED_RESPONSE_RULE) response.push(change);
     else if (change.ruleId === COLLAPSED_REQUEST_RULE) request.push(change);
+    else if (change.ruleId === COLLAPSED_NULLABLE_RULE) nullable.push(change);
     else cards.push(change);
   }
 
@@ -83,10 +95,13 @@ export function splitCards(changes: ChangeView[]): {
       ...cards,
       ...(response.length < 2 ? response : []),
       ...(request.length < 2 ? request : []),
+      ...(nullable.length < 2 ? nullable : []),
     ],
     responseFieldAdds:
       response.length >= 2 ? { count: response.length, fields: response.map(fieldLabel) } : undefined,
     requestPropertyAdds:
       request.length >= 2 ? { count: request.length, fields: request.map(fieldLabel) } : undefined,
+    requestNullableAdds:
+      nullable.length >= 2 ? { count: nullable.length, fields: nullable.map(fieldLabel) } : undefined,
   };
 }

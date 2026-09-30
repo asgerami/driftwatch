@@ -1,4 +1,5 @@
 import { writeFile, rm } from "node:fs/promises";
+import { isAbsolute, resolve } from "node:path";
 
 import {
   PUBLISH_CONFIDENCE_THRESHOLD,
@@ -97,6 +98,19 @@ const SEVERITY_RANK: Record<string, number> = {
   COSMETIC: 4,
 };
 
+/**
+ * Resolve a path the user typed against the directory they typed it in.
+ *
+ * `pnpm w` runs the CLI inside apps/worker, so a plain relative path landed
+ * there. The scheduled job wrote apps/worker/report.md, looked for report.md
+ * at the repo root, found nothing, and silently never opened the issue; the
+ * first backfill left 3040 stories unannounced. pnpm records the caller's
+ * directory in INIT_CWD.
+ */
+export function outputPath(path: string, env: NodeJS.ProcessEnv = process.env): string {
+  return isAbsolute(path) ? path : resolve(env["INIT_CWD"] ?? process.cwd(), path);
+}
+
 export async function report(options: { out?: string } = {}): Promise<void> {
   const pending = await prisma.change.findMany({
     where: {
@@ -104,7 +118,7 @@ export async function report(options: { out?: string } = {}): Promise<void> {
       reviewedAt: null,
       confidence: { gte: PUBLISH_CONFIDENCE_THRESHOLD },
       severity: { not: "COSMETIC" },
-      run: { rulesetVer: RULESET_VERSION },
+      run: { rulesetVer: RULESET_VERSION, to: { source: { active: true } } },
     },
     select: {
       ruleId: true,
@@ -144,20 +158,21 @@ export async function report(options: { out?: string } = {}): Promise<void> {
     .filter(({ health }) => health.state === "failing" || health.state === "stale");
 
   const built = buildReport(stories, unhealthy);
+  const out = options.out ? outputPath(options.out) : undefined;
 
   if (!built) {
     log.ok("nothing needs attention");
-    if (options.out) {
-      await rm(options.out, { force: true });
-      await rm(`${options.out}.title`, { force: true });
+    if (out) {
+      await rm(out, { force: true });
+      await rm(`${out}.title`, { force: true });
     }
     return;
   }
 
-  if (options.out) {
-    await writeFile(options.out, built.body);
-    await writeFile(`${options.out}.title`, built.title);
-    log.info(`${built.title} → ${options.out}`);
+  if (out) {
+    await writeFile(out, built.body);
+    await writeFile(`${out}.title`, built.title);
+    log.info(`${built.title} → ${out}`);
   } else {
     console.log(`# ${built.title}\n\n${built.body}`);
   }

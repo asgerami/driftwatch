@@ -1,6 +1,10 @@
 import type { AdditiveLine, ChangeView, ReleaseView } from "../lib/types";
 import { SEVERITY_LABEL, SEVERITY_ORDER } from "../lib/types";
-import { additiveLineHeadline, requestPropertyHeadline } from "../lib/feed";
+import {
+  additiveLineHeadline,
+  requestNullableHeadline,
+  requestPropertyHeadline,
+} from "../lib/feed";
 
 export function SeverityChip({ severity }: { severity: ChangeView["severity"] }) {
   return (
@@ -153,6 +157,13 @@ export function Release({ release }: { release: ReleaseView }) {
           line={release.requestPropertyAdds}
           headline={requestPropertyHeadline(release.requestPropertyAdds)}
           id={`${release.id}-request-fields`}
+        />
+      ) : null}
+      {release.requestNullableAdds ? (
+        <AdditiveLineRow
+          line={release.requestNullableAdds}
+          headline={requestNullableHeadline(release.requestNullableAdds)}
+          id={`${release.id}-request-nullable`}
         />
       ) : null}
     </article>
