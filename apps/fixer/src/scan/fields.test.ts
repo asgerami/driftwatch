@@ -10,8 +10,9 @@ const targets = (path: string[]): Targets => ({
   operations: [{ method: "GET", path: "/v1/customers/{customer}" }],
   hosts: ["api.stripe.com"],
   basePaths: [],
-  responseFields: [{ path, operations: [op] }],
+  responseFields: [{ path, operations: [op], absolute: {} }],
   requestFields: [],
+  byFact: [],
 });
 const why = () => "test";
 
@@ -66,7 +67,8 @@ describe("field access", () => {
       hosts: ["api.stripe.com"],
       basePaths: [],
       responseFields: [],
-      requestFields: [{ path: ["tax_ids"], operations: ["POST /v1/customers/{customer}"] }],
+      requestFields: [{ path: ["tax_ids"], operations: ["POST /v1/customers/{customer}"], absolute: {} }],
+      byFact: [],
     };
     const matched: MatchedCall[] = [];
     scanHttp(source, t, why, matched);

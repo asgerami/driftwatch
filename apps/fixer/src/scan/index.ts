@@ -1,3 +1,4 @@
+import type ts from "typescript";
 import { RULES, type ChangeDocument, type JsonObject } from "@driftwatch/core";
 
 import { sortFindings, type Finding, type MatchedCall } from "../findings.js";
@@ -12,6 +13,8 @@ export interface ScanResult {
   targets: Targets;
   filesScanned: number;
   findings: Finding[];
+  /** Parsed files, by repo-relative path, for `fix` to edit. */
+  sources: Map<string, ts.SourceFile>;
 }
 
 /** Why a call on `op` breaks, in one line, from the change's own facts. */
@@ -53,5 +56,11 @@ export async function scan(change: ChangeDocument, spec: JsonObject, repo: strin
     findings.push(...scanSdk(source, targets, change.provider.slug, why, matched));
   }
   findings.push(...scanFields(sources, matched, targets, explainField(change)));
-  return { change, targets, filesScanned: files.length, findings: sortFindings(findings) };
+  return {
+    change,
+    targets,
+    filesScanned: files.length,
+    findings: sortFindings(findings),
+    sources: new Map(sources.map((s) => [s.fileName, s])),
+  };
 }

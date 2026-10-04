@@ -237,6 +237,25 @@ reached, for a distinctive name: a local that came from another call is the
 trace's to follow, and `id` or `email` is read off everything. It never opens
 a pull request (brief, M4 and section 8).
 
+**24. `fix` patches only what both specs say plainly.** (`apps/fixer/src/fix`)
+A removed field is a **rename** only with exactly one new sibling of the same
+shape (refs resolved, prose dropped) whose description matches bar the words of
+the names: Plaid's `protect_session_id` → `device_session_id`, Cloudflare's
+`integration` → `provider`. Stripe Checkout's `allowed_payment_method_types`
+has the same shape as the `payment_method_types` it sits beside, and says
+"Unlike `payment_method_types`, this acts as a filter": not a rename. A new
+field with a related name and another shape (`filters.countries` →
+`country`) blocks a **removal** too, since deleting the old one would drop the
+filter. A removal also needs the field optional before and a value with no
+call in it. A newly required field is **added** only with a value the *new*
+spec documents (const, one-value enum, default, never a deprecated one):
+OpenAI made image `model` required and dropped its `dall-e-2` default in the
+same release, because that model was retired. Decisions key on operation and
+field: one release removed `payment_method_types` from PaymentIntents and
+maybe replaced it on Checkout. Every patch is typechecked with the repo's own
+config; one that introduces an error is dropped and listed, never shipped.
+Fixture specs are real, cut down with `scripts/trim-spec.ts`.
+
 ## Layout
 
 ```
@@ -262,8 +281,10 @@ apps/web/
 apps/mcp/               stdio MCP server over /api/feed.json
 apps/fixer/             `driftwatch` CLI (M4): scan a repo for code a published change breaks
   src/scan/             finders (http: fetch/axios/ky; sdk: official SDK clients), file walk, TS parsing
-  src/eval.ts           precision/recall against fixtures/ (markers: `driftwatch-expect: <kind>`)
-  fixtures/             consumer repos + the change and spec each is scanned for
+  src/fix/              spec verdicts (rename, removal, documented value), edits, diff, typecheck, repo tests
+  src/eval.ts           precision/recall against fixtures/ (markers: `driftwatch-expect: <kind>[, <kind>]`)
+  fixtures/             consumer repos + the real change and specs each is scanned for; expected.patch per fixed one
+  scripts/trim-spec.ts  cut a real normalized spec down to a fixture
 prisma/schema.prisma    full model, including the unbuilt GitHub App tables
 ```
 

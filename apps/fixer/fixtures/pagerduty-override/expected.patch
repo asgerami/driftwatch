@@ -1,0 +1,20 @@
+diff --git a/src/overrides.ts b/src/overrides.ts
+--- a/src/overrides.ts
++++ b/src/overrides.ts
+@@ -19,14 +19,15 @@
+       override: {
+         start_time: w.start,
+         end_time: w.end,
+         overriding_member: { id: userId, type: "user_reference" },
++        type: "override_shift",
+       },
+     }),
+   });
+ }
+ 
+ export async function reassign(scheduleId: string, overrideId: string, userId: string, w: Window) {
+-  return pd.put(`/v3/schedules/${scheduleId}/overrides/${overrideId}`, { override: { start_time: w.start, end_time: w.end, overriding_member: { id: userId } } }); // driftwatch-expect: http
++  return pd.put(`/v3/schedules/${scheduleId}/overrides/${overrideId}`, { override: { start_time: w.start, end_time: w.end, overriding_member: { id: userId }, type: "override_shift" } }); // driftwatch-expect: http
+ }
+ 
+ // Already sends it: nothing to patch.

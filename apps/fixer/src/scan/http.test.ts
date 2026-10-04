@@ -9,6 +9,7 @@ const targets: Targets = {
   basePaths: [],
   responseFields: [],
   requestFields: [],
+  byFact: [],
 };
 const why = () => "test";
 const found = (code: string) => scanHttp(parse("x.ts", code), targets, why).map((f) => f.confidence);

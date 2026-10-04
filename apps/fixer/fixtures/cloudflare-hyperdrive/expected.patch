@@ -1,0 +1,19 @@
+diff --git a/src/hyperdrive.ts b/src/hyperdrive.ts
+--- a/src/hyperdrive.ts
++++ b/src/hyperdrive.ts
+@@ -4,13 +4,13 @@
+ export async function integrationOf(accountId: string, id: string): Promise<string | undefined> {
+   const res = await fetch(`${API}/accounts/${accountId}/hyperdrive/configs/${id}`, { headers }); // driftwatch-expect: http
+   const body = await res.json();
+-  return body.result.integration?.integration; // driftwatch-expect: field
++  return body.result.integration?.provider; // driftwatch-expect: field
+ }
+ 
+ export async function integrations(accountId: string): Promise<string[]> {
+   const res = await fetch(`${API}/accounts/${accountId}/hyperdrive/configs`, { headers }); // driftwatch-expect: http
+   const { result } = await res.json();
+-  return result.map((config: any) => config.integration?.["integration"]); // driftwatch-expect: field
++  return result.map((config: any) => config.integration?.["provider"]); // driftwatch-expect: field
+ }
+ 
+ // Typed by the repo itself: renaming the read alone would not typecheck,

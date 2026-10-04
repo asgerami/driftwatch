@@ -1,0 +1,27 @@
+diff --git a/src/protect.ts b/src/protect.ts
+--- a/src/protect.ts
++++ b/src/protect.ts
+@@ -5,12 +5,12 @@
+ export async function reportLogin(userId: string, sessionId: string) {
+   return plaid.protectEventSend({ // driftwatch-expect: sdk
+     event: { user_sign_in: { user_id: userId } },
+-    protect_session_id: sessionId, // driftwatch-expect: field
++    device_session_id: sessionId, // driftwatch-expect: field
+   });
+ }
+ 
+ export async function reportSignup(protect_session_id: string) {
+-  return plaid.protectEventSend({ event: { user_sign_up: {} }, protect_session_id }); // driftwatch-expect: sdk, field
++  return plaid.protectEventSend({ event: { user_sign_up: {} }, device_session_id: protect_session_id }); // driftwatch-expect: sdk, field
+ }
+ 
+ // Raw HTTP, with the session ID inside the event: renamed there too.
+@@ -19,7 +19,7 @@
+     method: "POST",
+     headers: { "content-type": "application/json" },
+     body: JSON.stringify({
+-      event: { "protect_session_id": sessionId, user_sign_in: {} }, // driftwatch-expect: field
++      event: { "device_session_id": sessionId, user_sign_in: {} }, // driftwatch-expect: field
+     }),
+   });
+   return res.json();

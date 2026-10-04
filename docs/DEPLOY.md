@@ -164,6 +164,21 @@ API, fix PRs, and any source not fetching.
   `pnpm w pr log https://github.com/<owner>/<repo>/pull/<n> --change <storyId>`;
   signals re-reads its state from GitHub each run.
 
+## Fixing a repo by hand (M4)
+
+The `driftwatch` CLI (`apps/fixer`) never opens a pull request. You do.
+
+1. Clone the repo you mean to fix and install its dependencies, so the
+   typecheck sees the real SDK types.
+2. `pnpm --filter @driftwatch/fixer cli scan --change <storyId> --repo <path>`
+   lists every affected call and field read, with a confidence label.
+3. `pnpm --filter @driftwatch/fixer cli fix --change <storyId> --repo <path> --out fix.patch`
+   writes a patch for the mechanical cases and lists everything else with the
+   reason it was not patched. `--write` applies it and runs the repo's tests,
+   restoring the files if they fail.
+4. Read the patch and the "Not patched" list. Most of a real fix is the list.
+5. Open the PR yourself, then log it: `pnpm w pr log <url> --change <storyId>`.
+
 ## When something breaks
 
 - **The `review-queue` issue** is the first place to look. The scheduled job

@@ -17,6 +17,10 @@ export interface Finding {
    */
   confidence: "high" | "medium" | "low";
   why: string;
+  /** Field findings: the changed field, dotted ("integration.integration"). */
+  field?: string;
+  /** Field findings: read from a response, or sent in a request. */
+  direction?: "request" | "response";
 }
 
 const RANK = { high: 0, medium: 1, low: 2 } as const;
