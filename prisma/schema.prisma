@@ -275,3 +275,18 @@ model FixPr {
 
   @@index([repoId, state])
 }
+
+// ── waitlist ────────────────────────────────────────────────────────────
+
+// "Watch my repo": people who want the GitHub App to open a PR when an API
+// change breaks their code. No email provider yet; nothing is sent. Stores
+// only what the form asks for, and no IP address.
+model WaitlistEntry {
+  id        String   @id @default(cuid())
+  email     String   @unique // lower-cased; resubmitting updates the entry
+  repoUrl   String // https://github.com/<owner>/<repo>
+  apis      String[] // provider slugs
+  otherApis String? // free text for APIs not watched yet
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

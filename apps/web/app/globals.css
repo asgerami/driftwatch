@@ -515,3 +515,77 @@ a {
   font-size: 0.85rem;
   color: var(--ink-3);
 }
+
+.watch-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+  max-width: 560px;
+}
+
+.watch-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.92rem;
+}
+
+.watch-form input[type="email"],
+.watch-form input[type="url"],
+.watch-form input[type="text"] {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  background: var(--surface);
+}
+
+.watch-form fieldset {
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 10px 14px;
+}
+
+.watch-apis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px 12px;
+}
+
+.watch-form .watch-api {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.watch-optional,
+.watch-note {
+  color: var(--ink-3);
+  font-size: 0.85rem;
+}
+
+.watch-error {
+  color: #c0392b;
+  margin: 0;
+}
+
+.watch-trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.watch-form button {
+  align-self: flex-start;
+  font: inherit;
+  font-weight: 600;
+  padding: 9px 18px;
+  border: none;
+  border-radius: 3px;
+  background: var(--ink);
+  color: var(--surface);
+  cursor: pointer;
+}
