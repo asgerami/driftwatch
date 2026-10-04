@@ -281,7 +281,10 @@ change and read the output before trusting it.
    required *and* becomes nullable fires `became-optional` twice. `storyKeyOf`
    decides what `review` approves as one decision and the feed shows as one
    card. It never changes severity, which is part of every key, and every fact
-   is still stored on its own for the GitHub App.
+   is still stored on its own for the GitHub App. The opposite shape groups too:
+   five or more fields removed (or no longer guaranteed) under one parent in
+   one release are one story about that parent. Vercel cut a user-event
+   payload's `newOwner` from 78 fields to 2, which was 76 cards.
 4. **Verified.** `request.param.removed` on GitHub's classroom `page` /
    `per_page` was not a walker bug. Commits `33438507 → 1048c01d` dropped the
    `$ref`s from three operations while the shared parameter components stayed,

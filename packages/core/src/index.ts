@@ -45,6 +45,8 @@ export { renderImpact, enrich, type RenderedImpact } from "./impact/index.js";
 export {
   storyKeyOf,
   groupStories,
+  parentOf,
+  PARENT_STORY_MIN_FIELDS,
   storyDetail,
   leafOf,
   type StoryInput,

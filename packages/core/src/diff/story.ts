@@ -23,6 +23,7 @@ export interface StoryInput {
   ruleId: string;
   severity: string;
   fingerprint: string;
+  componentName?: string | null;
   fieldPath?: string | null;
   detail?: string | null;
 }
@@ -69,13 +70,57 @@ export function storyKeyOf(change: StoryInput): string {
   return `${ruleId}|${severity}|fact|${change.fingerprint}`;
 }
 
+/** Rules where a parent losing many fields at once reads as one event. */
+const BY_PARENT = new Set([
+  "response.property.removed",
+  "request.property.removed",
+  "response.property.became-optional",
+]);
+
+/**
+ * Distinct fields under one parent before they collapse into a parent story.
+ * Below it, the per-field-name grouping above applies (igic under 26
+ * countries is one field name under many parents, the opposite shape).
+ */
+export const PARENT_STORY_MIN_FIELDS = 5;
+
+/** `payload.newOwner.abuse` → `payload.newOwner`; a top-level field has no parent path. */
+export function parentOf(fieldPath: string): string {
+  const cut = fieldPath.lastIndexOf(".");
+  return cut === -1 ? "" : fieldPath.slice(0, cut);
+}
+
+function parentKey(item: StoryInput): string | null {
+  if (!item.fieldPath || !BY_PARENT.has(item.ruleId)) return null;
+  return `${item.ruleId}|${item.severity}|parent|${item.componentName ?? ""}|${parentOf(item.fieldPath)}`;
+}
+
 /**
  * Group items by story, keeping first-seen order of both stories and members.
+ *
+ * One pass first counts, per parent object, how many distinct fields a
+ * removal-type rule touched. Vercel cut a user-event payload's `newOwner` from
+ * 78 fields to 2 in one release: 76 true facts, which as 76 cards buried the
+ * one thing that happened. At PARENT_STORY_MIN_FIELDS or more, they are one
+ * story about the parent.
  */
 export function groupStories<T extends StoryInput>(items: T[]): T[][] {
+  const fieldsPerParent = new Map<string, Set<string>>();
+  for (const item of items) {
+    const key = parentKey(item);
+    if (!key) continue;
+    const fields = fieldsPerParent.get(key) ?? new Set<string>();
+    fields.add(item.fieldPath!);
+    fieldsPerParent.set(key, fields);
+  }
+
   const groups = new Map<string, T[]>();
   for (const item of items) {
-    const key = storyKeyOf(item);
+    const parent = parentKey(item);
+    const key =
+      parent && (fieldsPerParent.get(parent)?.size ?? 0) >= PARENT_STORY_MIN_FIELDS
+        ? parent
+        : storyKeyOf(item);
     const list = groups.get(key);
     if (list) list.push(item);
     else groups.set(key, [item]);
