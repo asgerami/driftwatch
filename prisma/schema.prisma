@@ -309,3 +309,16 @@ model ShareDraft {
 
   @@index([postedAt, skippedAt])
 }
+
+// ── signals ─────────────────────────────────────────────────────────────
+
+// Feed requests that reached the site (not Netlify's CDN), per day and path.
+// A lower bound on real fetches: the CDN answers repeats within 5 minutes.
+// The free Netlify plan exposes no logs, so this is the approximation.
+model FeedFetch {
+  day   String // YYYY-MM-DD, UTC
+  path  String // "/rss.xml", "/apis/stripe/feed.json"
+  count Int    @default(0)
+
+  @@id([day, path])
+}

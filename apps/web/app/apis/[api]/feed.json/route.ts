@@ -1,3 +1,4 @@
+import { countFeedFetch } from "../../../../lib/feedFetch";
 import { JSON_FEED_HEADERS, feedEntries, renderJsonFeed } from "../../../../lib/feeds";
 import { listProviders, recentReleases } from "../../../../lib/queries";
 
@@ -8,6 +9,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ api
   const { api } = await params;
   const provider = (await listProviders()).find((p) => p.slug === api);
   if (!provider) return new Response("Unknown API", { status: 404 });
+  await countFeedFetch(`/apis/${api}/feed.json`);
 
   const feed = renderJsonFeed(
     {
