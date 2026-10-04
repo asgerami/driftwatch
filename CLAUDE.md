@@ -124,7 +124,10 @@ four years of history in one afternoon; fetch time would scramble the sequence.
 **10. A failed `DiffRun` is deleted and redone.** The
 `(fromId, toId, rulesetVer)` uniqueness that makes re-running free also means a
 failure would otherwise be skipped forever, leaving a permanent hole in the
-history with no way to fill it short of wiping the database.
+history with no way to fill it short of wiping the database. The same goes
+for a run with no `finishedAt`: a killed process records no error, and a
+cancelled re-diff left a PagerDuty run with no rows that every later pass
+skipped. The workflow's concurrency group guarantees no live job owns it.
 
 **11. The Prisma client loads lazily, via `createRequire`.**
 (`apps/worker/src/db.ts`) Before `prisma generate` has run, a static ESM import

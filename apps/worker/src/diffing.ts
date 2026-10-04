@@ -47,7 +47,7 @@ export async function diffPair(
         rulesetVer: RULESET_VERSION,
       },
     },
-    select: { id: true, error: true },
+    select: { id: true, error: true, finishedAt: true },
   });
 
   if (existing) {
@@ -55,7 +55,13 @@ export async function diffPair(
     // re-running free, but it also means a transient failure would be skipped
     // forever on every subsequent pass, leaving a permanent hole in the
     // history with no way to fill it short of wiping the database.
-    if (!existing.error) return { status: "existing", runId: existing.id };
+    //
+    // Nor may a run that never finished: a process killed mid-diff records no
+    // error. Cancelling a re-diff left one PagerDuty run with no rows and no
+    // finishedAt, and every later pass skipped it, so four published facts
+    // would have vanished. The workflow's concurrency group means no other
+    // job can still be writing an unfinished run.
+    if (!existing.error && existing.finishedAt) return { status: "existing", runId: existing.id };
     await prisma.diffRun.delete({ where: { id: existing.id } });
   }
 

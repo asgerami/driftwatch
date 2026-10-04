@@ -484,9 +484,17 @@ export function diffSchema(
       }
     }
   } else {
-    // Direction flip 1.
+    // Direction flip 1. A required field that is gone altogether is reported
+    // once, as removed below: "no longer guaranteed" is implied, and saying
+    // both made two cards for one fact (Cloudflare's Hyperdrive `integration`,
+    // renamed to `provider`, read as both removed and no longer guaranteed).
+    const removedFields = new Set(
+      Object.keys(isObject(before["properties"]) ? before["properties"] : {}).filter(
+        (key) => !isObject(after["properties"]) || !(key in after["properties"]),
+      ),
+    );
     for (const key of beforeRequired) {
-      if (!afterRequired.has(key)) {
+      if (!afterRequired.has(key) && !removedFields.has(key)) {
         emit({
           ...base,
           ruleId: "response.property.became-optional",
