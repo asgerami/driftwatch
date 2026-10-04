@@ -4,6 +4,7 @@ import { StoryPage, whoIsAffected } from "../components/StoryPage";
 import { feedEntries, renderJsonFeed, renderRss } from "../lib/feeds";
 import { MIN_FILL_MS, normalizeRepoUrl, validateSubmission } from "../lib/waitlist";
 import { WatchForm } from "../components/WatchForm";
+import { emailConfigured, waitlistConfirmation } from "../lib/email";
 import type { ChangeView, ReleaseView } from "../lib/types";
 import { additiveLineHeadline, leadWithSignal, requestPropertyHeadline, splitCards } from "../lib/feed";
 
@@ -236,6 +237,12 @@ check("watch form asks for email, repo and APIs", watchHtml.includes('name="emai
 check("watch form carries the bot checks", watchHtml.includes('name="website"') && watchHtml.includes(`value="${now}"`));
 check("watch form shows a validation error", decode(renderToStaticMarkup(<WatchForm apis={[]} renderedAt={now} error="repo" />)).includes("https://github.com/owner/repo"));
 check("watch form confirms a submission", decode(renderToStaticMarkup(<WatchForm apis={[]} renderedAt={now} joined />)).includes("on the list"));
+
+// Waitlist confirmation email: off without a key; content names what they signed up for.
+check("email is off without Resend settings", !emailConfigured({}) && !emailConfigured({ RESEND_API_KEY: "k" }) && emailConfigured({ RESEND_API_KEY: "k", EMAIL_FROM: "Driftwatch <hello@driftwatch.et>" }));
+const confirmation = waitlistConfirmation({ email: "ada@example.com", repoUrl: "https://github.com/acme/billing", apis: ["stripe", "github"] });
+check("confirmation names the repo and APIs", confirmation.to === "ada@example.com" && confirmation.text.includes("https://github.com/acme/billing") && confirmation.text.includes("stripe, github"));
+check("confirmation promises nothing more than one more email", confirmation.text.includes("once more") && !/newsletter/i.test(confirmation.text));
 
 // RSS items link to #<change id>, #<release>-fields and #<release>-request-fields.
 check("each card carries its id as an anchor", release.changes.every((c) => releaseHtml.includes(`id="${c.id}"`)));

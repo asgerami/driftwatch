@@ -20,8 +20,8 @@ export function WatchForm({
       <div className="empty" id="form">
         <p style={{ margin: 0 }}>
           You&rsquo;re on the list. When the GitHub App can open a pull request
-          for your repo, you&rsquo;ll be among the first to hear. Nothing else
-          will be sent to that address.
+          for your repo, you&rsquo;ll be among the first to hear. Apart from a
+          confirmation, nothing else will be sent to that address.
         </p>
       </div>
     );
