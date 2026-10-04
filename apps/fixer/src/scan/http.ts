@@ -161,6 +161,22 @@ interface Call {
   url: string;
   method: string | undefined;
   body: MatchedCall["body"];
+  /** A wrapper we do not know (`xfetch.post(url)`): counts only on the provider's own host. */
+  wrapper?: boolean;
+}
+
+/** A callee that reads as a request: an HTTP verb, or a name about fetching. */
+const REQUESTY = /fetch|request|http/i;
+const NOT_REQUESTS = new Set(["console", "logger", "log", "debug"]);
+
+function calleeName(callee: ts.Expression): { name: string; root?: string } | undefined {
+  if (ts.isIdentifier(callee)) return { name: callee.text };
+  if (ts.isPropertyAccessExpression(callee)) {
+    let root: ts.Expression = callee.expression;
+    while (ts.isPropertyAccessExpression(root)) root = root.expression;
+    return { name: callee.name.text, root: ts.isIdentifier(root) ? root.text : undefined };
+  }
+  return undefined;
 }
 
 function httpCalls(source: ts.SourceFile): Call[] {
@@ -211,6 +227,16 @@ function httpCalls(source: ts.SourceFile): Call[] {
             method: resolver.method(property(first, "method"), "GET"),
             body: "data",
           });
+        }
+      } else if (first) {
+        // A wrapper of the repo's own: window.api.xfetch.post(url, body).
+        // anime.gf calls OpenAI this way, and nothing above sees it.
+        const named = calleeName(callee);
+        if (named && !NOT_REQUESTS.has(named.root ?? "") && (VERBS.has(named.name) || REQUESTY.test(named.name) || REQUESTY.test(named.root ?? ""))) {
+          const url = resolver.resolve(first);
+          if (/^https?:\/\/[^/\u0001]+/.test(url)) {
+            calls.push({ node, url, method: VERBS.has(named.name) ? named.name.toUpperCase() : undefined, body: "unknown", wrapper: true });
+          }
         }
       }
     }
@@ -301,12 +327,13 @@ export function scanHttp(
 
   for (const call of httpCalls(source)) {
     const url = parts(call.url);
+    if (call.wrapper && (!url.host || !targets.hosts.includes(url.host))) continue;
     let hit: { op: TargetOperation; confidence: Finding["confidence"] } | null = null;
     for (const op of targets.operations) {
       if (op.method !== "*" && call.method && call.method !== op.method) continue;
       const level = matchPath(url, op, targets);
       if (!level) continue;
-      const confidence = level === "high" && call.method ? "high" : "medium";
+      const confidence = level === "high" && call.method && !call.wrapper ? "high" : "medium";
       if (!hit || (confidence === "high" && hit.confidence !== "high")) hit = { op, confidence };
     }
     if (!hit) continue;

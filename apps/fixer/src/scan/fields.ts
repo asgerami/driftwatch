@@ -39,6 +39,8 @@ interface State {
   path: string[];
   call: MatchedCall;
   hops: number;
+  /** Through a wrapper we do not know: the body may sit under a prefix. */
+  wrapped?: boolean;
 }
 
 interface Context {
@@ -100,11 +102,15 @@ function check(ctx: Context, node: ts.Node, path: string[], s: State) {
     if (field.path[field.path.length - 1] !== name || !applies(field, s.call)) continue;
     const absolute = field.absolute[opKey(s.call.op)] ?? [];
     const exact = same(field.path, path) || absolute.some((full) => same(full, path));
+    // Through an unknown wrapper the body may sit under `.value` or `.data`:
+    // a path that ends with the field's full path is a medium match.
+    const full = absolute.length > 0 ? absolute : [field.path];
+    const suffix = s.wrapped && full.some((f) => path.length > f.length && same(path.slice(path.length - f.length), f));
     // Where the spec places the component in this payload is known, and this
     // is not it: Cloudflare's `result.integration` is the parent object, not
     // the `integration` field inside it.
-    if (!exact && absolute.length > 0) continue;
-    report(ctx, node, s.call, field, exact && s.call.confidence === "high" ? "high" : "medium");
+    if (!exact && !suffix && absolute.length > 0) continue;
+    report(ctx, node, s.call, field, exact && !s.wrapped && s.call.confidence === "high" ? "high" : "medium");
   }
 }
 
@@ -165,6 +171,8 @@ function follow(ctx: Context, e: ts.Node, s: State) {
       return;
     }
     if (callee && SAME_SHAPE.has(name)) return follow(ctx, callee, s);
+    // A wrapper may hand back a Response-like value.
+    if (callee && s.wrapped && name === "json") return follow(ctx, callee, s);
     if (callee) return; // a method on the body: not a field
     const path = [...s.path, name];
     check(ctx, ts.isPropertyAccessExpression(p) ? p.name : ts.isElementAccessExpression(p) ? p.argumentExpression : p, path, s);
@@ -456,7 +464,8 @@ export function scanFields(
   for (const call of matched) {
     requestFields(ctx, call, targets.requestFields);
     if (targets.responseFields.some((f) => applies(f, call))) {
-      follow(ctx, call.node, { layer: call.body === "direct" ? "body" : call.body, path: [], call, hops: 0 });
+      const layer = call.body === "direct" || call.body === "unknown" ? "body" : call.body;
+      follow(ctx, call.node, { layer, path: [], call, hops: 0, wrapped: call.body === "unknown" });
     }
   }
   guesses(ctx, matched);

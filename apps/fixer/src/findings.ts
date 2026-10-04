@@ -41,8 +41,9 @@ export interface MatchedCall {
   /**
    * Where the response body sits in the returned value: axios and Octokit
    * wrap it in `.data`; fetch needs `.json()`; SDKs like Stripe's and
-   * OpenAI's return it directly.
+   * OpenAI's return it directly. "unknown": a wrapper of the repo's own,
+   * which may put it anywhere (`.value`, `.data`).
    */
-  body: "direct" | "data" | "fetch";
+  body: "direct" | "data" | "fetch" | "unknown";
   confidence: Finding["confidence"];
 }
