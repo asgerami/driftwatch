@@ -84,12 +84,11 @@ Netlify's CDN cached one response per path and ignored `?provider=`.
 personal data, so no consent banner. Uses the Cloudflare account R2 already
 needs.
 
-1. Cloudflare dashboard → **Analytics & Logs → Web Analytics → Add a site**,
-   enter `driftwatch.et`, and choose the JavaScript snippet (the domain is not
-   proxied through Cloudflare, so automatic setup does not apply).
-2. Copy the `token` value from the snippet.
-3. Netlify → Site configuration → Environment variables:
-   `NEXT_PUBLIC_CF_BEACON_TOKEN` = that token. Redeploy: it is read at build.
+Set up: driftwatch.et's token is in `apps/web/app/layout.tsx` (it is public,
+shipped in every page). It loads on production builds only (Netlify's
+`CONTEXT=production`), so previews don't count as visits. Stats are in the
+Cloudflare dashboard under **Analytics & Logs → Web Analytics**. A fork sets
+`NEXT_PUBLIC_CF_BEACON_TOKEN` instead.
 
 **Email: Resend.** Free for 3,000 emails a month, 100 a day. Used for one
 thing today: a single confirmation when someone joins the waitlist (not when

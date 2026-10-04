@@ -2,7 +2,15 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { SITE_URL } from "../lib/site";
 
-const CF_BEACON_TOKEN = process.env["NEXT_PUBLIC_CF_BEACON_TOKEN"];
+/**
+ * Cloudflare Web Analytics for driftwatch.et. The token is public by design:
+ * it ships in every page's HTML. Production builds only (Netlify sets
+ * CONTEXT), so deploy previews and local builds don't count as visits.
+ * NEXT_PUBLIC_CF_BEACON_TOKEN overrides it, e.g. for a fork.
+ */
+const CF_BEACON_TOKEN =
+  process.env["NEXT_PUBLIC_CF_BEACON_TOKEN"] ??
+  (process.env["CONTEXT"] === "production" ? "4fc3240a453d4d3698500762795d7216" : undefined);
 
 const DESCRIPTION =
   "What your API vendors changed, from the calling end. Spec-derived, severity assigned deterministically.";
@@ -49,7 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             // Cloudflare Web Analytics: no cookies, no personal data, free.
             // Off unless the token is set at build time.
             <script
-              defer
+              type="module"
               src="https://static.cloudflareinsights.com/beacon.min.js"
               data-cf-beacon={JSON.stringify({ token: CF_BEACON_TOKEN })}
             />
