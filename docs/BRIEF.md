@@ -176,9 +176,9 @@ Every patch must typecheck, and repo tests must run when they exist. Low-confide
 **Human in the loop.** The CLI never opens PRs itself. Amir reviews every PR and opens it himself, and keeps it to a handful per upstream change.
 
 Acceptance:
-- [ ] Fixture consumer repos with known call sites, covering SDK calls, raw HTTP and field access
-- [ ] Scan precision and recall measured against those fixtures and reported
-- [ ] Every generated patch typechecks against its fixture repo
+- [x] Fixture consumer repos with known call sites, covering SDK calls, raw HTTP and field access
+- [x] Scan precision and recall measured against those fixtures and reported
+- [x] Every generated patch typechecks against its fixture repo
 
 ### M5: GitHub App (gated; do not start)
 
@@ -240,3 +240,4 @@ Claude Code: add one dated line at the end of each session saying what got done 
 - 2026-09-30: M1 done except the review load that follows it. Every rule has a test (a test enforces it); security diffed as alternatives (ruleset 1.4.0, re-diffed before merge with every decision carried). Retries with backoff, conditional GETs (304), per-source health, and a `review-queue` GitHub issue from the scheduled job. Registry at 22 providers / 23 sources, all verified on GitHub via the new `inspect` workflow; left out Anthropic, DigitalOcean, Mailgun, HubSpot (reasons in the registry commit). Next: backfill the new APIs, review their first stories, then M2.
 - 2026-10-04: Queue cleared and published (2188 stories), with Clerk's withdrawn endpoints and a Square converter artifact rejected. Ruleset 1.6.0 (one card per removed required field). Auto-publish policy `auto-1`: verified shapes publish, endpoint removals / auth changes / spike releases / a new source's first stories wait for a person; `/method` states it. M2 shipped: permanent `/changes/<id>` pages (3005), `/apis/<api>` (old URLs 308), global and per-API RSS + JSON Feed (W3C-valid), sitemap, canonical URLs, per-change OG images, ISR, and the `/watch` waitlist. Open: analytics (Umami?) and an email provider both need Amir's yes. Next: M3 share kit.
 - 2026-10-04 (later): Analytics live (Cloudflare Web Analytics, free, cookieless, production only). Email live (Resend, free; one confirmation per new waitlist signup; tested to Amir's inbox). M3 shipped: share kit, 137 drafts, posted by hand only (`pnpm w share`). M1 closed: refactor-only test added; it found a known gap, a break hidden behind a same-release component rename is held (behavioral 80) rather than reported (CLAUDE.md known gap 7). Removed "Generated with Claude Code" lines from PR descriptions #9–#28 (the brief forbids attribution); five pre-existing Cursor commits from 2026-09-13 carry co-author trailers, left alone (rewriting master needs a force-push). Next: signals script (section 6), then M4.
+- 2026-10-04 (evening): M4 scan and fix shipped. `driftwatch scan` finds raw HTTP, official SDK calls and field access (traced from the call, confidence-labelled): 6 fixture repos, http 21/21, sdk 19/19, field 19/19, no false positives. `driftwatch fix` patches the three mechanical cases from four real published changes (Plaid and Cloudflare renames, Stripe removal, PagerDuty required enum); every patch typechecks against its fixture, one that would not (a repo-typed Cloudflare read) is dropped. Next: `driftwatch pr-body`.

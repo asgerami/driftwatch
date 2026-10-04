@@ -36,3 +36,31 @@ export class Checkout {
 // Not Stripe: a local object with the same shape.
 const store = { paymentIntents: { create: (input: unknown) => input } };
 export const local = store.paymentIntents.create({ amount: 1 });
+
+function methodsFor(country: string): string[] {
+  return country === "NL" ? ["card", "ideal"] : ["card"];
+}
+
+// Patched across lines, in the literal's own layout.
+export async function subscribe(amount: number) {
+  return stripe.paymentIntents.create({ // driftwatch-expect: sdk
+    amount,
+    payment_method_types: ["card", "sepa_debit"], // driftwatch-expect: field
+    currency: "eur",
+  });
+}
+
+// Not patched: the value comes from a call, which deleting would drop.
+export async function localized(amount: number, country: string) {
+  return stripe.paymentIntents.create({ // driftwatch-expect: sdk
+    amount,
+    currency: "eur",
+    payment_method_types: methodsFor(country), // driftwatch-expect: field
+  });
+}
+
+// Not patched: Checkout gained allowed_payment_method_types in the same
+// release, the same shape, described as a filter rather than a list.
+export async function checkout(price: string) {
+  return stripe.checkout.sessions.create({ mode: "payment", line_items: [{ price, quantity: 1 }], payment_method_types: ["card"] }); // driftwatch-expect: sdk, field
+}

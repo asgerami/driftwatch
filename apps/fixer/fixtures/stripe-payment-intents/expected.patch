@@ -1,0 +1,26 @@
+diff --git a/src/billing.ts b/src/billing.ts
+--- a/src/billing.ts
++++ b/src/billing.ts
+@@ -3,11 +3,11 @@
+ const stripe = new Stripe(process.env.STRIPE_KEY!, { apiVersion: "2026-09-23" });
+ 
+ export async function charge(amount: number) {
+-  return stripe.paymentIntents.create({ amount, currency: "usd", payment_method_types: ["card"] }); // driftwatch-expect: sdk, field
++  return stripe.paymentIntents.create({ amount, currency: "usd" }); // driftwatch-expect: sdk, field
+ }
+ 
+ export async function changeMethods(id: string) {
+-  return stripe.paymentIntents.update(id, { payment_method_types: ["card"] }); // driftwatch-expect: sdk, field
++  return stripe.paymentIntents.update(id, {}); // driftwatch-expect: sdk, field
+ }
+ 
+ export async function confirm(id: string) {
+@@ -45,8 +45,7 @@
+ export async function subscribe(amount: number) {
+   return stripe.paymentIntents.create({ // driftwatch-expect: sdk
+     amount,
+-    payment_method_types: ["card", "sepa_debit"], // driftwatch-expect: field
+     currency: "eur",
+   });
+ }
+ 

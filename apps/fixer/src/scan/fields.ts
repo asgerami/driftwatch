@@ -51,11 +51,20 @@ interface Context {
   followed: Set<string>;
   /** Files a traced value reaches, for guesses: the file of the call or of a caller. */
   reached: Map<ts.SourceFile, MatchedCall>;
+  /** Every expression the trace followed: a guess never second-guesses one. */
+  traced: Set<ts.Node>;
 }
 
 const position = (node: ts.Node) => `${node.getSourceFile().fileName}:${node.getStart()}`;
 
-function report(ctx: Context, node: ts.Node, call: MatchedCall, field: FieldTarget, confidence: Finding["confidence"]) {
+function report(
+  ctx: Context,
+  node: ts.Node,
+  call: MatchedCall,
+  field: FieldTarget,
+  confidence: Finding["confidence"],
+  direction: "request" | "response" = "response",
+) {
   const source = node.getSourceFile();
   const start = source.getLineAndCharacterOfPosition(node.getStart(source));
   const key = `${source.fileName}:${start.line}:${start.character}`;
@@ -69,6 +78,8 @@ function report(ctx: Context, node: ts.Node, call: MatchedCall, field: FieldTarg
     snippet: (source.text.split("\n")[start.line] ?? "").trim(),
     kind: "field",
     operation: call.operation,
+    field: field.path.join("."),
+    direction,
     confidence,
     why: ctx.why(call, field),
   });
@@ -87,7 +98,12 @@ function check(ctx: Context, node: ts.Node, path: string[], s: State) {
   const name = path[path.length - 1];
   for (const field of ctx.responseFields) {
     if (field.path[field.path.length - 1] !== name || !applies(field, s.call)) continue;
-    const exact = same(field.path, path);
+    const absolute = field.absolute[opKey(s.call.op)] ?? [];
+    const exact = same(field.path, path) || absolute.some((full) => same(full, path));
+    // Where the spec places the component in this payload is known, and this
+    // is not it: Cloudflare's `result.integration` is the parent object, not
+    // the `integration` field inside it.
+    if (!exact && absolute.length > 0) continue;
     report(ctx, node, s.call, field, exact && s.call.confidence === "high" ? "high" : "medium");
   }
 }
@@ -125,6 +141,8 @@ function firstParam(fn: ts.Node | undefined): ts.ParameterDeclaration | undefine
 /** Follow the value of expression `e`, in state `s`, to wherever it is read. */
 function follow(ctx: Context, e: ts.Node, s: State) {
   const n = climb(e);
+  ctx.traced.add(e);
+  ctx.traced.add(n);
   const p = n.parent;
   if (!p) return;
 
@@ -149,7 +167,7 @@ function follow(ctx: Context, e: ts.Node, s: State) {
     if (callee && SAME_SHAPE.has(name)) return follow(ctx, callee, s);
     if (callee) return; // a method on the body: not a field
     const path = [...s.path, name];
-    check(ctx, ts.isPropertyAccessExpression(p) ? p.name : p, path, s);
+    check(ctx, ts.isPropertyAccessExpression(p) ? p.name : ts.isElementAccessExpression(p) ? p.argumentExpression : p, path, s);
     return follow(ctx, p, { ...s, path });
   }
 
@@ -189,7 +207,7 @@ function followThen(ctx: Context, call: ts.CallExpression, s: State) {
   }
 }
 
-function climbInner(e: ts.Expression): ts.Expression {
+export function climbInner(e: ts.Expression): ts.Expression {
   let x = e;
   while (ts.isParenthesizedExpression(x) || ts.isAwaitExpression(x) || ts.isAsExpression(x) || ts.isNonNullExpression(x)) x = x.expression;
   return x;
@@ -333,7 +351,8 @@ function requestFields(ctx: Context, call: MatchedCall, fields: FieldTarget[]) {
       if (path.length > 1 && PAYLOAD_KEYS.has(path[0]!)) path = path.slice(1);
       for (const field of relevant) {
         if (field.path[field.path.length - 1] !== name) continue;
-        report(ctx, property.name, call, field, same(field.path, path) && call.confidence === "high" ? "high" : "medium");
+        const exact = same(field.path, path) || (field.absolute[opKey(call.op)] ?? []).some((full) => same(full, path));
+        report(ctx, property.name, call, field, exact && call.confidence === "high" ? "high" : "medium", "request");
       }
       if (ts.isPropertyAssignment(property)) visitValue(property.initializer, [...prefix, name]);
     }
@@ -352,7 +371,7 @@ function requestFields(ctx: Context, call: MatchedCall, fields: FieldTarget[]) {
 }
 
 /** `const payload = {…}` declared in an enclosing scope, before use. */
-function constLiteral(id: ts.Identifier): ts.ObjectLiteralExpression | undefined {
+export function constLiteral(id: ts.Identifier): ts.ObjectLiteralExpression | undefined {
   for (let scope: ts.Node | undefined = id.parent; scope; scope = scope.parent) {
     if (!ts.isBlock(scope) && !ts.isSourceFile(scope)) continue;
     for (const statement of scope.statements) {
@@ -415,7 +434,7 @@ function guesses(ctx: Context, matched: MatchedCall[]) {
     if (fields.length === 0) continue;
     const visit = (node: ts.Node) => {
       let name: ts.Node | undefined;
-      if (ts.isPropertyAccessExpression(node) && untraced(node.expression)) name = node.name;
+      if (ts.isPropertyAccessExpression(node) && !ctx.traced.has(node.expression) && untraced(node.expression)) name = node.name;
       else if (ts.isBindingElement(node) && ts.isObjectBindingPattern(node.parent)) {
         // function f({ field }), or const { field } = param
         const holder = node.parent.parent;
@@ -447,6 +466,7 @@ export function scanFields(
     findings: new Map(),
     followed: new Set(),
     reached: new Map(),
+    traced: new Set(),
   };
   for (const call of matched) {
     requestFields(ctx, call, targets.requestFields);
