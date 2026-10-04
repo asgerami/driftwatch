@@ -93,6 +93,7 @@ program
   .option("-n, --limit <count>", "facts to list", "40")
   .option("--publish", "actually publish what is listed (read-only without it)")
   .option("--all", "include low-confidence and cosmetic changes (never publish these)")
+  .option("--auto", "apply the auto-publish policy: publish what it allows, hold the rest")
   .option(
     "--reject <text>",
     "mark pending stories whose rule or location contains <text> as reviewed and not published",
@@ -107,6 +108,7 @@ program
         publish?: boolean;
         all?: boolean;
         reject?: string;
+        auto?: boolean;
       },
     ) =>
       review(target, {
@@ -115,6 +117,7 @@ program
         publish: opts.publish === true,
         all: opts.all === true,
         reject: opts.reject,
+        auto: opts.auto === true,
       }),
   );
 

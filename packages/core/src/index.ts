@@ -51,3 +51,16 @@ export {
   leafOf,
   type StoryInput,
 } from "./diff/story.js";
+
+export {
+  AUTO_PUBLISH_POLICY,
+  ALWAYS_HELD_RULES,
+  SPIKE_FLOOR,
+  SPIKE_MULTIPLE,
+  autoPublishDecision,
+  isSpike,
+  median,
+  type PolicyDecision,
+  type PolicyStory,
+  type ReleaseContext,
+} from "./diff/policy.js";

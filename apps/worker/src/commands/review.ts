@@ -4,9 +4,11 @@ import {
   RULESET_VERSION,
   groupStories,
   storyDetail,
+  AUTO_PUBLISH_POLICY,
   type Severity,
 } from "@driftwatch/core";
 
+import { planAutoPublish } from "../autopublish.js";
 import { prisma } from "../db.js";
 import { log } from "../log.js";
 
@@ -36,6 +38,11 @@ export interface ReviewOptions {
    * GitHub moving endpoints into a different description file.
    */
   reject?: string;
+  /**
+   * Apply the auto-publish policy instead of listing: publish what it allows,
+   * leave the rest for a person. What the scheduled job runs.
+   */
+  auto?: boolean;
 }
 
 interface PendingRow {
@@ -85,6 +92,11 @@ export async function review(
         confidence: { gte: PUBLISH_CONFIDENCE_THRESHOLD },
         severity: { not: "COSMETIC" as Severity },
       };
+
+  if (options.auto) {
+    await autoPublish();
+    return;
+  }
 
   if (options.reject && options.publish) {
     throw new Error("--reject and --publish are separate decisions; run them one at a time");
@@ -192,7 +204,7 @@ export async function review(
   if (options.reject) {
     const result = await prisma.change.updateMany({
       where: { id: { in: rows.map((row) => row.id) } },
-      data: { reviewedAt: new Date() },
+      data: { reviewedAt: new Date(), reviewedBy: "human" },
     });
     log.ok(`rejected ${result.count} rows across ${ordered.length} stories; they will not be published`);
     return;
@@ -208,7 +220,7 @@ export async function review(
   const now = new Date();
   const result = await prisma.change.updateMany({
     where: { id: { in: rows.map((row) => row.id) } },
-    data: { reviewedAt: now, publishedAt: now },
+    data: { reviewedAt: now, publishedAt: now, reviewedBy: "human" },
   });
 
   log.ok(`published ${result.count} rows across ${ordered.length} stories`);
@@ -221,3 +233,29 @@ function whereOf(row: PendingRow): string {
     : `${row.method?.toUpperCase() ?? ""} ${row.path ?? ""}`.trim() +
         (row.fieldPath ? ` · ${row.fieldPath}` : "");
 }
+
+async function autoPublish(): Promise<void> {
+  const plan = await planAutoPublish();
+  const ids = plan.publish.flat().map((row) => row.id);
+
+  if (ids.length > 0) {
+    const now = new Date();
+    await prisma.change.updateMany({
+      where: { id: { in: ids } },
+      data: { reviewedAt: now, publishedAt: now, reviewedBy: AUTO_PUBLISH_POLICY },
+    });
+  }
+  log.ok(`auto-published ${ids.length} rows across ${plan.publish.length} stories (${AUTO_PUBLISH_POLICY})`);
+
+  const reasons = new Map<string, number>();
+  for (const held of plan.held) reasons.set(held.reason, (reasons.get(held.reason) ?? 0) + 1);
+  if (reasons.size === 0) {
+    log.info("nothing held for a person");
+    return;
+  }
+  log.info(`${plan.held.length} stories held for a person:`);
+  for (const [reason, count] of [...reasons].sort((a, b) => b[1] - a[1])) {
+    console.log(`  ${String(count).padStart(5)}  ${reason}`);
+  }
+}
+

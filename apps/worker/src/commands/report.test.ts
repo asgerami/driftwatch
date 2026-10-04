@@ -34,6 +34,23 @@ describe("buildReport", () => {
     expect(report.body).toContain("pnpm w review --publish");
   });
 
+  it("says why the auto-publish policy held each story", () => {
+    const report = buildReport(
+      [
+        {
+          severity: "BREAKING",
+          ruleId: "path.removed",
+          where: "clerk: /logs",
+          places: 1,
+          heldBecause: "endpoint removal: may be withdrawn or moved, not removed",
+        },
+      ],
+      [],
+    )!;
+    expect(report.body).toContain("| Held because |");
+    expect(report.body).toContain("may be withdrawn or moved");
+  });
+
   it("escapes pipes so a detail cannot break the table", () => {
     const report = buildReport(
       [{ severity: "BREAKING", ruleId: "response.property.type-changed", where: "x", places: 1, detail: "integer|null → object" }],

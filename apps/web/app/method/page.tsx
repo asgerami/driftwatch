@@ -1,4 +1,11 @@
-import { RULES, PUBLISH_CONFIDENCE_THRESHOLD } from "@driftwatch/core";
+import {
+  ALWAYS_HELD_RULES,
+  AUTO_PUBLISH_POLICY,
+  PUBLISH_CONFIDENCE_THRESHOLD,
+  RULES,
+  SPIKE_FLOOR,
+  SPIKE_MULTIPLE,
+} from "@driftwatch/core";
 
 const ordered = Object.values(RULES).sort(
   (a, b) =>
@@ -72,12 +79,50 @@ export default function MethodPage() {
         enum reported 2319 times.
       </p>
 
-      <h2>Nothing publishes itself</h2>
+      <h2>What publishes without a person</h2>
       <p>
         A change below {PUBLISH_CONFIDENCE_THRESHOLD} confidence never reaches
-        the feed, and cosmetic changes never do at any confidence. Everything
-        else is held for human review first. Precision over recall, without
-        apology: one false breaking change costs a reader permanently.
+        the feed, and cosmetic changes never do at any confidence. Precision
+        over recall, without apology: one false breaking change costs a reader
+        permanently.
+      </p>
+      <p>
+        Above that line, a person used to approve every change. Nearly all of
+        them turned out to be the same few shapes, checked against the real
+        specs many times over, so those now publish on their own. Every false
+        alarm found so far came from a handful of other shapes, and those still
+        wait for a person:
+      </p>
+      <ul>
+        <li>
+          <strong>Endpoint or operation removed</strong> (
+          {[...ALWAYS_HELD_RULES].filter((id) => !id.startsWith("security.")).map((id, i) => (
+            <span key={id}>
+              {i > 0 ? ", " : ""}
+              <code>{id}</code>
+            </span>
+          ))}
+          ). Providers withdraw endpoints they documented early and move
+          others into separate spec files, and both look exactly like a removal.
+        </li>
+        <li>
+          <strong>Any authentication change</strong>. A spec converter once
+          wrote a malformed security entry that read as a new auth scheme.
+        </li>
+        <li>
+          <strong>Everything in an unusually large release</strong>: more than{" "}
+          {SPIKE_FLOOR} breaking changes and more than {SPIKE_MULTIPLE}× that
+          API&rsquo;s typical release. Format migrations look like this, and so
+          do real overhauls worth a second look.
+        </li>
+        <li>
+          <strong>The first changes from a newly added API</strong>, until a
+          person has read them once.
+        </li>
+      </ul>
+      <p>
+        Each published change records whether a person or the policy (
+        <code>{AUTO_PUBLISH_POLICY}</code>) published it.
       </p>
 
       <h2>The ruleset</h2>

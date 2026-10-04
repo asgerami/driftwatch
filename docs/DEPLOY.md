@@ -94,14 +94,19 @@ scheduled diff. Order:
 
 ## Publishing
 
-Nothing reaches the site until a human approves it:
+The scheduled job runs `pnpm w review --auto`: the auto-publish policy
+publishes what it allows and holds the rest (endpoint removals, auth changes,
+spike releases, a new source's first stories). Held stories are listed, with
+the reason, in the `review-queue` issue. To deal with them locally:
 
 ```bash
-pnpm w review            # what is pending
-pnpm w review --publish  # publish it
+pnpm w review                     # what is pending
+pnpm w review --reject "<text>"   # a false positive: reviewed, never published
+pnpm w review --publish           # publish everything still pending
 ```
 
-Run it locally; it reads the same Neon database the job writes.
+Every decision records who made it in `Change.reviewedBy`: `human`, or the
+policy version (`auto-1`).
 
 ## When something breaks
 
