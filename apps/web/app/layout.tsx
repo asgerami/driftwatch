@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { SITE_URL } from "../lib/site";
 
+const CF_BEACON_TOKEN = process.env["NEXT_PUBLIC_CF_BEACON_TOKEN"];
+
 const DESCRIPTION =
   "What your API vendors changed, from the calling end. Spec-derived, severity assigned deterministically.";
 
@@ -43,6 +45,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </nav>
           </header>
           {children}
+          {CF_BEACON_TOKEN ? (
+            // Cloudflare Web Analytics: no cookies, no personal data, free.
+            // Off unless the token is set at build time.
+            <script
+              defer
+              src="https://static.cloudflareinsights.com/beacon.min.js"
+              data-cf-beacon={JSON.stringify({ token: CF_BEACON_TOKEN })}
+            />
+          ) : null}
           <footer className="footer">
             <span>Spec-derived. Severity is deterministic.</span>
             <span>Not affiliated with any provider listed.</span>

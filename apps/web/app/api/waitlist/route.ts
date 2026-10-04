@@ -1,4 +1,5 @@
 import { prisma } from "../../../lib/db";
+import { sendEmail, waitlistConfirmation } from "../../../lib/email";
 import { listProviders } from "../../../lib/queries";
 import { validateSubmission } from "../../../lib/waitlist";
 
@@ -21,11 +22,17 @@ export async function POST(request: Request) {
   if (!result.ok) return back(`error=${result.error}`);
 
   const { email, repoUrl, apis, otherApis } = result.value;
+  const existing = await prisma.waitlistEntry.findUnique({ where: { email }, select: { id: true } });
   await prisma.waitlistEntry.upsert({
     where: { email },
     create: { email, repoUrl, apis, otherApis: otherApis ?? null },
     update: { repoUrl, apis, otherApis: otherApis ?? null },
   });
+
+  // One confirmation, on first signup only; resubmitting updates silently.
+  // Awaited so the serverless function does not end before it sends, but a
+  // failure is logged, never shown: the signup itself already succeeded.
+  if (!existing) await sendEmail(waitlistConfirmation({ email, repoUrl, apis }));
   return back("joined=1");
 }
 

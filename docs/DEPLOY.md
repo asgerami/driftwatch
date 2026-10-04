@@ -78,6 +78,32 @@ reading the production database.
 `/api/feed.json` sends `netlify-vary: query=provider|limit|signal`. Without it
 Netlify's CDN cached one response per path and ignored `?provider=`.
 
+## Analytics and email (both free, both off until configured)
+
+**Analytics: Cloudflare Web Analytics.** Free with no limit, no cookies, no
+personal data, so no consent banner. Uses the Cloudflare account R2 already
+needs.
+
+1. Cloudflare dashboard → **Analytics & Logs → Web Analytics → Add a site**,
+   enter `driftwatch.et`, and choose the JavaScript snippet (the domain is not
+   proxied through Cloudflare, so automatic setup does not apply).
+2. Copy the `token` value from the snippet.
+3. Netlify → Site configuration → Environment variables:
+   `NEXT_PUBLIC_CF_BEACON_TOKEN` = that token. Redeploy: it is read at build.
+
+**Email: Resend.** Free for 3,000 emails a month, 100 a day. Used for one
+thing today: a single confirmation when someone joins the waitlist (not when
+they resubmit). A failed send is logged and never fails the signup.
+
+1. Sign up at resend.com, then **Domains → Add domain** → `driftwatch.et`.
+2. Add the DNS records it lists (SPF, DKIM, and the MX for bounces) wherever
+   driftwatch.et's DNS is managed, and wait for "Verified".
+3. **API Keys → Create**, permission "Sending access", domain driftwatch.et.
+4. Netlify environment variables: `RESEND_API_KEY` = the key, and
+   `EMAIL_FROM` = `Driftwatch <hello@driftwatch.et>`.
+
+Until both are set, nothing is sent.
+
 ## Bumping RULESET_VERSION
 
 The site shows only runs at its own `RULESET_VERSION`. Merge a bump before the
