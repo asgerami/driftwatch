@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupStories, leafOf, storyDetail, storyKeyOf, type StoryInput } from "./story.js";
+import { groupStories, leafOf, parentOf, storyDetail, storyKeyOf, type StoryInput } from "./story.js";
 
 let n = 0;
 function fact(over: Partial<StoryInput> & { ruleId: string }): StoryInput {
@@ -71,3 +71,41 @@ describe("stories (real Stripe cases, 2025-11 → 2026-09)", () => {
     expect(storyKeyOf(same)).toContain(same.fingerprint);
   });
 });
+
+describe("parent stories (real Vercel case, 2026-10-02)", () => {
+  const removed = (fieldPath: string, componentName = "UserEvent") =>
+    fact({ ruleId: "response.property.removed", componentName, fieldPath });
+
+  it("collapses many fields removed from one parent into one story", () => {
+    // newOwner went from 78 fields to 2 in one release.
+    const fields = ["abuse", "billing", "avatar", "bio", "email", "softBlock", "limited"];
+    const groups = groupStories(fields.map((f) => removed(`payload.newOwner.${f}`)));
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toHaveLength(7);
+  });
+
+  it("keeps a few removed fields as separate stories", () => {
+    const groups = groupStories(["a", "b", "c"].map((f) => removed(`payload.owner.${f}`)));
+    expect(groups).toHaveLength(3);
+  });
+
+  it("keeps the same parent path under different components apart", () => {
+    const one = ["a", "b", "c", "d", "e"].map((f) => removed(`data.${f}`, "Invoice"));
+    const two = ["a", "b"].map((f) => removed(`data.${f}`, "Charge"));
+    expect(groupStories([...one, ...two]).map((g) => g.length)).toEqual([5, 1, 1]);
+  });
+
+  it("still groups one field name across many parents (igic) by name", () => {
+    const igic = ["at", "be", "bg", "cy", "cz", "de"].map((cc) =>
+      fact({ ruleId: "request.property.removed", fieldPath: `country_options.${cc}.igic` }),
+    );
+    // Six parents with one field each: no parent reaches the threshold.
+    expect(groupStories(igic)).toHaveLength(1);
+  });
+
+  it("parentOf drops the last segment", () => {
+    expect(parentOf("payload.newOwner.abuse")).toBe("payload.newOwner");
+    expect(parentOf("createdAt")).toBe("");
+  });
+});
+
