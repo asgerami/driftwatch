@@ -419,8 +419,7 @@ export async function getStory(storyId: string): Promise<StoryPageView | null> {
     facts.set(key, {
       location,
       detail: row.detail ?? undefined,
-      before: snippet(row.before),
-      after: snippet(row.after),
+      ...beforeAfter(row),
     });
   }
 
@@ -456,6 +455,30 @@ function sourceLinkOf(
   }
   if (url) return { href: url, label: url };
   return undefined;
+}
+
+/**
+ * What a reader should see as before → after. For presence and requiredness
+ * rules the stored before/after is just the field's name, which read as
+ * "abuse → absent"; those get the state instead.
+ */
+function beforeAfter(row: ChangeRow): { before?: string; after?: string } {
+  const id = row.ruleId;
+  if (id.endsWith(".removed") && (id.includes("property") || id.includes("param"))) {
+    return { before: "present", after: "absent" };
+  }
+  if (id.endsWith(".added") && (id.includes("property") || id.includes("param"))) {
+    return { before: "absent", after: "present" };
+  }
+  if (id === "path.removed" || id === "operation.removed") return { before: "exists", after: "removed" };
+  if (id === "path.added" || id === "operation.added") return { before: "absent", after: "exists" };
+  if (id.endsWith("became-required") || id === "request.param.required-added") {
+    return { before: "optional", after: "required" };
+  }
+  if (id === "response.property.became-optional" && row.detail === "no longer guaranteed present") {
+    return { before: "always present", after: "may be missing" };
+  }
+  return { before: snippet(row.before), after: snippet(row.after) };
 }
 
 function snippet(value: unknown): string | undefined {
