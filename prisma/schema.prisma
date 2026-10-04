@@ -177,6 +177,12 @@ model Change {
   // while the rows stay so the GitHub App can name each affected call site.
   fingerprint String
 
+  // The story this fact belongs to, and its permanent public id: the
+  // /changes/<storyId> URL. Derived from the release (the `to` snapshot,
+  // which a re-diff never recreates) and the story key, so it survives
+  // ruleset bumps, unlike row ids.
+  storyId String?
+
   method      String?
   path        String?
   operationId String?
@@ -204,6 +210,7 @@ model Change {
   @@index([ruleId])
   @@index([runId])
   @@index([fingerprint])
+  @@index([storyId])
 }
 
 model Impact {

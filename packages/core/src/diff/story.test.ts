@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupStories, leafOf, parentOf, storyDetail, storyKeyOf, type StoryInput } from "./story.js";
+import { groupStories, keyedStories, leafOf, parentOf, storyDetail, storyIdOf, storyKeyOf, type StoryInput } from "./story.js";
 
 let n = 0;
 function fact(over: Partial<StoryInput> & { ruleId: string }): StoryInput {
@@ -106,6 +106,31 @@ describe("parent stories (real Vercel case, 2026-10-02)", () => {
   it("parentOf drops the last segment", () => {
     expect(parentOf("payload.newOwner.abuse")).toBe("payload.newOwner");
     expect(parentOf("createdAt")).toBe("");
+  });
+});
+
+describe("story ids", () => {
+  const day = new Date("2026-09-23T10:00:00Z");
+
+  it("are readable and deterministic", () => {
+    const id = storyIdOf("stripe", day, "snap1", "request.property.removed|BREAKING|field|igic");
+    expect(id).toMatch(/^stripe-2026-09-23-[0-9a-f]{8}$/);
+    expect(storyIdOf("stripe", day, "snap1", "request.property.removed|BREAKING|field|igic")).toBe(id);
+  });
+
+  it("differ by release and by story", () => {
+    const key = "path.removed|BREAKING|fact|abc";
+    expect(storyIdOf("stripe", day, "snap1", key)).not.toBe(storyIdOf("stripe", day, "snap2", key));
+    expect(storyIdOf("stripe", day, "snap1", key)).not.toBe(storyIdOf("stripe", day, "snap1", key + "x"));
+  });
+
+  it("keyedStories groups exactly like groupStories", () => {
+    const items = ["at", "be", "bg"].map((cc) =>
+      fact({ ruleId: "request.property.removed", fieldPath: `country_options.${cc}.igic` }),
+    );
+    const keyed = keyedStories(items);
+    expect(keyed.map((s) => s.items)).toEqual(groupStories(items));
+    expect(keyed[0]!.key).toBe("request.property.removed|BREAKING|field|igic");
   });
 });
 

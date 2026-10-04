@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 /**
  * Which facts are the same story for a reader.
  *
@@ -105,6 +107,11 @@ function parentKey(item: StoryInput): string | null {
  * story about the parent.
  */
 export function groupStories<T extends StoryInput>(items: T[]): T[][] {
+  return keyedStories(items).map((story) => story.items);
+}
+
+/** groupStories, keeping each story's key: the input to its permanent id. */
+export function keyedStories<T extends StoryInput>(items: T[]): { key: string; items: T[] }[] {
   const fieldsPerParent = new Map<string, Set<string>>();
   for (const item of items) {
     const key = parentKey(item);
@@ -125,7 +132,26 @@ export function groupStories<T extends StoryInput>(items: T[]): T[][] {
     if (list) list.push(item);
     else groups.set(key, [item]);
   }
-  return [...groups.values()];
+  return [...groups].map(([key, list]) => ({ key, items: list }));
+}
+
+/**
+ * The permanent public id of a story: `stripe-2026-09-23-3f9a1c2e`.
+ *
+ * Row ids are useless for a URL that must last: every ruleset bump re-diffs
+ * and writes new rows. The release's `to` snapshot is never recreated, and a
+ * story's key depends only on its facts, so this survives bumps. Readable
+ * enough to tell from a link which API and which day it is about.
+ */
+export function storyIdOf(
+  providerSlug: string,
+  releasedAt: Date,
+  toSnapshotId: string,
+  storyKey: string,
+): string {
+  const day = releasedAt.toISOString().slice(0, 10);
+  const hash = createHash("sha256").update(`${toSnapshotId}\u001f${storyKey}`, "utf8").digest("hex");
+  return `${providerSlug}-${day}-${hash.slice(0, 8)}`;
 }
 
 /**
