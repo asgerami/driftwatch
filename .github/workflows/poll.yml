@@ -1,6 +1,7 @@
 # The scheduled pipeline: fetch every active source's current spec, store it if
-# the normalized surface changed, and diff consecutive versions. Nothing here
-# publishes; changes wait for `pnpm w review --publish`.
+# the normalized surface changed, and diff consecutive versions. The
+# auto-publish policy then publishes what it allows; the rest waits for a
+# person via the review-queue issue and `pnpm w review --publish`.
 #
 # Runs on a fresh runner each time. Postgres is Neon and spec blobs are R2, so
 # nothing that matters lives on the runner's disk. Git clones are cached
@@ -83,6 +84,12 @@ jobs:
 
       - name: Diff
         run: pnpm w diff $TARGET
+
+      # The auto-publish policy (packages/core/src/diff/policy.ts) publishes
+      # the shapes verified many times over and holds the rest for a person,
+      # who hears about them through the review-queue issue below.
+      - name: Auto-publish
+        run: pnpm w review --auto
 
       - name: Status
         if: always()

@@ -259,10 +259,15 @@ change and read the output before trusting it.
 - `packages/core` has a `prepare` script so `pnpm install` builds `dist/`. The
   worker and the site import core by that dist path, so a stale `dist` means
   you are running old rules.
-- Nothing auto-publishes. Changes below confidence 85, and all cosmetic ones,
-  never reach the feed; everything else waits for `pnpm w review --publish`.
-  Precision over recall, without apology: one false breaking change costs a
-  subscriber permanently.
+- Changes below confidence 85, and all cosmetic ones, never reach the feed.
+  Above that, the auto-publish policy (`packages/core/src/diff/policy.ts`,
+  rendered on `/method`) publishes the shapes verified many times over and
+  holds the shapes behind every false positive found so far: endpoint or
+  operation removals, authentication changes, everything in a spike release,
+  and a new source's first stories. Held stories reach a person through the
+  `review-queue` issue. Precision over recall, without apology: one false
+  breaking change costs a subscriber permanently. A new kind of false positive
+  means a new held shape in the policy, with its real case in the test.
 
 ## Known gaps
 
