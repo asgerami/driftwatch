@@ -12,8 +12,14 @@ import { log } from "../log.js";
  * week cannot be a broken pipeline in disguise.
  */
 
-/** driftwatch.et's Web Analytics site token; matches apps/web/app/layout.tsx. */
-const BEACON_TOKEN = process.env["CF_BEACON_TOKEN"] ?? "4fc3240a453d4d3698500762795d7216";
+/**
+ * Only real visits to the public site. Cloudflare also records page loads on
+ * Netlify's internal deploy hostnames (<hash>--driftwatchhq.netlify.app),
+ * which are Netlify's own checks, not readers, and the same account holds
+ * unrelated sites. Filtering by host needs only Account Analytics: Read; the
+ * site-list endpoint would need a wider token.
+ */
+const SITE_HOSTS = (process.env["SITE_HOSTS"] ?? "driftwatch.et,www.driftwatch.et").split(",");
 
 export interface Signals {
   days: number;
@@ -146,13 +152,6 @@ async function pageViews(since: Date): Promise<Signals["views"]> {
   }
   if (!account) return { available: false, reason: "set CF_ACCOUNT_ID" };
   try {
-    // The beacon carries a site *token*; the analytics API filters by site *tag*.
-    const sites = (await cloudflare(`/accounts/${account}/rum/site_info/list`)) as {
-      result: { site_tag: string; site_token: string }[];
-    };
-    const site = sites.result.find((s) => s.site_token === BEACON_TOKEN);
-    if (!site) return { available: false, reason: "no Web Analytics site with driftwatch.et's beacon token" };
-
     const query = `query ($account: string!, $filter: AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject) {
       viewer { accounts(filter: { accountTag: $account }) {
         rumPageloadEventsAdaptiveGroups(filter: $filter, limit: 5000, orderBy: [count_DESC]) {
@@ -167,7 +166,7 @@ async function pageViews(since: Date): Promise<Signals["views"]> {
         query,
         variables: {
           account,
-          filter: { siteTag: site.site_tag, datetime_geq: since.toISOString(), datetime_leq: new Date().toISOString() },
+          filter: { requestHost_in: SITE_HOSTS, datetime_geq: since.toISOString(), datetime_leq: new Date().toISOString() },
         },
       }),
     })) as {
