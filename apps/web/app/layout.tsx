@@ -1,10 +1,20 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { SITE_URL } from "../lib/site";
+
+const DESCRIPTION =
+  "What your API vendors changed, from the calling end. Spec-derived, severity assigned deterministically.";
 
 export const metadata: Metadata = {
-  title: "Driftwatch",
-  description:
-    "What your API vendors changed, from the calling end. Spec-derived, severity assigned deterministically.",
+  metadataBase: new URL(SITE_URL),
+  title: { default: "Driftwatch — breaking changes in the APIs you depend on", template: "%s · Driftwatch" },
+  description: DESCRIPTION,
+  openGraph: { siteName: "Driftwatch", type: "website", description: DESCRIPTION },
+  twitter: { card: "summary_large_image" },
+  alternates: {
+    canonical: "/",
+    types: { "application/rss+xml": "/rss.xml", "application/feed+json": "/feed.json" },
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

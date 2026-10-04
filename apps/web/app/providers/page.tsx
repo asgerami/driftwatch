@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
+
 import { listProviders } from "../../lib/queries";
+
+export const metadata: Metadata = {
+  title: "APIs watched",
+  description: "Every third-party API Driftwatch watches for breaking changes, with how far back each one's history goes.",
+  alternates: { canonical: "/providers" },
+};
 
 export const revalidate = 900;
 

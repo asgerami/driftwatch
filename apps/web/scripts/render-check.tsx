@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { Release, EmptyFeed, ChangeItem } from "../components/Change";
 import { StoryPage, whoIsAffected } from "../components/StoryPage";
+import { feedEntries, renderJsonFeed, renderRss } from "../lib/feeds";
 import type { ChangeView, ReleaseView } from "../lib/types";
 import { additiveLineHeadline, leadWithSignal, requestPropertyHeadline, splitCards } from "../lib/feed";
 
@@ -177,6 +178,30 @@ check("change page links back to its API", storyHtml.includes('href="/apis/strip
 check("who-is-affected names the reader for a response change", whoIsAffected(storyView).startsWith("Code that reads"));
 const linkedCard = decode(renderToStaticMarkup(<ChangeItem change={{ ...flipChange, href: "/changes/x-1" }} />));
 check("a card links its headline to the change page", linkedCard.includes('href="/changes/x-1"'));
+
+// Feeds: RSS 2.0 and JSON Feed 1.1, from the same release views.
+const feedRelease = {
+  ...release,
+  changes: [{ ...flipChange, href: "/changes/stripe-2026-08-26-3f9a1c2e", headline: "Value <added> & \u0007bell" }],
+  responseFieldAdds: { count: 3, fields: ["a", "b", "c"] },
+};
+const entries = feedEntries([feedRelease]);
+const meta = { title: "Driftwatch — Stripe", description: "d", homePath: "/apis/stripe", feedPath: "/apis/stripe/rss.xml" };
+const rss = renderRss(meta, entries);
+check("rss declares the atom namespace and a self link", rss.includes('xmlns:atom="http://www.w3.org/2005/Atom"') && rss.includes('<atom:link href="https://driftwatch.et/apis/stripe/rss.xml" rel="self"'));
+check("rss item links to the permanent change page", rss.includes("<link>https://driftwatch.et/changes/stripe-2026-08-26-3f9a1c2e</link>"));
+check("rss guid is the permalink when it is the change page", rss.includes('<guid isPermaLink="true">https://driftwatch.et/changes/stripe-2026-08-26-3f9a1c2e</guid>'));
+check("rss pubDate is RFC 822", /<pubDate>[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT<\/pubDate>/.test(rss));
+check("rss escapes markup and drops control characters", rss.includes("Value &lt;added&gt; &amp; bell") && !rss.includes("\u0007"));
+check("rss carries collapsed additive lines too", rss.includes("3 new response fields"));
+const jsonFeed = renderJsonFeed({ ...meta, feedPath: "/apis/stripe/feed.json" }, entries) as {
+  version: string; title: string; feed_url: string; items: { id: string; url: string; content_text: string; date_published: string }[];
+};
+check("json feed is version 1.1", jsonFeed.version === "https://jsonfeed.org/version/1.1");
+check("json feed names its own url", jsonFeed.feed_url === "https://driftwatch.et/apis/stripe/feed.json");
+check("json feed items have the required id and content", jsonFeed.items.length === 2 && jsonFeed.items.every((item) => item.id && item.content_text));
+check("json feed dates are RFC 3339", jsonFeed.items.every((item) => !Number.isNaN(Date.parse(item.date_published)) && item.date_published.endsWith("Z")));
+check("feed ids are stable story urls, not row ids", entries[0]!.id === "https://driftwatch.et/changes/stripe-2026-08-26-3f9a1c2e");
 
 // RSS items link to #<change id>, #<release>-fields and #<release>-request-fields.
 check("each card carries its id as an anchor", release.changes.every((c) => releaseHtml.includes(`id="${c.id}"`)));

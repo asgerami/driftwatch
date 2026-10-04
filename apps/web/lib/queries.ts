@@ -1,3 +1,4 @@
+import { cache } from "react";
 import {
   RULES,
   RULESET_VERSION,
@@ -304,7 +305,7 @@ export async function recentReleases(
   return releases.slice(0, limit);
 }
 
-export async function listProviders(): Promise<ProviderView[]> {
+export const listProviders = cache(async function listProviders(): Promise<ProviderView[]> {
   if (buildingWithoutDatabase()) return [];
   const providers = (await prisma.provider.findMany({
     include: {
@@ -350,13 +351,13 @@ export async function listProviders(): Promise<ProviderView[]> {
     });
   }
   return out;
-}
+});
 
 /**
  * One story's page: the card, the release it shipped in, and every fact.
  * Null when the id is unknown or nothing in it is published.
  */
-export async function getStory(storyId: string): Promise<StoryPageView | null> {
+export const getStory = cache(async function getStory(storyId: string): Promise<StoryPageView | null> {
   const rows = (await prisma.change.findMany({
     where: {
       storyId,
@@ -435,7 +436,7 @@ export async function getStory(storyId: string): Promise<StoryPageView | null> {
     sourceLink: sourceLinkOf(source.repo, source.url, from.commitSha, to.commitSha),
     facts: [...facts.values()],
   };
-}
+});
 
 /** A compare view for git sources, the spec URL for hosted ones. */
 function sourceLinkOf(
@@ -484,5 +485,21 @@ function beforeAfter(row: ChangeRow): { before?: string; after?: string } {
 function snippet(value: unknown): string | undefined {
   if (value === null || value === undefined) return undefined;
   return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+/** Every published story's id and when it was published, for the sitemap. */
+export async function listPublishedStories(): Promise<{ id: string; publishedAt: string }[]> {
+  if (buildingWithoutDatabase()) return [];
+  const rows = await prisma.change.findMany({
+    where: {
+      storyId: { not: null },
+      publishedAt: { not: null },
+      run: { rulesetVer: RULESET_VERSION },
+    },
+    select: { storyId: true, publishedAt: true },
+    distinct: ["storyId"],
+    orderBy: { storyId: "asc" },
+  });
+  return rows.map((row) => ({ id: row.storyId!, publishedAt: row.publishedAt!.toISOString() }));
 }
 

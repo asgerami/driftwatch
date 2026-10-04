@@ -1,8 +1,35 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { EmptyFeed, Release } from "../../../components/Change";
 import { listProviders, recentReleases } from "../../../lib/queries";
 
 export const revalidate = 300;
+
+// Rendered on first request, then cached and revalidated (ISR).
+export function generateStaticParams() {
+  return [];
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ api: string }>;
+}): Promise<Metadata> {
+  const { api } = await params;
+  const provider = (await listProviders()).find((p) => p.slug === api);
+  if (!provider) return { title: "API not found" };
+  return {
+    title: `${provider.name} API breaking changes`,
+    description: `Every breaking change, deprecation and new field in the ${provider.name} API, read from its published OpenAPI spec. ${provider.snapshotCount} versions tracked.`,
+    alternates: {
+      canonical: `/apis/${api}`,
+      types: {
+        "application/rss+xml": `/apis/${api}/rss.xml`,
+        "application/feed+json": `/apis/${api}/feed.json`,
+      },
+    },
+  };
+}
 
 export default async function ProviderPage({
   params,
