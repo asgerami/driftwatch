@@ -254,7 +254,9 @@ same release, because that model was retired. Decisions key on operation and
 field: one release removed `payment_method_types` from PaymentIntents and
 maybe replaced it on Checkout. Every patch is typechecked with the repo's own
 config; one that introduces an error is dropped and listed, never shipped.
-Fixture specs are real, cut down with `scripts/trim-spec.ts`.
+Fixture specs are real, cut down with `scripts/trim-spec.ts`. `pr-body` is
+templates over `fix --json`, for the same reason as note 4: a maintainer is
+asked to trust it.
 
 ## Layout
 
@@ -282,6 +284,7 @@ apps/mcp/               stdio MCP server over /api/feed.json
 apps/fixer/             `driftwatch` CLI (M4): scan a repo for code a published change breaks
   src/scan/             finders (http: fetch/axios/ky; sdk: official SDK clients), file walk, TS parsing
   src/fix/              spec verdicts (rename, removal, documented value), edits, diff, typecheck, repo tests
+  src/prbody.ts         PR title and description from `fix --json`, templates only
   src/eval.ts           precision/recall against fixtures/ (markers: `driftwatch-expect: <kind>[, <kind>]`)
   fixtures/             consumer repos + the real change and specs each is scanned for; expected.patch per fixed one
   scripts/trim-spec.ts  cut a real normalized spec down to a fixture

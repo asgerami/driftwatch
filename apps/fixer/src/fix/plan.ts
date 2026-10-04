@@ -36,6 +36,10 @@ export interface Patch {
   finding: Finding;
   /** What the earlier spec said about a removed field, for the PR body. */
   context?: string;
+  /** rename: the new name. */
+  to?: string;
+  /** add: the value sent. */
+  value?: unknown;
   edit: Edit;
 }
 
@@ -250,7 +254,7 @@ export function plan(change: ChangeDocument, result: ScanResult, after: JsonObje
     if (removal.kind === "renamed") {
       const edit = renameEdit(source, node, from, removal.to);
       if (typeof edit === "string") skipped.push({ finding, reason: edit });
-      else patches.push({ file: finding.file, line: finding.line, kind: "rename", field: finding.field, summary: `rename \`${from}\` to \`${removal.to}\``, finding, context: removal.description, edit });
+      else patches.push({ file: finding.file, line: finding.line, kind: "rename", field: finding.field, summary: `rename \`${from}\` to \`${removal.to}\``, finding, context: removal.description, to: removal.to, edit });
     } else if (removal.kind === "removed" && finding.direction === "request") {
       if (!removal.optional) {
         skipped.push({ finding, reason: "it was required before, so removing it changes what the call means" });
@@ -321,6 +325,7 @@ export function plan(change: ChangeDocument, result: ScanResult, after: JsonObje
         field: path.join("."),
         summary: `send \`${leaf}: ${JSON.stringify(documented.value)}\`, the value the spec documents (${documented.source})`,
         finding,
+        value: documented.value,
         edit: insertEdit(source, target, propertyKey(source, leaf), literal(source, documented.value)),
       });
     }
