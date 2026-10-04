@@ -177,7 +177,8 @@ The `driftwatch` CLI (`apps/fixer`) never opens a pull request. You do.
    reason it was not patched. `--write` applies it and runs the repo's tests,
    restoring the files if they fail.
 4. Read the patch and the "Not patched" list. Most of a real fix is the list.
-5. `... fix --change <storyId> --repo <path> --write --json > fix.json`, then
+5. `pnpm --silent --filter @driftwatch/fixer cli fix --change <storyId> --repo <path> --write --json > fix.json`
+   (`--silent`, or pnpm's own header lands in the JSON), then
    `pnpm --filter @driftwatch/fixer cli pr-body --fix fix.json` prints a title
    and description: what changed upstream (with links), what the patch
    changes, how it was verified, and one line saying Driftwatch found it.
