@@ -228,8 +228,14 @@ is not the provider's never matches, so a dynamic `fetch(url)` is never
 reported. SDK calls count only on a known client (a value created from the
 provider's official package); method names come from `operationId` where the
 SDK is generated from it (GitHub, Plaid) and from the path's REST shape
-otherwise (Stripe, OpenAI). It never opens a pull request (brief, M4 and
-section 8).
+otherwise (Stripe, OpenAI). Field access is traced from a matched call's
+value, never matched by name alone: through `await`, `.json()` (fetch, ky),
+`.data` (axios, Octokit), `.then`, destructuring, and a function's return
+into its callers, including across a relative import. A name-only read is a
+`low` guess, and only on a parameter or class field in a file the trace
+reached, for a distinctive name: a local that came from another call is the
+trace's to follow, and `id` or `email` is read off everything. It never opens
+a pull request (brief, M4 and section 8).
 
 ## Layout
 

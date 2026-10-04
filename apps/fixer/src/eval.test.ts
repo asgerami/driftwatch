@@ -7,7 +7,7 @@ import { evaluateAll, evaluateFixture } from "./eval.js";
  * repos. Fixtures and specs are local; nothing here touches the network.
  */
 describe("scan against the fixture repos", () => {
-  it("finds every marked raw HTTP and SDK call, and nothing else", async () => {
+  it("finds every marked call and field access, and nothing else", async () => {
     const { total, fixtures } = await evaluateAll();
     for (const fixture of fixtures) {
       expect({ name: fixture.name, missed: fixture.missed, unexpected: fixture.unexpected }).toEqual({
@@ -16,7 +16,7 @@ describe("scan against the fixture repos", () => {
         unexpected: [],
       });
     }
-    for (const kind of ["http", "sdk"]) {
+    for (const kind of ["http", "sdk", "field"]) {
       expect({ kind, precision: total[kind]?.precision, recall: total[kind]?.recall }).toEqual({ kind, precision: 1, recall: 1 });
     }
   });
@@ -25,6 +25,6 @@ describe("scan against the fixture repos", () => {
     // OpenAI: the change names only CreateChatCompletionResponse; the scan
     // must work out that POST /chat/completions returns it.
     const result = await evaluateFixture("openai-chat");
-    expect(result.byKind["http"]?.truePositives).toBe(4);
+    expect(result.byKind["http"]?.truePositives).toBe(5);
   });
 });

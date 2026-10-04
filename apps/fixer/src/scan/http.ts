@@ -1,6 +1,6 @@
 import ts from "typescript";
 
-import type { Finding } from "../findings.js";
+import type { Finding, MatchedCall } from "../findings.js";
 import type { TargetOperation, Targets } from "../targets.js";
 
 /**
@@ -160,6 +160,7 @@ interface Call {
   node: ts.CallExpression;
   url: string;
   method: string | undefined;
+  body: MatchedCall["body"];
 }
 
 function httpCalls(source: ts.SourceFile): Call[] {
@@ -181,7 +182,7 @@ function httpCalls(source: ts.SourceFile): Call[] {
           ts.isIdentifier(callee.expression) &&
           ["globalThis", "window", "self"].includes(callee.expression.text));
       if (isFetch && first) {
-        calls.push({ node, url: resolver.resolve(first), method: resolver.method(property(second, "method"), "GET") });
+        calls.push({ node, url: resolver.resolve(first), method: resolver.method(property(second, "method"), "GET"), body: "fetch" });
       } else if (ts.isIdentifier(callee) && known.has(callee.text) && first) {
         // axios(url | config, config?) and ky(url, options?)
         const client = known.get(callee.text)!;
@@ -191,6 +192,7 @@ function httpCalls(source: ts.SourceFile): Call[] {
           node,
           url: join(client.base, resolver.resolve(url)),
           method: resolver.method(property(config, "method"), "GET"),
+          body: client.kind === "axios" ? "data" : "fetch",
         });
       } else if (
         ts.isPropertyAccessExpression(callee) &&
@@ -201,12 +203,13 @@ function httpCalls(source: ts.SourceFile): Call[] {
         const client = known.get(callee.expression.text)!;
         const fn = callee.name.text;
         if (VERBS.has(fn)) {
-          calls.push({ node, url: join(client.base, resolver.resolve(first)), method: fn.toUpperCase() });
+          calls.push({ node, url: join(client.base, resolver.resolve(first)), method: fn.toUpperCase(), body: client.kind === "axios" ? "data" : "fetch" });
         } else if (fn === "request" && client.kind === "axios") {
           calls.push({
             node,
             url: join(client.base, resolver.resolve(property(first, "url"))),
             method: resolver.method(property(first, "method"), "GET"),
+            body: "data",
           });
         }
       }
@@ -284,9 +287,15 @@ function matchPath(url: UrlParts, op: TargetOperation, targets: Targets): "high"
   return best;
 }
 
-export function scanHttp(file: string, text: string, targets: Targets, why: (op: TargetOperation) => string): Finding[] {
+export function scanHttp(
+  source: ts.SourceFile,
+  targets: Targets,
+  why: (op: TargetOperation) => string,
+  matched: MatchedCall[] = [],
+): Finding[] {
   if (targets.operations.length === 0) return [];
-  const source = parse(file, text);
+  const file = source.fileName;
+  const text = source.text;
   const lines = text.split("\n");
   const findings: Finding[] = [];
 
@@ -302,6 +311,8 @@ export function scanHttp(file: string, text: string, targets: Targets, why: (op:
     }
     if (!hit) continue;
 
+    const operation = `${hit.op.method === "*" ? call.method ?? "?" : hit.op.method} ${hit.op.path}`;
+    matched.push({ node: call.node, op: hit.op, operation, body: call.body, confidence: hit.confidence });
     const start = source.getLineAndCharacterOfPosition(call.node.getStart(source));
     findings.push({
       file,
@@ -309,7 +320,7 @@ export function scanHttp(file: string, text: string, targets: Targets, why: (op:
       column: start.character + 1,
       snippet: (lines[start.line] ?? "").trim(),
       kind: "http",
-      operation: `${hit.op.method === "*" ? call.method ?? "?" : hit.op.method} ${hit.op.path}`,
+      operation,
       confidence: hit.confidence,
       why: why(hit.op),
     });

@@ -13,12 +13,12 @@ import { loadSpec } from "./spec.js";
  *
  * Each fixture is a small consumer repo plus the change and spec it is
  * scanned for. Expected findings are marked in the source itself, on the
- * line the finding should point at: `// driftwatch-expect: <kind>`. Every
+ * line the finding should point at: `// driftwatch-expect: <kind>[, <kind>]`. Every
  * other line is an expected non-finding, which is what precision measures.
  */
 
 export const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "..", "fixtures");
-const MARKER = /driftwatch-expect:\s*(http|sdk|field)/g;
+const MARKER = /driftwatch-expect:\s*((?:http|sdk|field)(?:\s*,\s*(?:http|sdk|field))*)/g;
 
 export interface Score {
   truePositives: number;
@@ -55,7 +55,9 @@ export async function evaluateFixture(name: string): Promise<FixtureResult> {
   const expected = new Set<string>();
   for (const file of await sourceFiles(repo)) {
     file.text.split("\n").forEach((line, i) => {
-      for (const match of line.matchAll(MARKER)) expected.add(`${match[1]}|${file.path}:${i + 1}`);
+      for (const match of line.matchAll(MARKER)) {
+        for (const kind of match[1]!.split(",")) expected.add(`${kind.trim()}|${file.path}:${i + 1}`);
+      }
     });
   }
   const found = new Set(findings.map((f: Finding) => `${f.kind}|${f.file}:${f.line}`));

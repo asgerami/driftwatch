@@ -3,11 +3,11 @@ import Stripe from "stripe";
 const stripe = new Stripe(process.env.STRIPE_KEY!, { apiVersion: "2026-09-23" });
 
 export async function charge(amount: number) {
-  return stripe.paymentIntents.create({ amount, currency: "usd", payment_method_types: ["card"] }); // driftwatch-expect: sdk
+  return stripe.paymentIntents.create({ amount, currency: "usd", payment_method_types: ["card"] }); // driftwatch-expect: sdk, field
 }
 
 export async function changeMethods(id: string) {
-  return stripe.paymentIntents.update(id, { payment_method_types: ["card"] }); // driftwatch-expect: sdk
+  return stripe.paymentIntents.update(id, { payment_method_types: ["card"] }); // driftwatch-expect: sdk, field
 }
 
 export async function confirm(id: string) {

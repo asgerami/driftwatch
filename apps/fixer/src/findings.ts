@@ -26,3 +26,19 @@ export function sortFindings(findings: Finding[]): Finding[] {
     (a, b) => RANK[a.confidence] - RANK[b.confidence] || a.file.localeCompare(b.file) || a.line - b.line,
   );
 }
+
+/** A call a finder matched, handed to the field finder to follow its result. */
+export interface MatchedCall {
+  /** The call expression node (TypeScript AST). */
+  node: import("typescript").CallExpression;
+  op: import("./targets.js").TargetOperation;
+  /** As the finding shows it, with a wildcard method resolved from the call. */
+  operation: string;
+  /**
+   * Where the response body sits in the returned value: axios and Octokit
+   * wrap it in `.data`; fetch needs `.json()`; SDKs like Stripe's and
+   * OpenAI's return it directly.
+   */
+  body: "direct" | "data" | "fetch";
+  confidence: Finding["confidence"];
+}

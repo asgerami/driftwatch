@@ -28,3 +28,16 @@ export async function completeViaProxy(body: string) {
 export async function embed(body: string) {
   return fetch("https://api.openai.com/v1/embeddings", { method: "POST", body });
 }
+
+export async function streamed(body: string) {
+  return fetch("https://api.openai.com/v1/chat/completions", { method: "POST", body }) // driftwatch-expect: http
+    .then((r) => r.json())
+    .then((json) => json.system_fingerprint as string); // driftwatch-expect: field
+}
+
+// Embeddings carry no fingerprint; a read of other fields is not reported.
+export async function dimensions(body: string) {
+  const res = await fetch("https://api.openai.com/v1/embeddings", { method: "POST", body });
+  const json = await res.json();
+  return json.data[0].embedding.length;
+}
