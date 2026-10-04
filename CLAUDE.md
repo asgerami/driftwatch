@@ -314,6 +314,13 @@ change and read the output before trusting it.
    Seed, poll, backfill, verify and discover branch on tier. The first B
    source is Hetzner Cloud (`https://docs.hetzner.cloud/cloud.spec.json`).
    Hosted sources have no git history: the first snapshot is "now".
+7. **A break hidden behind a component rename is not reported.** Components
+   are diffed by name, so when a provider renames `Pet` to `Animal` and drops
+   a field in the same release, the two are never compared: the repoint is
+   `schema.ref-retargeted` at 80 (held) and the removal goes unreported.
+   Precision-safe, a recall gap. The fix is diffing old and new targets at the
+   repoint (once per pair, not per site, see note 1). `refactor.test.ts` pins
+   the current behaviour and flips when it is fixed.
 6. **The GitHub App is deliberately not built.** It is the revenue half, and
    building it before the feed proves anyone cares is how this becomes a
    portfolio project with a business model nobody asked for. The signal to wait
