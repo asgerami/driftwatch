@@ -96,6 +96,11 @@ jobs:
       - name: Auto-publish
         run: pnpm w review --auto
 
+      # Draft X and HN/Reddit posts for newly published breaking changes.
+      # Drafts only: a person posts them (`pnpm w share`). Never auto-post.
+      - name: Share drafts
+        run: pnpm w share --generate
+
       - name: Status
         if: always()
         run: pnpm w status

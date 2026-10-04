@@ -12,6 +12,7 @@ import { report } from "./commands/report.js";
 import { review } from "./commands/review.js";
 import { poll } from "./commands/poll.js";
 import { seed } from "./commands/seed.js";
+import { share } from "./commands/share.js";
 import { status } from "./commands/status.js";
 import { stories } from "./commands/stories.js";
 import { verify } from "./commands/verify.js";
@@ -132,6 +133,18 @@ program
   .option("--out <file>", "write the body here and the title to <file>.title; remove both when all clear")
   .description("What needs a person: stories to review and sources not fetching")
   .action((opts: { out?: string }) => report(opts));
+
+program
+  .command("share")
+  .option("--generate", "draft posts for published breaking changes from the last 14 days that have none")
+  .option("--posted <storyId>", "mark a draft as posted")
+  .option("--skip <storyId>", "mark a draft as not worth posting")
+  .option("-n, --limit <count>", "drafts to show", "10")
+  .option("--out <file>", "write the drafts to a markdown file instead")
+  .description("The share kit: draft X and HN/Reddit posts for breaking changes. Never posts.")
+  .action((opts: { generate?: boolean; posted?: string; skip?: string; limit: string; out?: string }) =>
+    share({ ...opts, generate: opts.generate === true, limit: Number(opts.limit) }),
+  );
 
 program
   .command("stories")
