@@ -23,6 +23,8 @@ export {
 export {
   diffDocuments,
   classify,
+  buildUsageIndex,
+  type ComponentUsage,
   fingerprintOf,
   LOCATION_KEYED_RULES,
   RULESET_VERSION,
@@ -75,3 +77,5 @@ export {
   type ShareDrafts,
   type ShareInput,
 } from "./impact/share.js";
+
+export type { ChangeDocument } from "./change-document.js";
