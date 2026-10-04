@@ -136,10 +136,10 @@ Acceptance:
 **Performance.** Static generation or ISR wherever possible.
 
 Acceptance:
-- [ ] Every published change has a permanent URL with an OG image
-- [ ] Per-API and global RSS/JSON feeds validate
-- [ ] Sitemap includes every API and change page
-- [ ] Waitlist form stores submissions and rejects junk input
+- [x] Every published change has a permanent URL with an OG image
+- [x] Per-API and global RSS/JSON feeds validate
+- [x] Sitemap includes every API and change page
+- [x] Waitlist form stores submissions and rejects junk input
 
 ### M3: Share kit (week 3)
 
@@ -238,3 +238,4 @@ Claude Code: add one dated line at the end of each session saying what got done 
 - 2026-09-29: M1 step 2 done. allOf/anyOf nullable false positive fixed (ruleset 1.2.0): 19 false breaks gone across 100 real pairs, nothing else changed. Review and the feed read only the current ruleset; published facts carry forward on a bump. R2 retries hardened after 3 transient read failures. Next: spot-check Stripe's breaking changes before any publish, then rule fixtures (M1 step 3).
 - 2026-09-29: First publish. Live at https://driftwatch.et (Netlify, custom domain). Stripe spot-check found no false positives but heavy repetition, so facts now group into stories (Stripe 214 facts → 109 cards); public empty states; Stripe API-version note. Pre-publish review of every breaking story found 9 more false or doubtful ones: response type narrowing is not a break (ruleset 1.3.0), and GitHub moved 11 enterprise endpoints into ghec (`review --reject`, carried across bumps). Published 764 stories (1253 rows). Fixed endpoint fingerprints ignoring the path (`refingerprint`). Next: M1 step 3, fixtures for the 9 untested rules.
 - 2026-09-30: M1 done except the review load that follows it. Every rule has a test (a test enforces it); security diffed as alternatives (ruleset 1.4.0, re-diffed before merge with every decision carried). Retries with backoff, conditional GETs (304), per-source health, and a `review-queue` GitHub issue from the scheduled job. Registry at 22 providers / 23 sources, all verified on GitHub via the new `inspect` workflow; left out Anthropic, DigitalOcean, Mailgun, HubSpot (reasons in the registry commit). Next: backfill the new APIs, review their first stories, then M2.
+- 2026-10-04: Queue cleared and published (2188 stories), with Clerk's withdrawn endpoints and a Square converter artifact rejected. Ruleset 1.6.0 (one card per removed required field). Auto-publish policy `auto-1`: verified shapes publish, endpoint removals / auth changes / spike releases / a new source's first stories wait for a person; `/method` states it. M2 shipped: permanent `/changes/<id>` pages (3005), `/apis/<api>` (old URLs 308), global and per-API RSS + JSON Feed (W3C-valid), sitemap, canonical URLs, per-change OG images, ISR, and the `/watch` waitlist. Open: analytics (Umami?) and an email provider both need Amir's yes. Next: M3 share kit.

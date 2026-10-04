@@ -230,6 +230,10 @@ apps/worker/            the pipeline CLI
   diffing.ts            the ONE write path into DiffRun and Change
 apps/web/
   lib/queries.ts        Prisma reads to plain view models
+  lib/feeds.ts          RSS 2.0 and JSON Feed 1.1 from release views (pure)
+  lib/waitlist.ts       the only gate for /watch submissions (pure)
+  lib/site.ts           SITE_URL: feeds, canonicals and sitemap never use the request host
+  app/                  /, /apis/<api>, /changes/<storyId>, /watch, feeds, sitemap
   components/           pure presentation, no data access
   scripts/              render-check: verifies the UI with no database
 apps/mcp/               stdio MCP server over /api/feed.json
