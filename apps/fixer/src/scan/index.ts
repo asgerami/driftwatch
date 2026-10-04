@@ -4,6 +4,7 @@ import { sortFindings, type Finding } from "../findings.js";
 import { computeTargets, type TargetOperation, type Targets } from "../targets.js";
 import { sourceFiles } from "./files.js";
 import { scanHttp } from "./http.js";
+import { scanSdk } from "./sdk.js";
 
 export interface ScanResult {
   change: ChangeDocument;
@@ -29,6 +30,9 @@ export async function scan(change: ChangeDocument, spec: JsonObject, repo: strin
   const files = await sourceFiles(repo);
   const why = explain(change);
   const findings: Finding[] = [];
-  for (const file of files) findings.push(...scanHttp(file.path, file.text, targets, why));
+  for (const file of files) {
+    findings.push(...scanHttp(file.path, file.text, targets, why));
+    findings.push(...scanSdk(file.path, file.text, targets, change.provider.slug, why));
+  }
   return { change, targets, filesScanned: files.length, findings: sortFindings(findings) };
 }

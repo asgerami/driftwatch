@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "github-2026-09-30-fixture3",
+  "url": "https://driftwatch.et/changes/github-2026-09-30-fixture3",
+  "provider": { "slug": "github", "name": "GitHub" },
+  "severity": "BREAKING",
+  "ruleId": "response.property.removed",
+  "shippedAt": "2026-09-30T00:00:00.000Z",
+  "facts": [
+    { "ruleId": "response.property.removed", "severity": "BREAKING", "method": "get", "path": "/repos/{owner}/{repo}", "operationId": "repos/get", "fieldPath": "temp_clone_token", "jsonPointer": "/paths/~1repos~1{owner}~1{repo}/get/responses/200", "before": "temp_clone_token" }
+  ],
+  "spec": { "kind": "git", "repo": "github/rest-api-description", "filePath": "descriptions/api.github.com/api.github.com.json", "toSha": "0000000000000000000000000000000000000000" }
+}

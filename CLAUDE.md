@@ -225,7 +225,11 @@ from `/api/changes/<id>` and the provider's spec at that change's commit, and
 recomputes affected operations with core's usage index rather than storing
 them. A match needs at least one literal path segment, and a known host that
 is not the provider's never matches, so a dynamic `fetch(url)` is never
-reported. It never opens a pull request (brief, M4 and section 8).
+reported. SDK calls count only on a known client (a value created from the
+provider's official package); method names come from `operationId` where the
+SDK is generated from it (GitHub, Plaid) and from the path's REST shape
+otherwise (Stripe, OpenAI). It never opens a pull request (brief, M4 and
+section 8).
 
 ## Layout
 
@@ -251,7 +255,7 @@ apps/web/
   scripts/              render-check: verifies the UI with no database
 apps/mcp/               stdio MCP server over /api/feed.json
 apps/fixer/             `driftwatch` CLI (M4): scan a repo for code a published change breaks
-  src/scan/             finders (http: fetch/axios/ky), file walk, TS compiler parsing
+  src/scan/             finders (http: fetch/axios/ky; sdk: official SDK clients), file walk, TS parsing
   src/eval.ts           precision/recall against fixtures/ (markers: `driftwatch-expect: <kind>`)
   fixtures/             consumer repos + the change and spec each is scanned for
 prisma/schema.prisma    full model, including the unbuilt GitHub App tables

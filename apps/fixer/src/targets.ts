@@ -12,6 +12,8 @@ import { buildUsageIndex, type ChangeDocument, type JsonObject } from "@driftwat
 export interface TargetOperation {
   method: string; // upper case
   path: string; // OpenAPI template, "/v1/customers/{customer}"
+  /** From the spec; GitHub's ("repos/get-content") name Octokit's methods. */
+  operationId?: string;
 }
 
 export interface Targets {
@@ -81,6 +83,12 @@ export function computeTargets(change: ChangeDocument, spec: JsonObject): Target
     } catch {
       // relative or templated server URL: no host constraint from it
     }
+  }
+
+  const paths = (spec["paths"] ?? {}) as Record<string, Record<string, { operationId?: unknown }>>;
+  for (const op of operations.values()) {
+    const id = paths[op.path]?.[op.method.toLowerCase()]?.operationId;
+    if (typeof id === "string") op.operationId = id;
   }
 
   return {
