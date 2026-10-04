@@ -99,10 +99,10 @@ Add fixtures built from real historical changes where possible.
 **Review gate.** It stays mandatory for anything labeled breaking. In v1, nothing breaking is published automatically.
 
 Acceptance:
-- [ ] Registry holds at least 20 verified APIs, each fetching on schedule
-- [ ] Every classifier rule has fixture tests
-- [ ] Re-running the pipeline on unchanged specs creates zero new items (idempotent)
-- [ ] A refactor-only spec change (`$ref` moves, reordering) creates no breaking items
+- [x] Registry holds at least 20 verified APIs, each fetching on schedule
+- [x] Every classifier rule has fixture tests
+- [x] Re-running the pipeline on unchanged specs creates zero new items (idempotent)
+- [x] A refactor-only spec change (`$ref` moves, reordering) creates no breaking items
 
 ### M2: The public site as distribution (weeks 2 to 3)
 
@@ -239,3 +239,4 @@ Claude Code: add one dated line at the end of each session saying what got done 
 - 2026-09-29: First publish. Live at https://driftwatch.et (Netlify, custom domain). Stripe spot-check found no false positives but heavy repetition, so facts now group into stories (Stripe 214 facts → 109 cards); public empty states; Stripe API-version note. Pre-publish review of every breaking story found 9 more false or doubtful ones: response type narrowing is not a break (ruleset 1.3.0), and GitHub moved 11 enterprise endpoints into ghec (`review --reject`, carried across bumps). Published 764 stories (1253 rows). Fixed endpoint fingerprints ignoring the path (`refingerprint`). Next: M1 step 3, fixtures for the 9 untested rules.
 - 2026-09-30: M1 done except the review load that follows it. Every rule has a test (a test enforces it); security diffed as alternatives (ruleset 1.4.0, re-diffed before merge with every decision carried). Retries with backoff, conditional GETs (304), per-source health, and a `review-queue` GitHub issue from the scheduled job. Registry at 22 providers / 23 sources, all verified on GitHub via the new `inspect` workflow; left out Anthropic, DigitalOcean, Mailgun, HubSpot (reasons in the registry commit). Next: backfill the new APIs, review their first stories, then M2.
 - 2026-10-04: Queue cleared and published (2188 stories), with Clerk's withdrawn endpoints and a Square converter artifact rejected. Ruleset 1.6.0 (one card per removed required field). Auto-publish policy `auto-1`: verified shapes publish, endpoint removals / auth changes / spike releases / a new source's first stories wait for a person; `/method` states it. M2 shipped: permanent `/changes/<id>` pages (3005), `/apis/<api>` (old URLs 308), global and per-API RSS + JSON Feed (W3C-valid), sitemap, canonical URLs, per-change OG images, ISR, and the `/watch` waitlist. Open: analytics (Umami?) and an email provider both need Amir's yes. Next: M3 share kit.
+- 2026-10-04 (later): Analytics live (Cloudflare Web Analytics, free, cookieless, production only). Email live (Resend, free; one confirmation per new waitlist signup; tested to Amir's inbox). M3 shipped: share kit, 137 drafts, posted by hand only (`pnpm w share`). M1 closed: refactor-only test added; it found a known gap, a break hidden behind a same-release component rename is held (behavioral 80) rather than reported (CLAUDE.md known gap 7). Removed "Generated with Claude Code" lines from PR descriptions #9–#28 (the brief forbids attribution); five pre-existing Cursor commits from 2026-09-13 carry co-author trailers, left alone (rewriting master needs a force-push). Next: signals script (section 6), then M4.
