@@ -7,6 +7,7 @@ import { Command } from "commander";
 import { loadChange } from "./change.js";
 import type { Finding } from "./findings.js";
 import { fix, type FixResult } from "./fix/index.js";
+import { prBody, type FixReport } from "./prbody.js";
 import { runTests, type TestRun } from "./fix/tests.js";
 import { scan } from "./scan/index.js";
 import { loadSpec, loadSpecBefore } from "./spec.js";
@@ -83,6 +84,22 @@ program
       if (tests?.ran && !tests.passed) process.exitCode = 1;
     },
   );
+
+program
+  .command("pr-body")
+  .description("write the pull request title and description for a fix, from `fix --json` output")
+  .requiredOption("--fix <file>", "the JSON `driftwatch fix --json` printed")
+  .option("--out <file>", "write the description here instead of printing it")
+  .action(async (opts: { fix: string; out?: string }) => {
+    const report = JSON.parse(await readFile(fromCaller(opts.fix), "utf8")) as FixReport;
+    const { title, body } = prBody(report);
+    if (opts.out) {
+      await writeFile(fromCaller(opts.out), body);
+      console.log(`Title: ${title}\nDescription written to ${opts.out}`);
+    } else {
+      console.log(`Title: ${title}\n\n${body}`);
+    }
+  });
 
 function fixReport(r: FixResult, tests: TestRun | undefined, opts: { out?: string; write?: boolean }): string {
   const lines = [r.change.url, `${r.patches.length} patch(es), ${r.skipped.length} finding(s) not patched, ${r.findings.length} other finding(s)`, ""];
