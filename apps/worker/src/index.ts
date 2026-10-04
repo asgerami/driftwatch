@@ -13,6 +13,7 @@ import { review } from "./commands/review.js";
 import { poll } from "./commands/poll.js";
 import { seed } from "./commands/seed.js";
 import { status } from "./commands/status.js";
+import { stories } from "./commands/stories.js";
 import { verify } from "./commands/verify.js";
 
 const program = new Command();
@@ -131,6 +132,11 @@ program
   .option("--out <file>", "write the body here and the title to <file>.title; remove both when all clear")
   .description("What needs a person: stories to review and sources not fetching")
   .action((opts: { out?: string }) => report(opts));
+
+program
+  .command("stories")
+  .description("Give every fact at the current ruleset its permanent story id (idempotent)")
+  .action(stories);
 
 program
   .command("refingerprint")

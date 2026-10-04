@@ -10,7 +10,10 @@ import type { Severity } from "@driftwatch/core";
  */
 
 export interface ChangeView {
+  /** The story's permanent id when it has one, else a row id. */
   id: string;
+  /** `/changes/<id>`, when the story has a permanent id. */
+  href?: string;
   ruleId: string;
   severity: Severity;
   directionFlip: boolean;
@@ -65,6 +68,31 @@ export interface ReleaseView {
   requestNullableAdds?: AdditiveLine;
   /** Provider context a reader needs to judge a break, e.g. API version pinning. */
   providerNote?: string;
+}
+
+/** One fact inside a story, for its page. */
+export interface StoryFact {
+  location: string;
+  detail?: string;
+  before?: string;
+  after?: string;
+}
+
+/** Everything /changes/<id> shows. */
+export interface StoryPageView {
+  change: ChangeView;
+  providerSlug: string;
+  providerName: string;
+  providerDocsUrl?: string;
+  sourceLabel: string;
+  /** When the provider shipped it (commit time, or Last-Modified). */
+  shippedAt: string;
+  /** When Driftwatch first stored the version that contains it. */
+  detectedAt: string;
+  publishedAt: string;
+  /** The spec diff (git sources) or the hosted spec. */
+  sourceLink?: { href: string; label: string };
+  facts: StoryFact[];
 }
 
 export interface ProviderView {

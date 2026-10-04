@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { Release, EmptyFeed, ChangeItem } from "../components/Change";
+import { StoryPage, whoIsAffected } from "../components/StoryPage";
 import type { ChangeView, ReleaseView } from "../lib/types";
 import { additiveLineHeadline, leadWithSignal, requestPropertyHeadline, splitCards } from "../lib/feed";
 
@@ -147,6 +148,35 @@ const splitNullable = splitCards(nullableChanges);
 check("request fields newly accepting null collapse to one line", splitNullable.requestNullableAdds?.count === 5 && splitNullable.cards.length === 0);
 const nullableHtml = decode(renderToStaticMarkup(<Release release={{ ...release, changes: [], requestNullableAdds: splitNullable.requestNullableAdds }} />));
 check("the nullable line renders with its anchor", nullableHtml.includes("5 request fields now accept null") && nullableHtml.includes(`id="${release.id}-request-nullable"`), nullableHtml);
+
+// /changes/<id>: everything the brief asks a change page for.
+const storyView = {
+  change: { ...flipChange, href: "/changes/stripe-2026-08-26-3f9a1c2e" },
+  providerSlug: "stripe",
+  providerName: "Stripe",
+  sourceLabel: "Stripe API",
+  shippedAt: "2026-08-26T17:04:00.000Z",
+  detectedAt: "2026-08-26T18:17:00.000Z",
+  publishedAt: "2026-08-27T09:00:00.000Z",
+  sourceLink: {
+    href: "https://github.com/stripe/openapi/compare/aaa...bbb",
+    label: "stripe/openapi @ aaa…bbb",
+  },
+  facts: [
+    { location: "payment_intent.allowed_payment_method_types[]", before: '"card", "ideal"', after: '"card", "ideal", "touch_n_go"' },
+  ],
+};
+const storyHtml = decode(renderToStaticMarkup(<StoryPage story={storyView} />));
+check("change page has the plain-English summary", storyHtml.includes(flipChange.headline) && storyHtml.includes("What changed"));
+check("change page says who is affected", storyHtml.includes("Who is affected") && storyHtml.includes(whoIsAffected(storyView)));
+check("change page shows before and after", storyHtml.includes('"card", "ideal", "touch_n_go"') && storyHtml.includes("Before and after"));
+check("change page shows severity", storyHtml.includes('data-severity="BREAKING"'));
+check("change page links the source diff", storyHtml.includes("https://github.com/stripe/openapi/compare/aaa...bbb"));
+check("change page shows detected-at", storyHtml.includes("2026-08-26 18:17 UTC"));
+check("change page links back to its API", storyHtml.includes('href="/apis/stripe"'));
+check("who-is-affected names the reader for a response change", whoIsAffected(storyView).startsWith("Code that reads"));
+const linkedCard = decode(renderToStaticMarkup(<ChangeItem change={{ ...flipChange, href: "/changes/x-1" }} />));
+check("a card links its headline to the change page", linkedCard.includes('href="/changes/x-1"'));
 
 // RSS items link to #<change id>, #<release>-fields and #<release>-request-fields.
 check("each card carries its id as an anchor", release.changes.every((c) => releaseHtml.includes(`id="${c.id}"`)));

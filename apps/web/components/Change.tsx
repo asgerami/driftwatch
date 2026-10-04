@@ -65,7 +65,9 @@ export function ChangeItem({ change }: { change: ChangeView }) {
         {change.directionFlip ? <FlipBadge /> : null}
         <span className="rule-id">{change.ruleId}</span>
       </div>
-      <h3 className="change-title">{change.headline}</h3>
+      <h3 className="change-title">
+        {change.href ? <a href={change.href}>{change.headline}</a> : change.headline}
+      </h3>
       <p className="change-body">{change.body.split("\n\n")[0]}</p>
       {change.locations && change.detail ? (
         <p className="change-detail">{change.detail}</p>
