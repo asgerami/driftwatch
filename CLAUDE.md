@@ -225,13 +225,20 @@ from `/api/changes/<id>` and the provider's spec at that change's commit, and
 recomputes affected operations with core's usage index rather than storing
 them. A match needs at least one literal path segment, and a known host that
 is not the provider's never matches, so a dynamic `fetch(url)` is never
-reported. SDK calls count only on a known client (a value created from the
+reported. A call through a wrapper of the repo's own (`window.api.xfetch.post(url)`,
+anime.gf's way of calling OpenAI) counts only when its URL is on the
+provider's host and the function reads as a request (an HTTP verb, or
+fetch/request/http in its name), and only ever at medium. SDK calls count only on a known client (a value created from the
 provider's official package); method names come from `operationId` where the
 SDK is generated from it (GitHub, Plaid) and from the path's REST shape
 otherwise (Stripe, OpenAI). Field access is traced from a matched call's
 value, never matched by name alone: through `await`, `.json()` (fetch, ky),
 `.data` (axios, Octokit), `.then`, destructuring, and a function's return
-into its callers, including across a relative import. A name-only read is a
+into its callers in any file that imports it: resolved by the compiler with
+the nearest tsconfig.json or jsconfig.json (`paths` aliases like `@/lib`,
+monorepo packages), through barrel re-exports, default and namespace imports
+(`scan/modules.ts`). Matching relative paths only missed every read behind
+an alias, silently. A name-only read is a
 `low` guess, and only on a parameter or class field in a file the trace
 reached, for a distinctive name: a local that came from another call is the
 trace's to follow, and `id` or `email` is read off everything. It never opens

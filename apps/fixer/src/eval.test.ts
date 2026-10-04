@@ -25,6 +25,6 @@ describe("scan against the fixture repos", () => {
     // OpenAI: the change names only CreateChatCompletionResponse; the scan
     // must work out that POST /chat/completions returns it.
     const result = await evaluateFixture("openai-chat");
-    expect(result.byKind["http"]?.truePositives).toBe(5);
+    expect(result.byKind["http"]?.truePositives).toBe(7);
   });
 });

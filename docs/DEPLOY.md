@@ -172,6 +172,10 @@ The `driftwatch` CLI (`apps/fixer`) never opens a pull request. You do.
    typecheck sees the real SDK types.
 2. `pnpm --filter @driftwatch/fixer cli scan --change <storyId> --repo <path>`
    lists every affected call and field read, with a confidence label.
+   On a slow connection, scan a public repo on GitHub's network instead:
+   `gh workflow run inspect -f command=scan -f args="<owner/repo> <storyId>"`
+   (or `command=fix` for the patch, which there is never written and never
+   runs the repo's tests), then `gh run view --log`.
 3. `pnpm --filter @driftwatch/fixer cli fix --change <storyId> --repo <path> --out fix.patch`
    writes a patch for the mechanical cases and lists everything else with the
    reason it was not patched. `--write` applies it and runs the repo's tests,

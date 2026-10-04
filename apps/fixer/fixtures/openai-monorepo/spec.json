@@ -1,0 +1,25 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "OpenAI (fixture)", "version": "1" },
+  "servers": [{ "url": "https://api.openai.com/v1" }],
+  "paths": {
+    "/chat/completions": {
+      "post": {
+        "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateChatCompletionRequest" } } } },
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateChatCompletionResponse" } } } } }
+      }
+    },
+    "/embeddings": {
+      "post": {
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateEmbeddingResponse" } } } } }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateChatCompletionRequest": { "type": "object", "properties": { "model": { "type": "string" } } },
+      "CreateChatCompletionResponse": { "type": "object", "properties": { "id": { "type": "string" } } },
+      "CreateEmbeddingResponse": { "type": "object", "properties": { "data": { "type": "array" } } }
+    }
+  }
+}

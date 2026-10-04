@@ -55,7 +55,7 @@ export async function scan(change: ChangeDocument, spec: JsonObject, repo: strin
     findings.push(...scanHttp(source, targets, why, matched));
     findings.push(...scanSdk(source, targets, change.provider.slug, why, matched));
   }
-  findings.push(...scanFields(sources, matched, targets, explainField(change)));
+  findings.push(...scanFields(sources, matched, targets, explainField(change), repo));
   return {
     change,
     targets,

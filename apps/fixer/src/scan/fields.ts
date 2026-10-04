@@ -1,9 +1,8 @@
-import { dirname, join, normalize } from "node:path";
-
 import ts from "typescript";
 
 import type { Finding, MatchedCall } from "../findings.js";
 import { opKey, type FieldTarget, type Targets } from "../targets.js";
+import { exportNames, ModuleGraph, type Binding } from "./modules.js";
 
 /**
  * Field access: code that reads a changed response field, or sends a changed
@@ -13,8 +12,8 @@ import { opKey, type FieldTarget, type Targets } from "../targets.js";
  * matched call and follows its value: through `await`, into variables and
  * destructuring, through `.json()` and axios's `.data`, `.then` callbacks,
  * array callbacks and `for…of`, and out of a function that returns it, into
- * its callers in the same file and in files that import it by a relative
- * path. Depth limits keep this cheap and bounded.
+ * its callers in the same file and in files that import it, however they
+ * resolve (modules.ts). Depth limits keep this cheap and bounded.
  *
  * high: traced from the call, and the path read matches the fact's field path.
  * medium: traced, but only the field's name matches (the change sits under a
@@ -40,10 +39,13 @@ interface State {
   path: string[];
   call: MatchedCall;
   hops: number;
+  /** Through a wrapper we do not know: the body may sit under a prefix. */
+  wrapped?: boolean;
 }
 
 interface Context {
   sources: Map<string, ts.SourceFile>;
+  modules: ModuleGraph;
   why: (call: MatchedCall, field: FieldTarget) => string;
   responseFields: FieldTarget[];
   findings: Map<string, Finding>;
@@ -100,11 +102,15 @@ function check(ctx: Context, node: ts.Node, path: string[], s: State) {
     if (field.path[field.path.length - 1] !== name || !applies(field, s.call)) continue;
     const absolute = field.absolute[opKey(s.call.op)] ?? [];
     const exact = same(field.path, path) || absolute.some((full) => same(full, path));
+    // Through an unknown wrapper the body may sit under `.value` or `.data`:
+    // a path that ends with the field's full path is a medium match.
+    const full = absolute.length > 0 ? absolute : [field.path];
+    const suffix = s.wrapped && full.some((f) => path.length > f.length && same(path.slice(path.length - f.length), f));
     // Where the spec places the component in this payload is known, and this
     // is not it: Cloudflare's `result.integration` is the parent object, not
     // the `integration` field inside it.
-    if (!exact && absolute.length > 0) continue;
-    report(ctx, node, s.call, field, exact && s.call.confidence === "high" ? "high" : "medium");
+    if (!exact && !suffix && absolute.length > 0) continue;
+    report(ctx, node, s.call, field, exact && !s.wrapped && s.call.confidence === "high" ? "high" : "medium");
   }
 }
 
@@ -165,6 +171,8 @@ function follow(ctx: Context, e: ts.Node, s: State) {
       return;
     }
     if (callee && SAME_SHAPE.has(name)) return follow(ctx, callee, s);
+    // A wrapper may hand back a Response-like value.
+    if (callee && s.wrapped && name === "json") return follow(ctx, callee, s);
     if (callee) return; // a method on the body: not a field
     const path = [...s.path, name];
     check(ctx, ts.isPropertyAccessExpression(p) ? p.name : ts.isElementAccessExpression(p) ? p.argumentExpression : p, path, s);
@@ -287,54 +295,36 @@ function followReturn(ctx: Context, at: ts.Node, s: State) {
   ctx.followed.add(key);
 
   const next = { ...s, hops: s.hops + 1 };
-  for (const call of callsTo(source, new Set([name]))) follow(ctx, call, next);
+  for (const call of callsTo(source, [{ kind: "name", local: name }])) follow(ctx, call, next);
 
-  if (!isExported(fn)) return;
+  const exported = exportNames(fn, name);
+  if (exported.size === 0) return;
   for (const other of ctx.sources.values()) {
     if (other === source) continue;
-    const local = importedNames(other, source.fileName, name);
-    if (local.size === 0) continue;
-    for (const call of callsTo(other, local)) {
+    const bindings = ctx.modules.bindings(other, source.fileName, exported);
+    if (bindings.length === 0) continue;
+    for (const call of callsTo(other, bindings)) {
       if (!ctx.reached.has(other)) ctx.reached.set(other, s.call);
       follow(ctx, call, next);
     }
   }
 }
 
-function isExported(fn: ts.Node): boolean {
-  const declaration = ts.isFunctionDeclaration(fn) ? fn : fn.parent?.parent?.parent; // VariableStatement
-  if (!declaration || !ts.canHaveModifiers(declaration)) return false;
-  return (ts.getModifiers(declaration) ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
-}
-
-function callsTo(source: ts.SourceFile, names: Set<string>): ts.CallExpression[] {
+/** Calls through any of the bindings: `name(…)`, or `ns.member(…)`. */
+function callsTo(source: ts.SourceFile, bindings: Binding[]): ts.CallExpression[] {
+  const names = new Set(bindings.filter((b) => b.kind === "name").map((b) => b.local));
+  const members = new Set(bindings.filter((b) => b.kind === "namespace").map((b) => `${b.local}.${(b as { member: string }).member}`));
   const calls: ts.CallExpression[] = [];
   const visit = (node: ts.Node) => {
-    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && names.has(node.expression.text)) calls.push(node);
+    if (ts.isCallExpression(node)) {
+      const e = node.expression;
+      if (ts.isIdentifier(e) && names.has(e.text)) calls.push(node);
+      else if (ts.isPropertyAccessExpression(e) && ts.isIdentifier(e.expression) && members.has(`${e.expression.text}.${e.name.text}`)) calls.push(node);
+    }
     ts.forEachChild(node, visit);
   };
   visit(source);
   return calls;
-}
-
-const stripExt = (path: string) => path.replace(/\.(d\.)?[cm]?[jt]sx?$/, "").replace(/\/index$/, "");
-
-/** Local names under which `source` imports `name` from `from`, by relative path. */
-function importedNames(source: ts.SourceFile, from: string, name: string): Set<string> {
-  const names = new Set<string>();
-  for (const statement of source.statements) {
-    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
-    const spec = statement.moduleSpecifier.text;
-    if (!spec.startsWith(".")) continue;
-    if (stripExt(normalize(join(dirname(source.fileName), spec))) !== stripExt(from)) continue;
-    const bindings = statement.importClause?.namedBindings;
-    if (bindings && ts.isNamedImports(bindings)) {
-      for (const element of bindings.elements) {
-        if ((element.propertyName ?? element.name).text === name) names.add(element.name.text);
-      }
-    }
-  }
-  return names;
 }
 
 /** Request fields: keys of object literals passed to the matched call. */
@@ -457,10 +447,13 @@ export function scanFields(
   matched: MatchedCall[],
   targets: Targets,
   why: (call: MatchedCall, field: FieldTarget) => string,
+  repo = process.cwd(),
 ): Finding[] {
   if (targets.responseFields.length === 0 && targets.requestFields.length === 0) return [];
+  const byName = new Map(sources.map((s) => [s.fileName, s]));
   const ctx: Context = {
-    sources: new Map(sources.map((s) => [s.fileName, s])),
+    sources: byName,
+    modules: new ModuleGraph(repo, byName),
     why,
     responseFields: targets.responseFields,
     findings: new Map(),
@@ -471,7 +464,8 @@ export function scanFields(
   for (const call of matched) {
     requestFields(ctx, call, targets.requestFields);
     if (targets.responseFields.some((f) => applies(f, call))) {
-      follow(ctx, call.node, { layer: call.body === "direct" ? "body" : call.body, path: [], call, hops: 0 });
+      const layer = call.body === "direct" || call.body === "unknown" ? "body" : call.body;
+      follow(ctx, call.node, { layer, path: [], call, hops: 0, wrapped: call.body === "unknown" });
     }
   }
   guesses(ctx, matched);
