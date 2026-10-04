@@ -171,6 +171,13 @@ describe.skipIf(!hasDatabase)("persist path against Postgres", () => {
 
     const redone = await diffPair(from, to);
     expect(redone.status).toBe("created");
+
+    // A run that was killed mid-diff: no error, never finished. Redo it too.
+    await prisma.diffRun.update({ where: { id: redone.runId! }, data: { finishedAt: null } });
+    const afterKill = await diffPair(from, to);
+    expect(afterKill.status).toBe("created");
+    expect(afterKill.runId).not.toBe(redone.runId);
+    redone.runId = afterKill.runId;
     expect(redone.runId).not.toBe(created.runId);
     const redoneRows = await prisma.change.findMany({ where: { runId: redone.runId } });
     expect(redoneRows.length).toBe(created.changeCount);
@@ -249,5 +256,5 @@ describe.skipIf(!hasDatabase)("persist path against Postgres", () => {
     expect(name.every((row) => row.publishedAt?.toISOString() === nameAddedAt.toISOString())).toBe(true);
     // A hosted Postgres (Neon) costs tens of milliseconds per round trip, and
     // this test makes dozens. The 5s default only fits a local database.
-  }, 120_000);
+  }, 180_000);
 });

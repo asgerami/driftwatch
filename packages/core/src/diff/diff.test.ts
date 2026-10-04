@@ -108,6 +108,24 @@ describe("direction flip 1 — response field loses its guarantee", () => {
   });
 });
 
+describe("a removed required response field is one fact", () => {
+  it("reports the removal, not also the lost guarantee", () => {
+    // Real case: Cloudflare hyperdrive-planet-scale-integration renamed its
+    // required `integration` to `provider` (555ecf93 → 4b304627).
+    const shape = (props: Doc, required: string[]) => ({ type: "object", required, properties: props });
+    const before = doc({ "/h": { get: jsonOp(shape({ integration: { type: "string" }, scheme: { type: "string" } }, ["integration", "scheme"])) } });
+    const after = doc({ "/h": { get: jsonOp(shape({ provider: { type: "string" }, scheme: { type: "string" } }, ["provider", "scheme"])) } });
+    const result = diffDocuments(before, after);
+    expect(ids(result).sort()).toEqual(["response.property.added", "response.property.removed"]);
+  });
+
+  it("still flags a field that stays but stops being required", () => {
+    const shape = (required: string[]) => ({ type: "object", required, properties: { a: { type: "string" } } });
+    const result = diffDocuments(doc({ "/h": { get: jsonOp(shape(["a"])) } }), doc({ "/h": { get: jsonOp(shape([])) } }));
+    expect(ids(result)).toEqual(["response.property.became-optional"]);
+  });
+});
+
 describe("direction flip 2 — new enum value in a response", () => {
   it("is BREAKING for a consumer, though producers call it additive", () => {
     const schema = (values: string[]) => ({
