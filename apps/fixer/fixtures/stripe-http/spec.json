@@ -1,0 +1,18 @@
+{
+  "openapi": "3.0.0",
+  "info": { "title": "Stripe (fixture)", "version": "1" },
+  "servers": [{ "url": "https://api.stripe.com/" }],
+  "paths": {
+    "/v1/payment_intents": {
+      "get": { "responses": { "200": { "description": "list" } } },
+      "post": { "responses": { "200": { "description": "created" } } }
+    },
+    "/v1/payment_intents/{intent}": {
+      "get": { "responses": { "200": { "description": "one" } } },
+      "post": { "responses": { "200": { "description": "updated" } } }
+    },
+    "/v1/payment_intents/{intent}/confirm": {
+      "post": { "responses": { "200": { "description": "confirmed" } } }
+    }
+  }
+}

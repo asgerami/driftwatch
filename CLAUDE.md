@@ -220,6 +220,13 @@ cannot claim a fact the diff did not find, and a post under the founder's name
 is the last place for an invented one. `pnpm w share` lists drafts with an X
 compose link; a person presses Post. Never add an automatic poster.
 
+**23. The fixer finds; a person decides.** (`apps/fixer`) It reads a change
+from `/api/changes/<id>` and the provider's spec at that change's commit, and
+recomputes affected operations with core's usage index rather than storing
+them. A match needs at least one literal path segment, and a known host that
+is not the provider's never matches, so a dynamic `fetch(url)` is never
+reported. It never opens a pull request (brief, M4 and section 8).
+
 ## Layout
 
 ```
@@ -243,6 +250,10 @@ apps/web/
   components/           pure presentation, no data access
   scripts/              render-check: verifies the UI with no database
 apps/mcp/               stdio MCP server over /api/feed.json
+apps/fixer/             `driftwatch` CLI (M4): scan a repo for code a published change breaks
+  src/scan/             finders (http: fetch/axios/ky), file walk, TS compiler parsing
+  src/eval.ts           precision/recall against fixtures/ (markers: `driftwatch-expect: <kind>`)
+  fixtures/             consumer repos + the change and spec each is scanned for
 prisma/schema.prisma    full model, including the unbuilt GitHub App tables
 ```
 
