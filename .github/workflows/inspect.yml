@@ -1,9 +1,13 @@
-# Run the worker's no-database commands on GitHub's network, by hand.
+# Run the worker's no-database commands, and the fixer's scan and fix, on
+# GitHub's network, by hand.
 #
 # Verifying a registry candidate means cloning its repo, and some are tens of
 # megabytes. On a slow connection that takes hours; here it takes seconds.
 # Only commands that never touch Postgres or R2 are allowed, so no secrets are
 # exposed to it.
+#
+# scan and fix clone a public repo and report on it. fix never writes and
+# never runs the repo's tests: that would execute a stranger's code here.
 
 name: inspect
 
@@ -11,12 +15,12 @@ on:
   workflow_dispatch:
     inputs:
       command:
-        description: "verify | discover | preview"
+        description: "verify | discover | preview | scan | fix"
         required: true
         type: choice
-        options: [verify, discover, preview]
+        options: [verify, discover, preview, scan, fix]
       args:
-        description: 'e.g. "plaid", "plaid/plaid-openapi", "https://…", or "stripe -n 3"'
+        description: 'e.g. "plaid", "stripe -n 3"; scan/fix: "<owner/repo> <storyId>" or "<owner/repo> apps/fixer/fixtures/<name>/change.json [--spec apps/fixer/fixtures/<name>/spec.json]"'
         required: false
         default: ""
 
@@ -42,4 +46,29 @@ jobs:
         # ARGS is split on spaces and passed as arguments, never evaluated.
         run: |
           read -ra argv <<< "$ARGS"
-          pnpm w "$COMMAND" "${argv[@]}"
+          case "$COMMAND" in
+            scan|fix)
+              repo="${argv[0]:-}"
+              change="${argv[1]:-}"
+              [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "first argument must be owner/repo"; exit 1; }
+              fixture='^apps/fixer/fixtures/[a-z0-9-]+/(change|spec|spec\.before)\.json$'
+              [[ "$change" =~ ^[a-z0-9-]+$ || "$change" =~ $fixture ]] || { echo "second argument must be a story id or a fixture change.json"; exit 1; }
+              extra=()
+              rest=("${argv[@]:2}")
+              for ((i = 0; i < ${#rest[@]}; i++)); do
+                case "${rest[$i]}" in
+                  --spec|--spec-before)
+                    [[ "${rest[$((i + 1))]:-}" =~ $fixture ]] || { echo "${rest[$i]} must name a fixture spec"; exit 1; }
+                    extra+=("${rest[$i]}" "${rest[$((i + 1))]}")
+                    i=$((i + 1))
+                    ;;
+                  *) echo "unsupported option: ${rest[$i]}"; exit 1 ;;
+                esac
+              done
+              git clone --quiet --depth 1 "https://github.com/$repo" "$RUNNER_TEMP/target"
+              pnpm --filter @driftwatch/fixer cli "$COMMAND" --change "$change" --repo "$RUNNER_TEMP/target" "${extra[@]}"
+              ;;
+            *)
+              pnpm w "$COMMAND" "${argv[@]}"
+              ;;
+          esac
