@@ -17,6 +17,14 @@ import { loadSpec, loadSpecBefore } from "./spec.js";
  * every finding and opens any PR themselves.
  */
 
+/**
+ * Paths are the caller's: `pnpm --filter @driftwatch/fixer cli` runs inside
+ * apps/fixer, and pnpm passes the directory it was run from as INIT_CWD.
+ */
+const fromCaller = (path: string) => resolve(process.env["INIT_CWD"] ?? process.cwd(), path);
+const changeRef = (ref: string) => (/^https?:\/\//.test(ref) || !ref.endsWith(".json") ? ref : fromCaller(ref));
+const maybe = (path?: string) => (path ? fromCaller(path) : undefined);
+
 const program = new Command();
 program.name("driftwatch").description("Find code a published API change breaks").version("0.1.0");
 
@@ -27,9 +35,9 @@ program
   .option("--spec <file>", "use this spec file instead of fetching the provider's")
   .option("--json", "print findings as JSON")
   .action(async (opts: { change: string; repo: string; spec?: string; json?: boolean }) => {
-    const change = await loadChange(opts.change);
-    const spec = await loadSpec(change, opts.spec);
-    const result = await scan(change, spec, resolve(opts.repo));
+    const change = await loadChange(changeRef(opts.change));
+    const spec = await loadSpec(change, maybe(opts.spec));
+    const result = await scan(change, spec, fromCaller(opts.repo));
     if (opts.json) {
       console.log(JSON.stringify(result.findings, null, 2));
       return;
@@ -49,11 +57,11 @@ program
   .option("--json", "print the result as JSON (input for pr-body)")
   .action(
     async (opts: { change: string; repo: string; spec?: string; specBefore?: string; out?: string; write?: boolean; json?: boolean }) => {
-      const repo = resolve(opts.repo);
-      const change = await loadChange(opts.change);
-      const [after, before] = await Promise.all([loadSpec(change, opts.spec), loadSpecBefore(change, opts.specBefore)]);
+      const repo = fromCaller(opts.repo);
+      const change = await loadChange(changeRef(opts.change));
+      const [after, before] = await Promise.all([loadSpec(change, maybe(opts.spec)), loadSpecBefore(change, maybe(opts.specBefore))]);
       const result = await fix(change, after, before, repo);
-      if (opts.out) await writeFile(opts.out, result.diff);
+      if (opts.out) await writeFile(fromCaller(opts.out), result.diff);
 
       let tests: TestRun | undefined;
       if (opts.write && result.patches.length > 0) {
