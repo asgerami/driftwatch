@@ -214,6 +214,12 @@ from the registry makes `seed` deactivate it, and `review`/`report` skip
 inactive sources.
 
 
+**22. Share drafts are templates, and nothing posts itself.**
+(`packages/core/src/impact/share.ts`) The same reason as note 4: a template
+cannot claim a fact the diff did not find, and a post under the founder's name
+is the last place for an invented one. `pnpm w share` lists drafts with an X
+compose link; a person presses Post. Never add an automatic poster.
+
 ## Layout
 
 ```
@@ -250,7 +256,7 @@ visual layer be checked without a database.
 | `pnpm w verify [slug]` | no |
 | `pnpm w preview <target>` | no |
 | `pnpm w discover <slug>` | no |
-| `pnpm w seed` / `backfill` / `diff` / `review` / `poll` / `status` / `report` | yes |
+| `pnpm w seed` / `backfill` / `diff` / `review` / `poll` / `status` / `report` / `share` | yes |
 | `pnpm check` (build and test everything) | no |
 
 `pnpm w verify` and `pnpm w preview` are the real integration tests. They run

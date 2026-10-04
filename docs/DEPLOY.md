@@ -133,6 +133,21 @@ pnpm w review --publish           # publish everything still pending
 Every decision records who made it in `Change.reviewedBy`: `human`, or the
 policy version (`auto-1`).
 
+## Sharing
+
+The scheduled job drafts two posts for every breaking change published in the
+last 14 days: one for X (fits 280 characters, counting the link as X does) and
+one for Hacker News or Reddit (an 80-character title, and a body ending with a
+disclosure that you run Driftwatch). Templates, not a model, so a draft can't
+state anything the diff didn't find. Nothing is ever posted automatically.
+
+```bash
+pnpm w share                       # newest 10 unposted drafts, each with an X compose link
+pnpm w share -n 30 --out drafts.md # more, as a file to copy from
+pnpm w share --posted <storyId>    # after posting
+pnpm w share --skip <storyId>      # not worth posting
+```
+
 ## When something breaks
 
 - **The `review-queue` issue** is the first place to look. The scheduled job

@@ -290,3 +290,22 @@ model WaitlistEntry {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// ── share kit ───────────────────────────────────────────────────────────
+
+// Draft posts for a published breaking change, one row per story. A person
+// posts them by hand (`pnpm w share`); nothing posts automatically.
+model ShareDraft {
+  id           String    @id @default(cuid())
+  storyId      String    @unique // /changes/<storyId>
+  providerSlug String
+  shippedAt    DateTime
+  xPost        String // fits X's 280 characters
+  title        String // fits Hacker News's 80
+  body         String // HN or Reddit
+  createdAt    DateTime  @default(now())
+  postedAt     DateTime? // marked by hand after posting
+  skippedAt    DateTime? // marked by hand: not worth posting
+
+  @@index([postedAt, skippedAt])
+}
