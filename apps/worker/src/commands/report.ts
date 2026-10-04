@@ -1,15 +1,9 @@
 import { writeFile, rm } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 
-import {
-  PUBLISH_CONFIDENCE_THRESHOLD,
-  RULES,
-  RULESET_VERSION,
-  groupStories,
-  storyDetail,
-  type Severity,
-} from "@driftwatch/core";
+import { RULES, storyDetail, type Severity } from "@driftwatch/core";
 
+import { planAutoPublish } from "../autopublish.js";
 import { prisma } from "../db.js";
 import { sourceHealth, type Health } from "../health.js";
 import { log } from "../log.js";
@@ -30,6 +24,8 @@ export interface StoryLine {
   where: string;
   places: number;
   detail?: string;
+  /** Why the auto-publish policy left it for a person. */
+  heldBecause?: string;
 }
 
 export interface UnhealthySource {
@@ -69,11 +65,14 @@ export function buildReport(stories: StoryLine[], unhealthy: UnhealthySource[]):
 
   if (stories.length > 0) {
     lines.push(`## Waiting for review`, "");
-    lines.push("| Severity | Rule | Where | Detail |", "| --- | --- | --- | --- |");
+    lines.push(
+      "| Severity | Rule | Where | Detail | Held because |",
+      "| --- | --- | --- | --- | --- |",
+    );
     for (const story of stories.slice(0, STORIES_SHOWN)) {
       const where = story.places > 1 ? `${story.where} (+${story.places - 1} more)` : story.where;
       lines.push(
-        `| ${story.severity} | \`${story.ruleId}\` | ${cell(where)} | ${cell(story.detail ?? "")} |`,
+        `| ${story.severity} | \`${story.ruleId}\` | ${cell(where)} | ${cell(story.detail ?? "")} | ${cell(story.heldBecause ?? "")} |`,
       );
     }
     if (stories.length > STORIES_SHOWN) {
@@ -112,38 +111,19 @@ export function outputPath(path: string, env: NodeJS.ProcessEnv = process.env): 
 }
 
 export async function report(options: { out?: string } = {}): Promise<void> {
-  const pending = await prisma.change.findMany({
-    where: {
-      publishedAt: null,
-      reviewedAt: null,
-      confidence: { gte: PUBLISH_CONFIDENCE_THRESHOLD },
-      severity: { not: "COSMETIC" },
-      run: { rulesetVer: RULESET_VERSION, to: { source: { active: true } } },
-    },
-    select: {
-      ruleId: true,
-      severity: true,
-      fingerprint: true,
-      componentName: true,
-      method: true,
-      path: true,
-      fieldPath: true,
-      detail: true,
-      run: { select: { to: { select: { source: { select: { key: true, provider: { select: { slug: true } } } } } } } },
-    },
-  });
-
-  const stories: StoryLine[] = groupStories(pending)
-    .map((list) => {
-      const first = list[0]!;
-      const source = first.run.to.source;
-      const places = new Set(list.map(whereOf)).size;
+  // The auto-publish policy has already published what it allows; what is
+  // left is what a person must look at, each with the policy's reason.
+  const plan = await planAutoPublish();
+  const stories: StoryLine[] = plan.held
+    .map(({ rows, reason }) => {
+      const first = rows[0]!;
       return {
         severity: first.severity as Severity,
         ruleId: first.ruleId,
-        where: `${source.provider.slug}: ${whereOf(first)}`,
-        places,
-        detail: storyDetail(list) ?? RULES[first.ruleId]?.headline,
+        where: `${first.sourceName.split("/")[0]}: ${whereOf(first)}`,
+        places: new Set(rows.map(whereOf)).size,
+        detail: storyDetail(rows) ?? RULES[first.ruleId]?.headline,
+        heldBecause: reason,
       };
     })
     .sort((a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9));

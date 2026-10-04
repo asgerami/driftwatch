@@ -194,7 +194,10 @@ model Change {
 
   impact Impact?
 
-  reviewedAt  DateTime? // human gate, months 1-3
+  reviewedAt  DateTime? // when it was decided
+  // Who decided: "human", or the auto-publish policy version ("auto-1").
+  // Null on rows decided before the field existed, all by a person.
+  reviewedBy  String?
   publishedAt DateTime?
 
   @@index([severity, publishedAt])

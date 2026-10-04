@@ -151,7 +151,7 @@ async function carryForwardDecisions(
       runId: { not: runId },
       run: { OR: [{ fromId: from.id, toId: to.id }, ...spanning] },
     },
-    select: { fingerprint: true, severity: true, reviewedAt: true, publishedAt: true },
+    select: { fingerprint: true, severity: true, reviewedAt: true, publishedAt: true, reviewedBy: true },
     orderBy: { reviewedAt: "desc" },
     distinct: ["fingerprint", "severity"],
   });
@@ -164,7 +164,7 @@ async function carryForwardDecisions(
         severity: prior.severity,
         reviewedAt: null,
       },
-      data: { reviewedAt: prior.reviewedAt, publishedAt: prior.publishedAt },
+      data: { reviewedAt: prior.reviewedAt, publishedAt: prior.publishedAt, reviewedBy: prior.reviewedBy },
     });
   }
 }
