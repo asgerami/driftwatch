@@ -231,7 +231,11 @@ SDK is generated from it (GitHub, Plaid) and from the path's REST shape
 otherwise (Stripe, OpenAI). Field access is traced from a matched call's
 value, never matched by name alone: through `await`, `.json()` (fetch, ky),
 `.data` (axios, Octokit), `.then`, destructuring, and a function's return
-into its callers, including across a relative import. A name-only read is a
+into its callers in any file that imports it: resolved by the compiler with
+the nearest tsconfig.json or jsconfig.json (`paths` aliases like `@/lib`,
+monorepo packages), through barrel re-exports, default and namespace imports
+(`scan/modules.ts`). Matching relative paths only missed every read behind
+an alias, silently. A name-only read is a
 `low` guess, and only on a parameter or class field in a file the trace
 reached, for a distinctive name: a local that came from another call is the
 trace's to follow, and `id` or `email` is read off everything. It never opens
