@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { EmptyFeed, Release } from "../components/Change";
 import { recentReleases } from "../lib/queries";
 
 export const revalidate = 300;
+
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default async function HomePage() {
   const releases = await recentReleases(20, undefined, { preferSignal: true });

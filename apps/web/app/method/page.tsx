@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   ALWAYS_HELD_RULES,
   AUTO_PUBLISH_POLICY,
@@ -6,6 +7,13 @@ import {
   SPIKE_FLOOR,
   SPIKE_MULTIPLE,
 } from "@driftwatch/core";
+
+export const metadata: Metadata = {
+  title: "How changes are classified",
+  description:
+    "Every rule Driftwatch uses to call an API change breaking, and which changes publish without a person. Deterministic, no model involved.",
+  alternates: { canonical: "/method" },
+};
 
 const ordered = Object.values(RULES).sort(
   (a, b) =>
