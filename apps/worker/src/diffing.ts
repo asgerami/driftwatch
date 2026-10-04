@@ -1,4 +1,4 @@
-import { RULESET_VERSION, diffDocuments, type Change } from "@driftwatch/core";
+import { RULESET_VERSION, diffDocuments, keyedStories, storyIdOf, type Change } from "@driftwatch/core";
 import type { JsonObject } from "@driftwatch/core";
 
 import { getText } from "./blobs.js";
@@ -88,6 +88,7 @@ export async function diffPair(
         data: result.changes.map((change) => toRow(run.id, change)),
       });
       await carryForwardDecisions(run.id, from, to);
+      await assignStoryIds(run.id);
     }
 
     await prisma.diffRun.update({
@@ -112,6 +113,56 @@ export async function diffPair(
     });
     return { status: "failed", runId: run.id, error: message };
   }
+}
+
+/**
+ * Give every fact in a run its story's permanent public id (/changes/<id>).
+ *
+ * Grouped per run, the same way the feed groups a release, so a card and its
+ * page always show the same facts. Idempotent: the id depends only on the
+ * release and the story key.
+ */
+export async function assignStoryIds(runId: string): Promise<number> {
+  const run = await prisma.diffRun.findUnique({
+    where: { id: runId },
+    select: {
+      to: {
+        select: {
+          id: true,
+          providerTime: true,
+          capturedAt: true,
+          provider: { select: { slug: true } },
+        },
+      },
+      changes: {
+        select: {
+          id: true,
+          ruleId: true,
+          severity: true,
+          fingerprint: true,
+          componentName: true,
+          fieldPath: true,
+          detail: true,
+          storyId: true,
+        },
+      },
+    },
+  });
+  if (!run) return 0;
+
+  const releasedAt = run.to.providerTime ?? run.to.capturedAt;
+  let updated = 0;
+  for (const story of keyedStories(run.changes)) {
+    const storyId = storyIdOf(run.to.provider.slug, releasedAt, run.to.id, story.key);
+    const stale = story.items.filter((item) => item.storyId !== storyId).map((item) => item.id);
+    if (stale.length === 0) continue;
+    const result = await prisma.change.updateMany({
+      where: { id: { in: stale } },
+      data: { storyId },
+    });
+    updated += result.count;
+  }
+  return updated;
 }
 
 /**

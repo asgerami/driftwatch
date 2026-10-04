@@ -88,6 +88,11 @@ jobs:
       # The auto-publish policy (packages/core/src/diff/policy.ts) publishes
       # the shapes verified many times over and holds the rest for a person,
       # who hears about them through the review-queue issue below.
+      # Permanent /changes/<id> ids. diff assigns them for new runs; this
+      # catches any run written before them (idempotent, fast when caught up).
+      - name: Story ids
+        run: pnpm w stories
+
       - name: Auto-publish
         run: pnpm w review --auto
 
