@@ -12,6 +12,8 @@ import { report } from "./commands/report.js";
 import { review } from "./commands/review.js";
 import { poll } from "./commands/poll.js";
 import { seed } from "./commands/seed.js";
+import { signals } from "./commands/signals.js";
+import { logPr } from "./commands/pr.js";
 import { share } from "./commands/share.js";
 import { status } from "./commands/status.js";
 import { stories } from "./commands/stories.js";
@@ -145,6 +147,23 @@ program
   .action((opts: { generate?: boolean; posted?: string; skip?: string; limit: string; out?: string }) =>
     share({ ...opts, generate: opts.generate === true, limit: Number(opts.limit) }),
   );
+
+program
+  .command("signals")
+  .option("-d, --days <count>", "window for views, feed fetches and recent signups", "7")
+  .description("The week-6 numbers: page views, feed fetches, waitlist, fix PRs, pipeline health")
+  .action((opts: { days: string }) => signals({ days: Number(opts.days) }));
+
+program
+  .command("pr")
+  .argument("<action>", 'only "log" for now')
+  .argument("<url>", "the fix PR on GitHub, https://github.com/<owner>/<repo>/pull/<n>")
+  .requiredOption("--change <storyId>", "the change it fixes (the id in driftwatch.et/changes/<id>)")
+  .description("Log a fix PR opened by hand, so signals can follow it to merged or closed")
+  .action((action: string, url: string, opts: { change: string }) => {
+    if (action !== "log") throw new Error(`unknown action "${action}"; use: pnpm w pr log <url> --change <id>`);
+    return logPr(url, opts.change);
+  });
 
 program
   .command("stories")

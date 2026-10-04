@@ -256,7 +256,7 @@ visual layer be checked without a database.
 | `pnpm w verify [slug]` | no |
 | `pnpm w preview <target>` | no |
 | `pnpm w discover <slug>` | no |
-| `pnpm w seed` / `backfill` / `diff` / `review` / `poll` / `status` / `report` / `share` | yes |
+| `pnpm w seed` / `backfill` / `diff` / `review` / `poll` / `status` / `report` / `share` / `signals` / `pr log` | yes |
 | `pnpm check` (build and test everything) | no |
 
 `pnpm w verify` and `pnpm w preview` are the real integration tests. They run

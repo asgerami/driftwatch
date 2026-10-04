@@ -148,6 +148,22 @@ pnpm w share --posted <storyId>    # after posting
 pnpm w share --skip <storyId>      # not worth posting
 ```
 
+## Signals
+
+`pnpm w signals` (`-d 30` for a month) prints what the week-6 decision rests
+on: page views of change and API pages, feed fetches, waitlist signups per
+API, fix PRs, and any source not fetching.
+
+- **Page views** come from Cloudflare Web Analytics and need a token in `.env`:
+  Cloudflare → My Profile → API Tokens → Create Token → Custom token, with
+  permission *Account → Account Analytics → Read*. Set `CF_API_TOKEN`. The
+  account id is read from `R2_BASE_URL`.
+- **Feed fetches** are counted by the feed routes themselves (`FeedFetch`): a
+  lower bound, since Netlify's CDN answers repeats within 5 minutes.
+- **Fix PRs**: log each one you open with
+  `pnpm w pr log https://github.com/<owner>/<repo>/pull/<n> --change <storyId>`;
+  signals re-reads its state from GitHub each run.
+
 ## When something breaks
 
 - **The `review-queue` issue** is the first place to look. The scheduled job

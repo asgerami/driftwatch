@@ -1,3 +1,4 @@
+import { countFeedFetch } from "../../../lib/feedFetch";
 import { recentReleases } from "../../../lib/queries";
 
 export const revalidate = 300;
@@ -13,6 +14,7 @@ export const revalidate = 300;
  * first — the default chronological order is for humans reading history.
  */
 export async function GET(request: Request) {
+  await countFeedFetch("/api/feed.json");
   const url = new URL(request.url);
   const provider = url.searchParams.get("provider") ?? undefined;
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 50) || 50, 200);
