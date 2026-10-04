@@ -10,7 +10,7 @@ import {
 import { prisma } from "./db";
 import { leadWithSignal, splitCards } from "./feed";
 import { providerNote } from "./providers";
-import type { ChangeView, ProviderView, ReleaseView } from "./types";
+import type { ChangeView, ProviderView, ReleaseView, StoryFact, StoryPageView } from "./types";
 
 /**
  * Every read the site does.
@@ -46,6 +46,7 @@ interface ChangeRow {
   detail: string | null;
   before: unknown;
   after: unknown;
+  storyId: string | null;
 }
 
 function toCoreChange(row: ChangeRow): CoreChange {
@@ -81,9 +82,29 @@ function toCoreChange(row: ChangeRow): CoreChange {
  * feed becomes unreadable. Severity is part of the key, so nothing milder
  * can absorb a break.
  */
+/**
+ * Rows grouped by their stored story id, so a card and its /changes/<id> page
+ * always hold the same facts. Rows from before story ids existed fall back to
+ * grouping here.
+ */
+function storiesOf(rows: ChangeRow[]): ChangeRow[][] {
+  const byId = new Map<string, ChangeRow[]>();
+  const loose: ChangeRow[] = [];
+  for (const row of rows) {
+    if (!row.storyId) {
+      loose.push(row);
+      continue;
+    }
+    const list = byId.get(row.storyId) ?? [];
+    list.push(row);
+    byId.set(row.storyId, list);
+  }
+  return [...byId.values(), ...groupStories(loose)];
+}
+
 function groupIntoStories(rows: ChangeRow[]): ChangeView[] {
   const views: ChangeView[] = [];
-  for (const list of groupStories(rows)) {
+  for (const list of storiesOf(rows)) {
     const first = list[0]!;
     const core = toCoreChange(first);
     const rule = ruleMetadata(first.ruleId);
@@ -92,7 +113,8 @@ function groupIntoStories(rows: ChangeRow[]): ChangeView[] {
     const locations = [...new Set(list.map(locationOf))];
 
     views.push({
-      id: first.id,
+      id: first.storyId ?? first.id,
+      href: first.storyId ? `/changes/${first.storyId}` : undefined,
       ruleId: first.ruleId,
       severity: first.severity,
       directionFlip: first.directionFlip,
@@ -168,6 +190,7 @@ const CHANGE_SELECT = {
   detail: true,
   before: true,
   after: true,
+  storyId: true,
 } as const;
 
 interface RunRow {
@@ -328,3 +351,115 @@ export async function listProviders(): Promise<ProviderView[]> {
   }
   return out;
 }
+
+/**
+ * One story's page: the card, the release it shipped in, and every fact.
+ * Null when the id is unknown or nothing in it is published.
+ */
+export async function getStory(storyId: string): Promise<StoryPageView | null> {
+  const rows = (await prisma.change.findMany({
+    where: {
+      storyId,
+      publishedAt: { not: null },
+      run: { rulesetVer: RULESET_VERSION },
+    },
+    select: {
+      ...CHANGE_SELECT,
+      publishedAt: true,
+      run: {
+        select: {
+          from: { select: { commitSha: true, providerTime: true } },
+          to: {
+            select: {
+              commitSha: true,
+              providerTime: true,
+              capturedAt: true,
+              source: {
+                select: {
+                  key: true,
+                  label: true,
+                  repo: true,
+                  url: true,
+                  provider: { select: { slug: true, name: true, docsUrl: true } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })) as unknown as (ChangeRow & {
+    publishedAt: Date;
+    run: {
+      from: { commitSha: string | null; providerTime: Date | null };
+      to: {
+        commitSha: string | null;
+        providerTime: Date | null;
+        capturedAt: Date;
+        source: {
+          key: string;
+          label: string;
+          repo: string | null;
+          url: string | null;
+          provider: { slug: string; name: string; docsUrl: string | null };
+        };
+      };
+    };
+  })[];
+  if (rows.length === 0) return null;
+
+  const change = groupIntoStories(rows)[0]!;
+  const { from, to } = rows[0]!.run;
+  const source = to.source;
+  const facts = new Map<string, StoryFact>();
+  for (const row of rows) {
+    const location = locationOf(row);
+    const key = `${location}\u001f${row.fingerprint}`;
+    if (facts.has(key)) continue;
+    facts.set(key, {
+      location,
+      detail: row.detail ?? undefined,
+      before: snippet(row.before),
+      after: snippet(row.after),
+    });
+  }
+
+  return {
+    change,
+    providerSlug: source.provider.slug,
+    providerName: source.provider.name,
+    providerDocsUrl: source.provider.docsUrl ?? undefined,
+    sourceLabel: source.label,
+    shippedAt: (to.providerTime ?? to.capturedAt).toISOString(),
+    detectedAt: to.capturedAt.toISOString(),
+    publishedAt: rows[0]!.publishedAt.toISOString(),
+    sourceLink: sourceLinkOf(source.repo, source.url, from.commitSha, to.commitSha),
+    facts: [...facts.values()],
+  };
+}
+
+/** A compare view for git sources, the spec URL for hosted ones. */
+function sourceLinkOf(
+  repo: string | null,
+  url: string | null,
+  fromSha: string | null,
+  toSha: string | null,
+): { href: string; label: string } | undefined {
+  if (repo && fromSha && toSha) {
+    return {
+      href: `https://github.com/${repo}/compare/${fromSha}...${toSha}`,
+      label: `${repo} @ ${fromSha.slice(0, 8)}…${toSha.slice(0, 8)}`,
+    };
+  }
+  if (repo && toSha) {
+    return { href: `https://github.com/${repo}/commit/${toSha}`, label: `${repo} @ ${toSha.slice(0, 8)}` };
+  }
+  if (url) return { href: url, label: url };
+  return undefined;
+}
+
+function snippet(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+

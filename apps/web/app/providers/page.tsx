@@ -22,7 +22,7 @@ export default async function ProvidersPage() {
         <ul className="providers">
           {providers.map((provider) => (
             <li key={provider.slug} className="provider">
-              <a href={`/${provider.slug}`}>{provider.name}</a>
+              <a href={`/apis/${provider.slug}`}>{provider.name}</a>
               <div className="provider-meta">
                 {provider.snapshotCount} versions
                 {provider.earliest ? ` · since ${provider.earliest.slice(0, 4)}` : ""}

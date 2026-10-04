@@ -1,6 +1,6 @@
-import { recentReleases } from "../../../lib/queries";
-import { SEVERITY_LABEL } from "../../../lib/types";
-import { additiveLineHeadline, requestPropertyHeadline, requestNullableHeadline } from "../../../lib/feed";
+import { recentReleases } from "../../../../lib/queries";
+import { SEVERITY_LABEL } from "../../../../lib/types";
+import { additiveLineHeadline, requestPropertyHeadline, requestNullableHeadline } from "../../../../lib/feed";
 
 export const revalidate = 300;
 
@@ -39,9 +39,9 @@ function rssItem(fields: {
  */
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ provider: string }> },
+  { params }: { params: Promise<{ api: string }> },
 ) {
-  const { provider } = await params;
+  const { api: provider } = await params;
   const origin = new URL(request.url).origin;
   const releases = await recentReleases(50, provider);
 
@@ -54,7 +54,11 @@ export async function GET(
           : [change.method?.toUpperCase(), change.path].filter(Boolean).join(" ");
         return rssItem({
           title,
-          link: `${origin}/${release.providerSlug}#${change.id}`,
+          // The story's permanent page; a release anchor for the rare row
+          // that predates story ids.
+          link: change.href
+            ? `${origin}${change.href}`
+            : `${origin}/apis/${release.providerSlug}#${release.id}`,
           guid: change.id,
           pubDate: release.shippedAt,
           category: change.severity,
@@ -67,7 +71,7 @@ export async function GET(
         changeItems.push(
           rssItem({
             title: `[${SEVERITY_LABEL.ADDITIVE}] ${release.providerName}: ${additiveLineHeadline(line)}`,
-            link: `${origin}/${release.providerSlug}#${release.id}-fields`,
+            link: `${origin}/apis/${release.providerSlug}#${release.id}-fields`,
             guid: `${release.id}-response-fields`,
             pubDate: release.shippedAt,
             category: "ADDITIVE",
@@ -81,7 +85,7 @@ export async function GET(
         changeItems.push(
           rssItem({
             title: `[${SEVERITY_LABEL.ADDITIVE}] ${release.providerName}: ${requestPropertyHeadline(line)}`,
-            link: `${origin}/${release.providerSlug}#${release.id}-request-fields`,
+            link: `${origin}/apis/${release.providerSlug}#${release.id}-request-fields`,
             guid: `${release.id}-request-fields`,
             pubDate: release.shippedAt,
             category: "ADDITIVE",
@@ -95,7 +99,7 @@ export async function GET(
         changeItems.push(
           rssItem({
             title: `[${SEVERITY_LABEL.ADDITIVE}] ${release.providerName}: ${requestNullableHeadline(line)}`,
-            link: `${origin}/${release.providerSlug}#${release.id}-request-nullable`,
+            link: `${origin}/apis/${release.providerSlug}#${release.id}-request-nullable`,
             guid: `${release.id}-request-nullable`,
             pubDate: release.shippedAt,
             category: "ADDITIVE",
@@ -112,7 +116,7 @@ export async function GET(
 <rss version="2.0">
   <channel>
     <title>${escapeXml(`Driftwatch — ${releases[0]?.providerName ?? provider}`)}</title>
-    <link>${escapeXml(`${origin}/${provider}`)}</link>
+    <link>${escapeXml(`${origin}/apis/${provider}`)}</link>
     <description>Breaking changes in the ${escapeXml(provider)} API, read from the calling end.</description>
     <language>en</language>
 ${items}

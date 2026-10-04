@@ -1,15 +1,15 @@
 import { notFound } from "next/navigation";
-import { EmptyFeed, Release } from "../../components/Change";
-import { listProviders, recentReleases } from "../../lib/queries";
+import { EmptyFeed, Release } from "../../../components/Change";
+import { listProviders, recentReleases } from "../../../lib/queries";
 
 export const revalidate = 300;
 
 export default async function ProviderPage({
   params,
 }: {
-  params: Promise<{ provider: string }>;
+  params: Promise<{ api: string }>;
 }) {
-  const { provider: slug } = await params;
+  const { api: slug } = await params;
   const providers = await listProviders();
   const provider = providers.find((p) => p.slug === slug);
   if (!provider) notFound();
