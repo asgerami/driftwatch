@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "openai-2026-09-28-fixture2",
+  "url": "https://driftwatch.et/changes/openai-2026-09-28-fixture2",
+  "provider": { "slug": "openai", "name": "OpenAI" },
+  "severity": "BREAKING",
+  "ruleId": "response.property.removed",
+  "shippedAt": "2026-09-28T00:00:00.000Z",
+  "facts": [
+    { "ruleId": "response.property.removed", "severity": "BREAKING", "componentName": "CreateChatCompletionResponse", "fieldPath": "system_fingerprint", "jsonPointer": "/components/schemas/CreateChatCompletionResponse/properties/system_fingerprint", "before": "system_fingerprint", "affectedOperations": 1 }
+  ],
+  "spec": { "kind": "git", "repo": "openai/openai-openapi", "filePath": "openapi.yaml", "toSha": "0000000000000000000000000000000000000000" }
+}
