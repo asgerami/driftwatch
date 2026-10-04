@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { scanHttp } from "./http.js";
+import { parse, scanHttp } from "./http.js";
 import type { Targets } from "../targets.js";
 
 const targets: Targets = {
@@ -11,7 +11,7 @@ const targets: Targets = {
   requestFields: [],
 };
 const why = () => "test";
-const found = (code: string) => scanHttp("x.ts", code, targets, why).map((f) => f.confidence);
+const found = (code: string) => scanHttp(parse("x.ts", code), targets, why).map((f) => f.confidence);
 
 describe("raw HTTP matching", () => {
   it("resolves an object-literal constant's property as a base URL", () => {

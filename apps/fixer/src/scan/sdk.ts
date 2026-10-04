@@ -1,8 +1,7 @@
 import ts from "typescript";
 
-import type { Finding } from "../findings.js";
+import type { Finding, MatchedCall } from "../findings.js";
 import type { TargetOperation, Targets } from "../targets.js";
-import { parse } from "./http.js";
 
 /**
  * Official SDK calls to an affected operation.
@@ -211,17 +210,18 @@ function chain(callee: ts.Expression): { root: string; names: string[] } | null 
 }
 
 export function scanSdk(
-  file: string,
-  text: string,
+  source: ts.SourceFile,
   targets: Targets,
   providerSlug: string,
   why: (op: TargetOperation) => string,
+  matched: MatchedCall[] = [],
 ): Finding[] {
+  const file = source.fileName;
+  const text = source.text;
   const packages = SDK_PACKAGES[providerSlug];
   if (!packages || targets.operations.length === 0) return [];
   if (!packages.some((pkg) => text.includes(pkg))) return [];
 
-  const source = parse(file, text);
   const imports = sdkImports(source, packages);
   // require("stripe")(key) creates a client with no import binding at all.
   const inlineRequire = packages.some((pkg) => new RegExp(`require\\(\\s*["']${pkg.replace(/[/.]/g, "\\$&")}["']\\s*\\)\\s*\\(`).test(text));
@@ -257,7 +257,17 @@ export function scanSdk(
         }
 
         if (hit) {
-          const start = source.getLineAndCharacterOfPosition(node.getStart(source));
+          // Octokit wraps the body in `.data`; Stripe's and OpenAI's SDKs return it.
+          matched.push({
+            node,
+            op: hit.op,
+            operation: `${hit.op.method} ${hit.op.path}`,
+            body: providerSlug === "github" ? "data" : "direct",
+            confidence: hit.confidence,
+          });
+          // At the method name: on a chain split over lines, that is the line that names the call.
+          const anchor = ts.isPropertyAccessExpression(node.expression) ? node.expression.name : node;
+          const start = source.getLineAndCharacterOfPosition(anchor.getStart(source));
           findings.push({
             file,
             line: start.line + 1,

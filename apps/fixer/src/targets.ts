@@ -16,6 +16,18 @@ export interface TargetOperation {
   operationId?: string;
 }
 
+/** A field a change touches, and the operations whose payload carries it. */
+export interface FieldTarget {
+  /** From the fact's fieldPath, array and map markers dropped: "choices.message.refusal". */
+  path: string[];
+  /** "METHOD /path" keys, as `opKey` builds them. */
+  operations: string[];
+}
+
+export function opKey(op: { method: string; path: string }): string {
+  return `${op.method} ${op.path}`;
+}
+
 export interface Targets {
   operations: TargetOperation[];
   /** API hosts from the spec's servers, e.g. "api.stripe.com". */
@@ -23,9 +35,9 @@ export interface Targets {
   /** Path prefix the servers add, e.g. "/v1" for OpenAI. */
   basePaths: string[];
   /** Response fields that were removed or lost their guarantee. */
-  responseFields: string[];
+  responseFields: FieldTarget[];
   /** Request properties or parameters that changed. */
-  requestFields: string[];
+  requestFields: FieldTarget[];
 }
 
 function directionOf(ruleId: string): "request" | "response" | "operation" {
@@ -34,21 +46,29 @@ function directionOf(ruleId: string): "request" | "response" | "operation" {
   return "operation";
 }
 
-function leaf(fieldPath: string): string {
-  return (fieldPath.split(".").pop() ?? fieldPath).replace(/\[[^\]]*\]$/, "");
+function segments(fieldPath: string): string[] {
+  return fieldPath
+    .split(".")
+    .map((part) => part.replace(/(\[[^\]]*\])+$/, ""))
+    .filter(Boolean);
 }
 
 export function computeTargets(change: ChangeDocument, spec: JsonObject): Targets {
   const operations = new Map<string, TargetOperation>();
-  const add = (method: string, path: string) =>
-    operations.set(`${method.toUpperCase()} ${path}`, { method: method.toUpperCase(), path });
+  let reached: string[] = [];
+  const add = (method: string, path: string) => {
+    const op = { method: method.toUpperCase(), path };
+    operations.set(opKey(op), op);
+    reached.push(opKey(op));
+  };
 
   const usage = buildUsageIndex(spec);
-  const responseFields = new Set<string>();
-  const requestFields = new Set<string>();
+  const responseFields = new Map<string, FieldTarget>();
+  const requestFields = new Map<string, FieldTarget>();
 
   for (const fact of change.facts) {
     const direction = directionOf(fact.ruleId);
+    reached = [];
     if (fact.method && fact.path) add(fact.method, fact.path);
     else if (fact.path) add("*", fact.path);
 
@@ -65,8 +85,13 @@ export function computeTargets(change: ChangeDocument, spec: JsonObject): Target
       }
     }
 
-    if (fact.fieldPath) {
-      (direction === "request" ? requestFields : responseFields).add(leaf(fact.fieldPath));
+    if (fact.fieldPath && direction !== "operation") {
+      const path = segments(fact.fieldPath);
+      const fields = direction === "request" ? requestFields : responseFields;
+      const key = path.join(".");
+      const existing = fields.get(key);
+      if (existing) existing.operations = [...new Set([...existing.operations, ...reached])];
+      else if (path.length > 0) fields.set(key, { path, operations: [...reached] });
     }
   }
 
@@ -95,7 +120,7 @@ export function computeTargets(change: ChangeDocument, spec: JsonObject): Target
     operations: [...operations.values()],
     hosts: [...hosts],
     basePaths: [...basePaths],
-    responseFields: [...responseFields],
-    requestFields: [...requestFields],
+    responseFields: [...responseFields.values()],
+    requestFields: [...requestFields.values()],
   };
 }
