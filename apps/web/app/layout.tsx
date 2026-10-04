@@ -38,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/">Feed</a>
               <a href="/providers">Providers</a>
               <a href="/method">Method</a>
+              <a href="/watch">Watch my repo</a>
               <a href="/api/feed.json">JSON</a>
             </nav>
           </header>

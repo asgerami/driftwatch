@@ -2,6 +2,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Release, EmptyFeed, ChangeItem } from "../components/Change";
 import { StoryPage, whoIsAffected } from "../components/StoryPage";
 import { feedEntries, renderJsonFeed, renderRss } from "../lib/feeds";
+import { MIN_FILL_MS, normalizeRepoUrl, validateSubmission } from "../lib/waitlist";
+import { WatchForm } from "../components/WatchForm";
 import type { ChangeView, ReleaseView } from "../lib/types";
 import { additiveLineHeadline, leadWithSignal, requestPropertyHeadline, splitCards } from "../lib/feed";
 
@@ -202,6 +204,38 @@ check("json feed names its own url", jsonFeed.feed_url === "https://driftwatch.e
 check("json feed items have the required id and content", jsonFeed.items.length === 2 && jsonFeed.items.every((item) => item.id && item.content_text));
 check("json feed dates are RFC 3339", jsonFeed.items.every((item) => !Number.isNaN(Date.parse(item.date_published)) && item.date_published.endsWith("Z")));
 check("feed ids are stable story urls, not row ids", entries[0]!.id === "https://driftwatch.et/changes/stripe-2026-08-26-3f9a1c2e");
+
+// Waitlist: the form, and every way junk is turned away.
+const known = new Set(["stripe", "openai", "github"]);
+const now = 1_800_000_000_000;
+function form(fields: Record<string, string | string[]>) {
+  const data = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    for (const v of Array.isArray(value) ? value : [value]) data.append(key, v);
+  }
+  return data;
+}
+const good = { email: " Ada@Example.com ", repo: "github.com/acme/billing.git/", apis: ["stripe", "github"], t: String(now - 10_000), website: "" };
+const accepted = validateSubmission(form(good), known, now);
+check("waitlist accepts a real submission and normalizes it", accepted.ok && accepted.value.email === "ada@example.com" && accepted.value.repoUrl === "https://github.com/acme/billing" && accepted.value.apis.join() === "stripe,github");
+const reject = (fields: Record<string, string | string[]>) => {
+  const result = validateSubmission(form({ ...good, ...fields }), known, now);
+  return result.ok ? "accepted" : result.error;
+};
+check("waitlist rejects a filled honeypot", reject({ website: "http://spam.example" }) === "bot");
+check("waitlist rejects a form submitted too fast", reject({ t: String(now - MIN_FILL_MS + 500) }) === "bot");
+check("waitlist rejects a missing or forged timestamp", reject({ t: "" }) === "bot" && reject({ t: "abc" }) === "bot" && reject({ t: String(now + 60_000) }) === "bot");
+check("waitlist rejects junk email", ["", "nope", "a@b", "a b@c.com", "<x>@y.com", `${"a".repeat(250)}@x.com`].every((email) => reject({ email }) === "email"));
+check("waitlist rejects a repo that is not a GitHub repo URL", ["https://gitlab.com/a/b", "https://github.com/a", "https://github.com/a/b/c", "javascript:alert(1)", "https://github.com/-bad/x", "https://github.com/a/.."].every((repo) => reject({ repo }) === "repo"));
+check("waitlist rejects no APIs, or APIs it does not watch", reject({ apis: [] }) === "apis" && reject({ apis: ["stripe", "evilcorp"] }) === "apis");
+check("waitlist rejects an over-long other-APIs note", reject({ other: "x".repeat(201) }) === "other");
+check("repo urls normalize", normalizeRepoUrl("http://www.github.com/Acme/Repo") === "https://github.com/Acme/Repo");
+const watchHtml = decode(renderToStaticMarkup(<WatchForm apis={[{ slug: "stripe", name: "Stripe" }]} renderedAt={now} />));
+check("watch form posts to the waitlist route without JavaScript", watchHtml.includes('method="post"') && watchHtml.includes('action="/api/waitlist"'));
+check("watch form asks for email, repo and APIs", watchHtml.includes('name="email"') && watchHtml.includes('name="repo"') && watchHtml.includes('name="apis" value="stripe"'));
+check("watch form carries the bot checks", watchHtml.includes('name="website"') && watchHtml.includes(`value="${now}"`));
+check("watch form shows a validation error", decode(renderToStaticMarkup(<WatchForm apis={[]} renderedAt={now} error="repo" />)).includes("https://github.com/owner/repo"));
+check("watch form confirms a submission", decode(renderToStaticMarkup(<WatchForm apis={[]} renderedAt={now} joined />)).includes("on the list"));
 
 // RSS items link to #<change id>, #<release>-fields and #<release>-request-fields.
 check("each card carries its id as an anchor", release.changes.every((c) => releaseHtml.includes(`id="${c.id}"`)));
