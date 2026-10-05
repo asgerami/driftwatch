@@ -1,5 +1,5 @@
 /*
- * Driftwatch. Dark-first developer-tool site: zinc neutrals, one amber
+ * Driftwatch. Light developer-tool site: near-white neutrals, one lime
  * accent (a warning light, which is what the product is), the product
  * itself as the hero. See DESIGN.md.
  */
@@ -18,10 +18,12 @@
   --text-2: #4a4a55;
   --text-3: #6b6b76;
 
-  --amber: #ffb224;
-  --amber-2: #ffc53d;
-  --amber-ink: #1d1404;
-  --amber-soft: rgb(255 178 36 / 16%);
+  /* Lime is a fill only: too light for text or thin lines on white. Those use
+     --accent-strong. */
+  --accent: #c6f135;
+  --accent-2: #d4f75f;
+  --accent-ink: #0b0f02;
+  --accent-soft: rgb(140 190 20 / 16%);
 
   --sev-breaking: #dc3e42;
   --sev-deprecation: #b26a00;
@@ -35,15 +37,15 @@
   --window-bg: #ffffff;
   --tint: rgb(0 0 0 / 3%);
   --tint-2: rgb(0 0 0 / 6%);
-  --selection: rgb(255 178 36 / 35%);
+  --selection: rgb(198 241 53 / 55%);
   --shadow-sm: 0 1px 2px rgb(16 16 32 / 6%);
   --shadow-md: 0 1px 2px rgb(16 16 32 / 5%), 0 12px 32px -14px rgb(16 16 32 / 22%);
   --shadow-lg: 0 1px 2px rgb(16 16 32 / 5%), 0 40px 80px -36px rgb(16 16 32 / 30%);
 
   --f-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-  --f-display: var(--f-sans);
+  --f-display: var(--font-display), var(--f-sans);
   /* Accent for text, icons and focus, where the button fill would be too light. */
-  --accent-strong: #8a5a00;
+  --accent-strong: #4d7c0f;
   --f-mono: var(--font-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -97,7 +99,7 @@ a {
 
 @media (hover: hover) and (pointer: fine) {
   a:hover {
-    text-decoration-color: var(--amber);
+    text-decoration-color: var(--accent-strong);
   }
 }
 
@@ -161,7 +163,7 @@ time {
 
 input,
 textarea {
-  caret-color: var(--amber);
+  caret-color: var(--accent-strong);
 }
 
 .skip {
@@ -170,8 +172,8 @@ textarea {
   top: -48px;
   z-index: 20;
   padding: 8px 12px;
-  background: var(--amber);
-  color: var(--amber-ink);
+  background: var(--accent);
+  color: var(--accent-ink);
   border-radius: var(--r-sm);
   font-weight: 600;
   text-decoration: none;
@@ -340,8 +342,8 @@ textarea {
   padding: 0 18px;
   border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--amber);
-  color: var(--amber-ink);
+  background: var(--accent);
+  color: var(--accent-ink);
   font: inherit;
   font-size: 0.92rem;
   font-weight: 600;
@@ -376,7 +378,7 @@ textarea {
 
 @media (hover: hover) and (pointer: fine) {
   .btn:hover {
-    background: var(--amber-2);
+    background: var(--accent-2);
   }
 
   .btn-ghost:hover {
@@ -420,8 +422,8 @@ textarea {
   max-width: 15ch;
   margin: 0 auto;
   font-size: clamp(2.6rem, 1.3rem + 4.2vw, 4.6rem);
-  font-weight: 600;
-  letter-spacing: -0.05em;
+  font-weight: 700;
+  letter-spacing: -0.04em;
   line-height: 1;
 }
 
@@ -1215,7 +1217,7 @@ textarea {
 @media (hover: hover) and (pointer: fine) {
   .change-title a:hover {
     text-decoration: underline;
-    text-decoration-color: var(--amber);
+    text-decoration-color: var(--accent-strong);
     text-decoration-thickness: 2px;
   }
 }
@@ -1353,6 +1355,106 @@ textarea {
 
 .feed-more {
   margin: 24px 0 0;
+}
+
+/* The home page's latest releases: one row each, the full cards on each API's page. */
+.digest {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.digest li + li {
+  border-top: 1px solid var(--line);
+}
+
+.digest-row {
+  display: grid;
+  grid-template-columns: 150px 104px minmax(0, 1fr) auto 14px;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  color: var(--text);
+  text-decoration: none;
+  transition: background-color 150ms ease;
+}
+
+.digest-provider {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.digest-row .sev-pill {
+  justify-self: start;
+}
+
+.digest-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.digest-more {
+  color: var(--text-3);
+}
+
+.digest-date {
+  font-size: 0.86rem;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.digest-row > svg:last-child {
+  color: var(--text-3);
+  transition: transform 150ms var(--ease-out), color 150ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .digest-row:hover {
+    background: var(--tint);
+  }
+
+  .digest-row:hover > svg:last-child {
+    color: var(--text);
+    transform: translateX(2px);
+  }
+}
+
+@media (max-width: 720px) {
+  .digest-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+    padding: 14px 16px;
+  }
+
+  .digest-row .sev-pill {
+    grid-row: 2;
+  }
+
+  .digest-title {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+  }
+
+  .digest-row > svg:last-child {
+    display: none;
+  }
 }
 
 /* ── Page headers ─────────────────────────────────────────────────── */
@@ -1919,7 +2021,7 @@ textarea {
 .watch-form input:focus {
   outline: none;
   border-color: var(--accent-strong);
-  box-shadow: 0 0 0 3px var(--amber-soft);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .watch-form fieldset {
@@ -2296,7 +2398,7 @@ textarea {
   margin-bottom: 10px;
   border: 1px solid var(--line-2);
   border-radius: 12px;
-  background: var(--amber-soft);
+  background: var(--accent-soft);
   color: var(--accent-strong);
 }
 
@@ -2356,30 +2458,6 @@ textarea {
     grid-column: auto;
     grid-row: auto;
   }
-}
-
-/* ── Lab switcher (comparison pages only) ─────────────────────────── */
-
-.lab-switch {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 16px;
-}
-
-.lab-switch a {
-  padding: 6px 12px;
-  border: 1px solid var(--line-2);
-  border-radius: 999px;
-  font-size: 0.86rem;
-  color: var(--text-2);
-  text-decoration: none;
-}
-
-.lab-switch a[aria-current="page"] {
-  background: var(--amber);
-  border-color: var(--amber);
-  color: var(--amber-ink);
 }
 
 /* ── Motion preferences ───────────────────────────────────────────── */

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 
-import { EmptyFeed, Release } from "../components/Change";
+import { EmptyFeed } from "../components/Change";
 import { FlipTabs, type Flip } from "../components/FlipTabs";
 import { Features } from "../components/Features";
 import { Hero } from "../components/Hero";
 import { LogoStrip } from "../components/LogoStrip";
+import { ReleaseDigest } from "../components/ReleaseDigest";
 import { FeedIcon, PullIcon, SeverityMark } from "../components/Marks";
 import { windowItems } from "../lib/home";
 import { listProviders, recentReleases } from "../lib/queries";
@@ -171,11 +172,7 @@ export default async function HomePage() {
           {shown.length === 0 ? (
             <EmptyFeed />
           ) : (
-            <div className="feed">
-              {shown.map((release) => (
-                <Release key={release.id} release={release} />
-              ))}
-            </div>
+            <ReleaseDigest releases={shown} />
           )}
           <p className="feed-more">
             <a className="link" href="/providers">

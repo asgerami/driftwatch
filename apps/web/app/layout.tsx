@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Funnel_Display, Funnel_Sans, Geist_Mono } from "next/font/google";
 
 import "./globals.css";
 import { LogoMark } from "../components/Marks";
@@ -7,7 +7,9 @@ import { Nav } from "../components/Nav";
 import { SITE_URL } from "../lib/site";
 
 // Self-hosted at build time by next/font: no request to Google from a visitor.
-const sans = Geist({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+// Funnel Display for headings, Funnel Sans for text, Geist Mono for code.
+const display = Funnel_Display({ subsets: ["latin"], variable: "--font-display", display: "swap" });
+const sans = Funnel_Sans({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 /**
@@ -42,7 +44,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+    <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
       <body>
         <a className="skip" href="#main">
           Skip to content

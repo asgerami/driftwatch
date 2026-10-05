@@ -17,6 +17,10 @@ The site's visual system, and why. Read this before changing how anything looks.
   - no decorative gradients
   - Emil Kowalski's motion rules applied
 
+  Geist read as generic, so three type and accent pairings were compared on
+  the real home page (Bricolage Grotesque with orange, Hubot Sans with cobalt,
+  Funnel with lime). Amir chose Funnel with lime.
+
 ## The page
 
 - **Hero.** A centred headline with two actions. Logo tiles of the most
@@ -29,7 +33,10 @@ The site's visual system, and why. Read this before changing how anything looks.
   - a feature grid with Phosphor icons
   - the "their changelog against your code" tabs
   - a real Plaid change from spec diff to fix PR
-  - the latest changes
+  - the latest releases, one row each (`ReleaseDigest`): the most serious
+    change, how many more there are, and a link to the story. The full cards
+    are on each API's page; on the home page they made the section several
+    screens long.
   - a closing call to action
 
   Each section uses a different layout.
@@ -50,8 +57,10 @@ with any provider.
 ## Colour
 
 The site is light only. Near-white ground (`#fbfbfc`), near-black text in three
-steps, white panels with hairline borders and soft neutral shadows. One accent,
-amber `#ffb224`, is used for primary actions only.
+steps, white panels with hairline borders and soft neutral shadows. One accent, lime
+`#c6f135` (`--accent`), fills primary actions, with near-black text on it.
+Lime is too light for text or thin lines on white, so links, icons, focus rings
+and the wordmark use its dark form, `#4d7c0f` (`--accent-strong`).
 
 Severity colours are reserved for severity, and always come as a drawn mark plus
 a word:
@@ -67,8 +76,10 @@ There are no decorative gradients. The only gradient is the marquee's edge fade.
 
 ## Type and shape
 
-Geist and Geist Mono, self-hosted by `next/font`. Headlines are weight 600 at
--0.05em, two lines at most where the space allows. Buttons and tabs are pills.
+Funnel Display for headings and the wordmark (`--f-display`), Funnel Sans for
+text, Geist Mono for code, all self-hosted by `next/font`. The hero headline is
+weight 700 at -0.04em, other headings 600; two lines at most where the space
+allows. Buttons and tabs are pills.
 Panels use a 14px radius, tiles 13 to 18px.
 
 ## Motion

@@ -2,14 +2,15 @@
  * The 1200×630 share image. Rendered by next/og (Satori), which supports a
  * subset of CSS: flexbox only, inline styles, no external fonts here.
  *
- * The site's palette: near-white, near-black type, amber for the brand mark,
+ * The site's palette: near-white, near-black type, the accent green for the brand mark,
  * severity colours as on the site, with the severity's own mark.
  */
 
 const INK = "#0b0b0f";
 const QUIET = "#6b6b76";
 const GROUND = "#fbfbfc";
-const AMBER = "#ffb224";
+// --accent-strong: the lime fill is too light for a thin mark on white.
+const ACCENT = "#4d7c0f";
 
 const SEVERITY: Record<string, { color: string; label: string }> = {
   BREAKING: { color: "#dc3e42", label: "Breaking" },
@@ -53,13 +54,13 @@ export function OgCard({
             width: 30,
             height: 30,
             borderRadius: 15,
-            border: `3px solid ${AMBER}`,
+            border: `3px solid ${ACCENT}`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <div style={{ width: 8, height: 8, borderRadius: 4, background: AMBER }} />
+          <div style={{ width: 8, height: 8, borderRadius: 4, background: ACCENT }} />
         </div>
         <span style={{ fontWeight: 700, letterSpacing: -1 }}>Driftwatch</span>
         <span style={{ color: QUIET }}>{eyebrow}</span>
