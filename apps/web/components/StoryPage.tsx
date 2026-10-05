@@ -129,8 +129,8 @@ export function StoryPage({ story }: { story: StoryPageView }) {
           ) : null}
 
           <p className="footnote">
-            Read from {story.providerName}&rsquo;s published OpenAPI spec, not from
-            live traffic. <a href="/method">How severity is decided</a>.
+            Based on {story.providerName}&rsquo;s published API specification.{" "}
+            <a href="/method">How severity is decided</a>.
           </p>
         </article>
 

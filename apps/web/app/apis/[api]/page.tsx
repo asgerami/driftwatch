@@ -22,7 +22,7 @@ export async function generateMetadata({
   if (!provider) return { title: "API not found" };
   return {
     title: `${provider.name} API breaking changes`,
-    description: `Every breaking change, deprecation and new field in the ${provider.name} API, read from its published OpenAPI spec. ${provider.snapshotCount} versions tracked.`,
+    description: `Every breaking change, deprecation and new field in the ${provider.name} API, as it ships.`,
     alternates: {
       canonical: `/apis/${api}`,
       types: {
@@ -58,17 +58,8 @@ export default async function ProviderPage({
           <h1>{provider.name} API changes</h1>
         </div>
         <p className="page-lede">
-          {provider.breakingCount} published breaking{" "}
-          {provider.breakingCount === 1 ? "change" : "changes"}, from{" "}
-          {provider.snapshotCount} {provider.snapshotCount === 1 ? "version" : "versions"} of its
-          spec
-          {provider.earliest ? (
-            <>
-              {" read since "}
-              <time dateTime={provider.earliest}>{provider.earliest.slice(0, 10)}</time>
-            </>
-          ) : null}
-          .
+          Breaking changes, deprecations and new fields in the {provider.name} API, as
+          they ship.
         </p>
         <div className="subscribe-row">
           <a className="btn btn-ghost btn-sm" href={`/apis/${slug}/rss.xml`}>

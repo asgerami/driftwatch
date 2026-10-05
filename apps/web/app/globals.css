@@ -387,15 +387,19 @@ textarea {
   }
 }
 
+/* An inline link that reads as one: accent text, underlined. */
 .link {
-  color: var(--text-2);
+  color: var(--accent-strong);
   font-weight: 500;
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent-strong) 35%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .link:hover {
-    color: var(--text);
+    text-decoration-color: var(--accent-strong);
   }
 }
 
@@ -570,10 +574,6 @@ textarea {
   color: var(--accent-strong);
 }
 
-.window-bar .updated {
-  margin-left: auto;
-}
-
 .window-body {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.35fr);
@@ -728,9 +728,6 @@ textarea {
     padding: 20px 18px 22px;
   }
 
-  .window-bar .updated {
-    display: none;
-  }
 }
 
 /* Providers watched. */

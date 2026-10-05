@@ -97,6 +97,20 @@ These are Emil Kowalski's rules, as his skill's review applied them:
 - **Tabs:** switch instantly; only hover colour eases.
 - **Reduced motion:** removes movement and keeps fades and colour.
 
+## Copy
+
+Marketing copy states the service: what changed, what it breaks, how to fix
+it. It does not explain the machinery (specs, diffs, typechecks, schedules).
+That belongs on `/method`, which exists to publish exactly that.
+
+No counts that drift: not how many APIs are watched, not how often they are
+checked. Name a few providers and say "and more". Live data, such as the
+breaking-change counts in the APIs table, is fine, because it is always
+current.
+
+Something clickable looks clickable: a button, or a `.link`, which is
+underlined accent text. Never a bare bold word.
+
 ## Do not
 
 - Add an announcement badge, a label above a heading, or a decorative gradient.

@@ -30,18 +30,14 @@ export default async function WatchPage({
         <div className="watch-intro">
           <h1>Get a pull request when an API breaks your code</h1>
           <p className="page-lede">
-            The feed tells you a vendor changed its API. The GitHub App reads your
-            code instead, and opens a pull request when a change breaks one of your
-            calls.
+            The Driftwatch GitHub App checks your repository against the APIs it
+            calls, and opens a pull request when a change breaks your code.
           </p>
           <p>
-            It finds where your repo calls the APIs you depend on, through their
-            official SDKs or plain HTTP, follows the fields you read, and patches
-            the mechanical cases: a renamed field, a parameter that is no longer
-            accepted, a newly required value. Everything else is listed for a
-            person, never guessed.
+            Straightforward fixes arrive ready to review. Anything that needs a
+            decision is flagged for your team, never guessed.
           </p>
-          <p>It is in early access. Tell us which repo and which APIs, and you&rsquo;ll be among the first to try it.</p>
+          <p>The App is in early access. Tell us your repository and the APIs it uses, and you&rsquo;ll be among the first to try it.</p>
 
           <figure className="example-pr" aria-label="An example pull request">
             <div className="example-pr-head">
@@ -54,9 +50,8 @@ export default async function WatchPage({
                 <span className="del">-    protect_session_id: sessionId,</span>
                 <span className="add">+    device_session_id: sessionId,</span>
               </pre>
-              <p>Typechecked with the repo&rsquo;s tsconfig.json: no new errors (2 before, 0 after).</p>
               <figcaption className="example-label">
-                What the fixer wrote for a real Plaid change, in a test repository.
+                An example pull request for a real Plaid change, from a test repository.
               </figcaption>
             </div>
           </figure>

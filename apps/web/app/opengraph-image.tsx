@@ -12,7 +12,7 @@ export default function Image() {
       <OgCard
         eyebrow="driftwatch.et"
         title="Know when an API you depend on breaks your code."
-        footer="Breaking changes in Stripe, OpenAI, GitHub and 18 more APIs, read from their specs."
+        footer="Breaking-change alerts for the APIs your code depends on."
       />
     ),
     size,

@@ -15,10 +15,10 @@ export function Features() {
         <div className="bento-icon">
           <Broadcast size={22} weight="duotone" />
         </div>
-        <h3>21 APIs, checked every six hours</h3>
+        <h3>Continuous API monitoring</h3>
         <p>
-          Stripe, OpenAI, GitHub, Cloudflare and more, read from their published
-          OpenAPI specs. When one changes, you hear about it here first.
+          Stripe, OpenAI, GitHub, Cloudflare and more. When a provider changes its
+          API, you know about it.
         </p>
         <div className="bento-pings" aria-hidden="true">
           <span data-severity="BREAKING">Stripe · payment_method_types removed</span>
@@ -31,7 +31,7 @@ export function Features() {
           <Code size={22} weight="duotone" />
         </div>
         <h3>The code that breaks</h3>
-        <p>Every change comes with the call pattern that fails, so you can search your repo for it.</p>
+        <p>Every alert shows the code that fails, so your team knows where to look.</p>
         <pre className="bento-code">{`switch (payment.status) {
   case "succeeded": …
   case "failed": …
@@ -43,29 +43,29 @@ export function Features() {
         <div className="bento-icon">
           <GitPullRequest size={22} weight="duotone" />
         </div>
-        <h3>A fix, as a pull request</h3>
-        <p>The GitHub App patches renamed and removed fields, and checks the types first.</p>
+        <h3>Fixes as pull requests</h3>
+        <p>The GitHub App opens a pull request with the fix, ready for your review.</p>
       </article>
       <article className="bento-cell">
         <div className="bento-icon">
           <ArrowsLeftRight size={22} weight="duotone" />
         </div>
         <h3>Read from your side</h3>
-        <p>Three changes other diff tools call safe are flagged as the breaks they are for you.</p>
+        <p>Changes are judged by their effect on your code, not on the provider&rsquo;s.</p>
       </article>
       <article className="bento-cell">
         <div className="bento-icon">
           <Scales size={22} weight="duotone" />
         </div>
-        <h3>Rules, not guesses</h3>
-        <p>Severity comes from fixed, published rules. The same change is always classified the same way.</p>
+        <h3>Consistent and transparent</h3>
+        <p>Every change is classified by published rules, so the same change always gets the same verdict.</p>
       </article>
       <article className="bento-cell bento-span">
         <div className="bento-icon">
           <RssSimple size={22} weight="duotone" />
         </div>
         <h3>Wherever you read</h3>
-        <p>RSS and JSON feeds for every API, or for only the ones you use.</p>
+        <p>Follow every API, or only the ones you use, by RSS or JSON feed.</p>
       </article>
     </div>
   );

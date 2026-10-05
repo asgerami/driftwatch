@@ -21,8 +21,6 @@ export function Hero({ providers, items }: { providers: { slug: string; name: st
   const floating = FLOATING.map((slug) => providers.find((p) => p.slug === slug))
     .filter((p): p is { slug: string; name: string } => !!p && !!logoSrc(p.slug))
     .slice(0, SPOTS.length);
-  const featured = ["stripe", "openai", "github"].map((slug) => providers.find((p) => p.slug === slug)?.name).filter(Boolean);
-  const others = providers.length - featured.length;
 
   return (
     <section className="hero" aria-labelledby="hero-title">
@@ -48,9 +46,8 @@ export function Hero({ providers, items }: { providers: { slug: string; name: st
           </div>
           <h1 id="hero-title">Know when an API you depend on breaks your code.</h1>
           <p className="hero-sub">
-            {featured.length === 3 && others > 0
-              ? `Driftwatch reads the specs of ${featured.join(", ")} and ${others} more APIs, and tells you which calls a change breaks.`
-              : "Driftwatch reads the specs of the APIs you depend on, and tells you which calls a change breaks."}
+            Driftwatch monitors the third-party APIs your product depends on and alerts
+            you to the changes that break your code.
           </p>
           <div className="hero-actions">
             <a className="btn btn-lg" href="/watch">

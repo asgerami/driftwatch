@@ -75,7 +75,6 @@ export function ProductWindow({ items }: { items: WindowItem[] }) {
       <div className="window-bar">
         <LogoMark size={16} />
         <strong>Latest changes</strong>
-        <span className="updated">Checked every six hours</span>
       </div>
       <div className="window-body">
         <ul className="inbox">

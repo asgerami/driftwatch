@@ -24,9 +24,8 @@ export default async function ProvidersPage() {
       <header className="page-head">
         <h1>APIs watched</h1>
         <p className="page-lede">
-          {providers.length > 0 ? `${providers.length} APIs. ` : ""}
-          Specs kept in a git repository arrive with their history; specs served
-          from a URL start from the first time Driftwatch read them.
+          Every API Driftwatch watches, with its published breaking changes and how
+          far back its history goes.
         </p>
       </header>
       {providers.length === 0 ? (

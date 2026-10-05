@@ -23,7 +23,7 @@ const CF_BEACON_TOKEN =
   (process.env["CONTEXT"] === "production" ? "4fc3240a453d4d3698500762795d7216" : undefined);
 
 const DESCRIPTION =
-  "What your API vendors changed, from the calling end. Spec-derived, severity assigned deterministically.";
+  "Breaking-change alerts for the third-party APIs your code depends on.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -76,9 +76,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 Driftwatch
               </a>
               <p>
-                Breaking changes in the APIs you depend on, read from each
-                provider&rsquo;s published OpenAPI spec. Not affiliated with any
-                provider listed.
+                Breaking-change alerts for the APIs you depend on. Not affiliated
+                with any provider listed.
               </p>
             </div>
             <div>

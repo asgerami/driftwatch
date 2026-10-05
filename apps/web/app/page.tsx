@@ -6,7 +6,7 @@ import { Features } from "../components/Features";
 import { Hero } from "../components/Hero";
 import { LogoStrip } from "../components/LogoStrip";
 import { ReleaseDigest } from "../components/ReleaseDigest";
-import { FeedIcon, PullIcon, SeverityMark } from "../components/Marks";
+import { ArrowRight, FeedIcon, PullIcon, SeverityMark } from "../components/Marks";
 import { windowItems } from "../lib/home";
 import { listProviders, recentReleases } from "../lib/queries";
 
@@ -67,14 +67,14 @@ export default async function HomePage() {
       <Hero providers={watched} items={items} />
 
       <div className="shell">
-        <LogoStrip providers={watched} label={`The ${watched.length} APIs Driftwatch watches`} />
+        <LogoStrip providers={watched} label="APIs Driftwatch watches" />
       </div>
 
       <section className="section" aria-labelledby="features-title">
         <div className="shell">
           <div className="section-head">
-            <h2 id="features-title">Everything a vendor changes, read from your side</h2>
-            <p>What Driftwatch catches, how it explains it, and how it reaches you.</p>
+            <h2 id="features-title">Stay ahead of the APIs you depend on</h2>
+            <p>Know what changed, what it breaks, and how to fix it.</p>
           </div>
           <Features />
         </div>
@@ -83,11 +83,10 @@ export default async function HomePage() {
       <section className="section" aria-labelledby="flips-title">
         <div className="shell">
           <div className="section-head">
-            <h2 id="flips-title">Other tools diff your spec. Driftwatch diffs theirs.</h2>
+            <h2 id="flips-title">Other tools check your API. Driftwatch checks theirs.</h2>
             <p>
-              Diff tools protect a provider&rsquo;s customers from the provider. From
-              the calling side, three of their &ldquo;safe&rdquo; changes are the ones
-              that break you.
+              Some changes a provider considers safe are exactly the ones that break the
+              code calling it. Driftwatch catches them.
             </p>
           </div>
           <FlipTabs flips={FLIPS} />
@@ -97,13 +96,13 @@ export default async function HomePage() {
       <section className="section" aria-labelledby="steps-title">
         <div className="shell">
           <div className="section-head">
-            <h2 id="steps-title">From a spec change to a pull request</h2>
-            <p>A real Plaid change from September 2026, end to end.</p>
+            <h2 id="steps-title">From an API change to a pull request</h2>
+            <p>A real Plaid change, end to end.</p>
           </div>
           <ol className="steps">
             <li className="step">
-              <h3 className="step-head">The spec changes</h3>
-              <p>Plaid renames a field in its published OpenAPI spec. Nobody sends an email.</p>
+              <h3 className="step-head">The API changes</h3>
+              <p>Plaid renames a field in its API.</p>
               <div className="step-artifact">
                 <div className="step-artifact-bar">plaid/plaid-openapi, 2020-09-14.yml</div>
                 <pre>
@@ -116,7 +115,7 @@ export default async function HomePage() {
             </li>
             <li className="step">
               <h3 className="step-head">Driftwatch flags it</h3>
-              <p>It is published with what breaks, who is affected, and the code that fails.</p>
+              <p>You get an alert with what breaks and the code that fails.</p>
               <div className="step-artifact">
                 <div className="step-artifact-bar">driftwatch.et/changes</div>
                 <div className="step-artifact-body" data-severity="BREAKING">
@@ -133,7 +132,7 @@ export default async function HomePage() {
             </li>
             <li className="step">
               <h3 className="step-head">A pull request fixes it</h3>
-              <p>The GitHub App finds the call in your repo, renames the field and checks the types.</p>
+              <p>The GitHub App opens a pull request with the fix, ready for review.</p>
               <div className="step-artifact">
                 <div className="step-artifact-bar">
                   <PullIcon size={14} />
@@ -144,8 +143,7 @@ export default async function HomePage() {
                   <span className="add">{"+  device_session_id: sessionId,"}</span>
                 </pre>
                 <div className="step-artifact-body step-note">
-                  Typechecked with the repo&rsquo;s tsconfig.json: no new errors. Written by the
-                  fixer in a test repository.
+                  An example pull request, from a test repository.
                 </div>
               </div>
             </li>
@@ -157,8 +155,8 @@ export default async function HomePage() {
         <div className="shell">
           <div className="section-head-row">
             <div className="section-head">
-              <h2 id="latest-title">Every breaking change, as it ships</h2>
-              <p>Published from the specs themselves, with the code each one breaks.</p>
+              <h2 id="latest-title">Latest changes</h2>
+              <p>The most important changes across the APIs we watch, as they ship.</p>
             </div>
             <div className="hero-actions">
               <a className="btn btn-ghost btn-sm" href="/rss.xml">
@@ -175,8 +173,8 @@ export default async function HomePage() {
             <ReleaseDigest releases={shown} />
           )}
           <p className="feed-more">
-            <a className="link" href="/providers">
-              Browse every API and its full history
+            <a className="btn btn-ghost" href="/providers">
+              Browse every API and its full history <ArrowRight size={14} />
             </a>
           </p>
         </div>
@@ -187,8 +185,8 @@ export default async function HomePage() {
           <div className="cta-band">
             <h2 id="cta-title">Fix the break before your users find it.</h2>
             <p>
-              Tell us your repo and the APIs it calls. You&rsquo;ll be among the first to
-              get a pull request when one of them breaks it.
+              Join early access to the GitHub App, and get a pull request when an API
+              change breaks your code.
             </p>
             <div className="hero-actions">
               <a className="btn btn-lg" href="/watch">
