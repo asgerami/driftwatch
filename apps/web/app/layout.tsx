@@ -72,7 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="shell footer-inner">
             <div>
               <a className="wordmark" href="/">
-                <LogoMark size={20} />
+                <LogoMark size={22} />
                 Driftwatch
               </a>
               <p>

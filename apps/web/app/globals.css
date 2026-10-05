@@ -228,7 +228,6 @@ textarea {
 }
 
 .wordmark svg {
-  color: var(--accent-strong);
   flex: none;
 }
 
@@ -568,10 +567,6 @@ textarea {
 .window-bar strong {
   color: var(--text);
   font-weight: 600;
-}
-
-.window-bar svg {
-  color: var(--accent-strong);
 }
 
 .window-body {

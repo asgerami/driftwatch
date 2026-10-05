@@ -41,6 +41,25 @@ The site's visual system, and why. Read this before changing how anything looks.
 
   Each section uses a different layout.
 
+## Mark
+
+A solid D cut across its middle, the lower half slid out of line: one
+contract, two sides that no longer meet. Lime `#c6f135` on a near-black ink
+tile `#0b0f02`, 32 units square with an 8-unit radius. Chosen by Amir from
+three concepts (a sheared D, a sheared disc, a slipped D) after a gauge read
+as any monitoring tool.
+
+The paths live in `components/brand.ts`. `LogoMark` and the share card use
+them. The icon files are drawn from the same paths:
+- `app/icon.svg`
+- `app/favicon.ico`: 16, 32 and 48px; the 16px frame is redrawn on the pixel
+  grid so the cut stays one clean pixel
+- `app/apple-icon.png`: full bleed, since iOS rounds it
+- `public/icon-192.png`, `icon-512.png`, and `icon-maskable-512.png` with the
+  glyph inside the safe circle, all listed in `app/manifest.ts`
+
+Change them together; `rsvg-convert` renders the PNGs.
+
 ## Logos
 
 Real files in `public/logos/`, with their sources listed in `SOURCES.md`:

@@ -1,6 +1,7 @@
 import type { Severity } from "@driftwatch/core";
 
 import { SEVERITY_LABEL } from "../lib/types";
+import { MARK_BOTTOM, MARK_INK, MARK_LIME, MARK_TOP } from "./brand";
 
 /**
  * The drawn marks: one 16px grid, one 1.5 stroke, currentColor throughout.
@@ -79,14 +80,13 @@ export function SeverityMark({ severity, text, pill = false }: { severity: Sever
   );
 }
 
-/** The wordmark's mark: a gauge whose needle has drifted off true. */
-export function LogoMark({ size = 22 }: { size?: number }) {
+/** The Driftwatch mark: a D cut across, its lower half slid out of line. */
+export function LogoMark({ size = 24 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="9.25" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M12 2.75v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.45" />
-      <path d="M12 12 16.6 5.4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="12" cy="12" r="1.9" fill="currentColor" />
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="8" fill={MARK_INK} />
+      <path d={MARK_TOP} fill={MARK_LIME} />
+      <path d={MARK_BOTTOM} fill={MARK_LIME} />
     </svg>
   );
 }
