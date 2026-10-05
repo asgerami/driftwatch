@@ -2,20 +2,20 @@
  * The 1200×630 share image. Rendered by next/og (Satori), which supports a
  * subset of CSS: flexbox only, inline styles, no external fonts here.
  *
- * The site's palette: zinc dark, amber for the brand, severity colours as on
- * the site, with the severity's own mark.
+ * The site's palette: near-white, near-black type, amber for the brand mark,
+ * severity colours as on the site, with the severity's own mark.
  */
 
-const INK = "#ededef";
-const QUIET = "#8a8a95";
-const GROUND = "#09090b";
+const INK = "#0b0b0f";
+const QUIET = "#6b6b76";
+const GROUND = "#fbfbfc";
 const AMBER = "#ffb224";
 
 const SEVERITY: Record<string, { color: string; label: string }> = {
-  BREAKING: { color: "#ff6b6b", label: "Breaking" },
-  DEPRECATION: { color: AMBER, label: "Deprecation" },
-  BEHAVIORAL: { color: "#74b8ff", label: "Behavioral" },
-  ADDITIVE: { color: "#45d18f", label: "Additive" },
+  BREAKING: { color: "#dc3e42", label: "Breaking" },
+  DEPRECATION: { color: "#b26a00", label: "Deprecation" },
+  BEHAVIORAL: { color: "#0b75d8", label: "Behavioral" },
+  ADDITIVE: { color: "#218358", label: "Additive" },
   COSMETIC: { color: QUIET, label: "Cosmetic" },
 };
 
@@ -44,7 +44,6 @@ export function OgCard({
         justifyContent: "space-between",
         padding: "60px 72px",
         background: GROUND,
-        backgroundImage: "radial-gradient(70% 60% at 85% 110%, rgba(255,178,36,0.22), rgba(9,9,11,0) 70%)",
         color: INK,
       }}
     >

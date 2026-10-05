@@ -4,75 +4,92 @@ The site's visual system, and why. Read this before changing how anything looks.
 
 ## How it was decided
 
-The direction came from research first, not taste. The second redesign
-replaced a first attempt that had no basis in how developer-tool startups
-present themselves.
-
 - **Skills.** The design skills used are installed in `~/.claude/skills`:
-  - `frontend-design` (Anthropic): the plan-then-review process, and avoiding generic patterns
-  - `ui-ux-pro-max`: the "Product Demo" and "Real-Time / Operations" landing patterns, and the dark developer-tool styling
-  - `design-taste-frontend`: hero discipline, one label per action, the pre-flight checks
-  - `emil-design-eng`: motion
-- **References.** The opening screens of Linear, Trigger.dev and Inngest share one
-  pattern: dark-first, one confident headline, two actions, and the product itself
-  shown large right below.
-- **Chosen with Amir.** Dark, with an amber accent.
+  - `frontend-design` (Anthropic)
+  - `ui-ux-pro-max`: its "Product Demo" landing pattern
+  - `design-taste-frontend`: hero and pre-flight rules
+  - `emil-design-eng`: a motion review, with its fixes applied
+- **References.** Linear, Trigger.dev and Inngest; the hero patterns on 21st.dev.
+- **Chosen with Amir.** Three hero concepts were built and compared on live data
+  (radar, product, light). He chose the light one, then asked for:
+  - no announcement badge
+  - accurate provider logos
+  - no decorative gradients
+  - Emil Kowalski's motion rules applied
 
-## The page's one idea
+## The page
 
-The hero shows the product, not a picture of it. `ProductWindow` is an inbox of
-the latest published changes, built on the server from real data. Choosing one
-shows what it breaks and the code that fails. Everything around it stays quiet.
+- **Hero.** A centred headline with two actions. Logo tiles of the most
+  recognisable APIs watched float around it on desktop, and sit in one row on
+  phones. Below it is the product: `ProductWindow`, an inbox of the latest
+  published changes from real data. Choosing a change shows what it breaks and the
+  code that fails.
+- **Then:**
+  - a scrolling logo strip (grey; each logo takes its colour on hover)
+  - a feature grid with Phosphor icons
+  - the "their changelog against your code" tabs
+  - a real Plaid change from spec diff to fix PR
+  - the latest changes
+  - a closing call to action
+
+  Each section uses a different layout.
+
+## Logos
+
+Real files in `public/logos/`, with their sources listed in `SOURCES.md`:
+
+- svgl.app for most of them
+- Simple Icons for the rest
+- Plaid's and SendGrid's marks, cropped from their logos
+
+`ProviderLogo` renders them and falls back to a lettermark when no file exists.
+They appear in the hero, the strip, the APIs table, each API page's title, the
+feed and the signup form. The footer states that Driftwatch is not affiliated
+with any provider.
 
 ## Colour
 
-The site is dark only. Zinc neutrals, plus one accent: amber, the colour of a
-warning light, which is what Driftwatch is. No large developer tool uses amber,
-so it stands out. Amber marks actions (buttons, focus, the soft glow behind the
-window). Severity colours are reserved for severity.
+The site is light only. Near-white ground (`#fbfbfc`), near-black text in three
+steps, white panels with hairline borders and soft neutral shadows. One accent,
+amber `#ffb224`, is used for primary actions only.
 
-| Token | Value | Use |
+Severity colours are reserved for severity, and always come as a drawn mark plus
+a word:
+
+| Severity | Colour | Mark |
 | --- | --- | --- |
-| `--bg` / `--bg-2` | `#09090b` / `#0e0e11` | page, sunken panels |
-| `--panel` / `--panel-2` | `#121215` / `#18181c` | raised surfaces, menus |
-| `--line` / `--line-2` | white at 8% / 13% | borders |
-| `--text` / `--text-2` / `--text-3` | `#ededef` / `#a8a8b3` / `#7a7a85` | text, three steps |
-| `--amber` | `#ffb224` | actions, focus, glow |
-| severities | `#ff6b6b` breaking, amber deprecation, `#74b8ff` behavioural, `#45d18f` additive | marks only |
+| Breaking | `#dc3e42` | diamond |
+| Deprecation | `#b26a00` | triangle |
+| Behavioural | `#0b75d8` | half-filled circle |
+| Additive | `#218358` | plus |
 
-Severity is always a drawn mark plus a word, never colour alone (`SeverityMark`):
+There are no decorative gradients. The only gradient is the marquee's edge fade.
 
-- breaking: a diamond
-- deprecation: a triangle
-- behavioural: a half-filled circle
-- additive: a plus
+## Type and shape
 
-## Type
+Geist and Geist Mono, self-hosted by `next/font`. Headlines are weight 600 at
+-0.05em, two lines at most where the space allows. Buttons and tabs are pills.
+Panels use a 14px radius, tiles 13 to 18px.
 
-Geist for everything, Geist Mono for code, paths and field names, both
-self-hosted by `next/font`. Headlines are weight 600 at -0.045em, two lines at
-most. Body text is 16px at 1.6 line height.
+## Motion
 
-## Shape and motion
+These are Emil Kowalski's rules, as his skill's review applied them:
 
-- Buttons and tabs are pills. Panels use a 14px radius, inner elements 10px or
-  6px. Borders are white hairlines; there are no grey drop shadows on cards.
-- One label per action: "Get early access" everywhere it appears.
-- Motion follows Emil Kowalski's rules:
-  - transitions name their properties
-  - a strong ease-out (`--ease-out`)
-  - interface motion under 300ms
-  - `scale(0.97)` when pressed
-  - hover effects only on devices that can hover
-  - a 2px blur bridging the product window's crossfade
-  - everything off under `prefers-reduced-motion`
-
-  The window's entrance is the one orchestrated moment.
+- **Press feedback:** `scale(0.97)` on buttons and tabs, `scale(0.985)` on
+  full-width inbox rows, at 140ms with a strong ease-out.
+- **Hover:** only on devices that can hover.
+- **The hero's one moment:** logo tiles scale in 60ms apart, then drift slowly.
+  The entrance and the drift animate different properties (`scale`,
+  `translate`), so neither overrides the other.
+- **The product window:** switches with a 90ms blur bridge on a pointer click,
+  and instantly from the keyboard or under reduced motion.
+- **Tabs:** switch instantly; only hover colour eases.
+- **Reduced motion:** removes movement and keeps fades and colour.
 
 ## Do not
 
-- Put labels above headings, number things that are not a sequence, highlight a
-  single word in a headline, or append arrows to button text.
-- Make rows of identical cards, or reuse a layout between two home sections.
-- Use em dashes in visible copy.
-- Show raw backticks: impact text goes through `Inline`.
+- Add an announcement badge, a label above a heading, or a decorative gradient.
+- Animate a keyboard-initiated action.
+- Copy or redraw a provider's logo. Use the files and add sources for new ones.
+- Use em dashes in visible copy, or show raw backticks: impact text goes
+  through `Inline`.

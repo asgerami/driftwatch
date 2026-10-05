@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { ProviderLogo } from "../../components/ProviderLogo";
 import { listProviders } from "../../lib/queries";
 
 export const metadata: Metadata = {
@@ -53,7 +54,10 @@ export default async function ProvidersPage() {
             {providers.map((provider) => (
               <tr key={provider.slug}>
                 <td>
-                  <a href={`/apis/${provider.slug}`}>{provider.name}</a>
+                  <a className="api-name" href={`/apis/${provider.slug}`}>
+                    <ProviderLogo slug={provider.slug} name={provider.name} size={20} />
+                    {provider.name}
+                  </a>
                 </td>
                 <td className="num">
                   {provider.breakingCount > 0 ? (

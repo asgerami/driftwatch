@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 
 import { EmptyFeed, Release } from "../components/Change";
 import { FlipTabs, type Flip } from "../components/FlipTabs";
+import { Features } from "../components/Features";
+import { Hero } from "../components/Hero";
+import { LogoStrip } from "../components/LogoStrip";
 import { FeedIcon, PullIcon, SeverityMark } from "../components/Marks";
-import { ProductWindow } from "../components/ProductWindow";
 import { windowItems } from "../lib/home";
 import { listProviders, recentReleases } from "../lib/queries";
 
@@ -54,46 +56,28 @@ export default async function HomePage() {
     listProviders(),
   ]);
   const items = windowItems(releases);
-  const named = FEATURED.map((slug) => providers.find((p) => p.slug === slug)?.name).filter(Boolean);
-  const others = providers.length - named.length;
-  const watched = [...providers].sort((a, b) => b.breakingCount - a.breakingCount);
+  const watched = [...providers]
+    .sort((a, b) => b.breakingCount - a.breakingCount)
+    .map((p) => ({ slug: p.slug, name: p.name }));
   const shown = releases.slice(0, 6);
 
   return (
     <main>
-      <section className="hero" aria-labelledby="hero-title">
+      <Hero providers={watched} items={items} />
+
+      <div className="shell">
+        <LogoStrip providers={watched} label={`The ${watched.length} APIs Driftwatch watches`} />
+      </div>
+
+      <section className="section" aria-labelledby="features-title">
         <div className="shell">
-          <div className="hero-copy">
-            <h1 id="hero-title">Know when an API you depend on breaks your code.</h1>
-            <p className="hero-sub">
-              {named.length === FEATURED.length && others > 0
-                ? `Driftwatch reads the specs of ${named.join(", ")} and ${others} more APIs, and tells you which calls a change breaks.`
-                : "Driftwatch reads the specs of the APIs you depend on, and tells you which calls a change breaks."}
-            </p>
-            <div className="hero-actions">
-              <a className="btn btn-lg" href="/watch">
-                Get early access
-              </a>
-              <a className="btn btn-ghost btn-lg" href="#changes">
-                Browse changes
-              </a>
-            </div>
+          <div className="section-head">
+            <h2 id="features-title">Everything a vendor changes, read from your side</h2>
+            <p>What Driftwatch catches, how it explains it, and how it reaches you.</p>
           </div>
-          <div className="hero-stage">{items.length > 0 ? <ProductWindow items={items} /> : null}</div>
+          <Features />
         </div>
       </section>
-
-      {watched.length > 0 ? (
-        <div className="shell">
-          <p className="watching" aria-label={`Watching ${watched.length} APIs`}>
-            <strong>Watching {watched.length} APIs</strong>
-            {watched.slice(0, 9).map((provider) => (
-              <span key={provider.slug}>{provider.name}</span>
-            ))}
-            {watched.length > 9 ? <a className="link" href="/providers">and {watched.length - 9} more</a> : null}
-          </p>
-        </div>
-      ) : null}
 
       <section className="section" aria-labelledby="flips-title">
         <div className="shell">

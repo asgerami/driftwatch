@@ -1,5 +1,6 @@
 import { ERROR_MESSAGES, HONEYPOT_FIELD, RENDERED_AT_FIELD, type WaitlistError } from "../lib/waitlist";
 import { CheckIcon } from "./Marks";
+import { ProviderLogo } from "./ProviderLogo";
 
 /**
  * "Watch my repo". Plain HTML posting to /api/waitlist: no JavaScript needed,
@@ -63,6 +64,7 @@ export function WatchForm({
               <input type="checkbox" name="apis" value={api.slug} />
               <span>
                 <CheckIcon size={13} />
+                <ProviderLogo slug={api.slug} name={api.name} size={16} />
                 {api.name}
               </span>
             </label>

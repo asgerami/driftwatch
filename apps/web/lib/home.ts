@@ -1,6 +1,6 @@
 import { whereText } from "../components/Change";
 import type { WindowItem } from "../components/ProductWindow";
-import { providerMark } from "../components/ProviderLogo";
+import { logoSrc } from "../components/ProviderLogo";
 import type { ReleaseView } from "./types";
 
 const RANK = { BREAKING: 0, DEPRECATION: 1, BEHAVIORAL: 2, ADDITIVE: 3, COSMETIC: 4 } as const;
@@ -20,7 +20,7 @@ export function windowItems(releases: ReleaseView[], limit = 6): WindowItem[] {
         href: change.href,
         providerSlug: release.providerSlug,
         providerName: release.providerName,
-        markPath: providerMark(release.providerSlug)?.path,
+        logo: logoSrc(release.providerSlug),
         shippedAt: release.shippedAt,
         severity: change.severity,
         headline: change.headline,

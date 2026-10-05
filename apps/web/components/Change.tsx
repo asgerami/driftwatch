@@ -7,6 +7,7 @@ import {
 } from "../lib/feed";
 import { Inline } from "./Inline";
 import { Chevron, FlipIcon, SeverityMark } from "./Marks";
+import { ProviderLogo } from "./ProviderLogo";
 
 export function SeverityChip({ severity }: { severity: ChangeView["severity"] }) {
   return <SeverityMark severity={severity} />;
@@ -145,6 +146,7 @@ export function Release({ release }: { release: ReleaseView }) {
     <article className="release" id={release.id}>
       <header className="release-side">
         <a className="release-provider" href={`/apis/${release.providerSlug}`}>
+          <ProviderLogo slug={release.providerSlug} name={release.providerName} size={20} />
           {release.providerName}
         </a>
         {source ? <span className="release-source">{source}</span> : null}

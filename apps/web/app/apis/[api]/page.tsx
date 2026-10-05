@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { EmptyFeed, Release } from "../../../components/Change";
 import { ArrowUpRight, BracesIcon, FeedIcon } from "../../../components/Marks";
+import { ProviderLogo } from "../../../components/ProviderLogo";
 import { listProviders, recentReleases } from "../../../lib/queries";
 
 export const revalidate = 300;
@@ -50,7 +51,12 @@ export default async function ProviderPage({
         <p className="crumbs">
           <a href="/providers">APIs</a> / {provider.name}
         </p>
-        <h1>{provider.name} API changes</h1>
+        <div className="api-title">
+          <span className="api-logo">
+            <ProviderLogo slug={slug} name={provider.name} size={30} />
+          </span>
+          <h1>{provider.name} API changes</h1>
+        </div>
         <p className="page-lede">
           {provider.breakingCount} published breaking{" "}
           {provider.breakingCount === 1 ? "change" : "changes"}, from{" "}
