@@ -25,6 +25,8 @@ export interface TypecheckResult {
   introduced: string[];
   /** Modules the typecheck could not resolve: calls on them were not checked. */
   unresolvedModules: string[];
+  /** Patched JavaScript files the typecheck does not cover, parsed for syntax errors instead. */
+  syntaxChecked: number;
 }
 
 const DEFAULTS: ts.CompilerOptions = {
@@ -94,8 +96,12 @@ export function typecheck(repo: string, overlay: Map<string, string>): Typecheck
   }
 
   const checked = new Set(after.program.getSourceFiles().map((f) => resolve(f.fileName)));
+  let syntaxChecked = 0;
   for (const [file, text] of overlay) {
-    if (!checked.has(file) && /\.[cm]?jsx?$/.test(file)) introduced.push(...syntaxErrors(file.replace(`${resolve(repo)}/`, ""), text));
+    if (!checked.has(file) && /\.[cm]?jsx?$/.test(file)) {
+      syntaxChecked++;
+      introduced.push(...syntaxErrors(file.replace(`${resolve(repo)}/`, ""), text));
+    }
   }
 
   const unresolved = new Set<string>();
@@ -112,5 +118,6 @@ export function typecheck(repo: string, overlay: Map<string, string>): Typecheck
     errors: after.list.length,
     introduced,
     unresolvedModules: [...unresolved].sort(),
+    syntaxChecked,
   };
 }

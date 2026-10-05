@@ -131,7 +131,9 @@ program
 
 function fixReport(r: FixResult, tests: TestRun | undefined, opts: { out?: string; write?: boolean }): string {
   const lines = [r.change.url, `${r.patches.length} patch(es), ${r.skipped.length} finding(s) not patched, ${r.findings.length} other finding(s)`, ""];
-  if (r.typecheck) {
+  if (r.typecheck && r.typecheck.filesChecked === 0) {
+    lines.push(`No TypeScript to typecheck: the patched JavaScript (${r.typecheck.syntaxChecked} file(s)) was parsed for syntax errors${r.typecheck.introduced.length === 0 ? ", none found" : ""}.`, "");
+  } else if (r.typecheck) {
     const t = r.typecheck;
     lines.push(
       `Typecheck (${t.configured ? "the repo's tsconfig.json" : "strict defaults, no tsconfig.json"}, ${t.filesChecked} files): ` +

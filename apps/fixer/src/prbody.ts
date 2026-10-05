@@ -121,7 +121,9 @@ function changes(r: FixReport): string[] {
 function verified(r: FixReport): string[] {
   const lines = [`### How it was verified`, ""];
   const t = r.typecheck;
-  if (t) {
+  if (t && t.filesChecked === 0) {
+    lines.push(`- No TypeScript to typecheck; the changed JavaScript was parsed for syntax errors${t.introduced.length === 0 ? " (none)" : ""}. Not run against the code's behaviour.`);
+  } else if (t) {
     const config = t.configured ? "the repo's `tsconfig.json`" : "strict defaults (no `tsconfig.json`)";
     const counts = t.baselineErrors > 0 ? ` (${t.baselineErrors} before, ${t.errors} after)` : "";
     lines.push(`- Typechecked with ${config}: ${t.introduced.length === 0 ? "no new errors" : `${t.introduced.length} new error(s)`}${counts}.`);
