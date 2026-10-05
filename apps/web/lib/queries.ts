@@ -323,6 +323,10 @@ export const listProviders = cache(async function listProviders(): Promise<Provi
 
   const out: ProviderView[] = [];
   for (const provider of providers) {
+    // The worker's Postgres test creates and deletes a throwaway provider; a
+    // run killed mid-test leaves it behind, and it then showed on the public
+    // APIs page and in the waitlist form.
+    if (provider.slug.startsWith("persist-test-")) continue;
     const times = provider.snapshots
       .map((s) => s.providerTime)
       .filter((t): t is Date => t !== null)

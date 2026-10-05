@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@driftwatch/core": "workspace:*",
+    "@phosphor-icons/react": "^2.1.10",
     "@prisma/client": "^6.1.0",
     "next": "^15.1.3",
     "react": "^19.0.0",

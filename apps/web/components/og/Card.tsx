@@ -1,14 +1,23 @@
+import { MARK_BOTTOM, MARK_INK, MARK_LIME, MARK_TOP } from "../brand";
+
 /**
  * The 1200×630 share image. Rendered by next/og (Satori), which supports a
  * subset of CSS: flexbox only, inline styles, no external fonts here.
+ *
+ * The site's palette: near-white, near-black type, the brand mark,
+ * severity colours as on the site, with the severity's own mark.
  */
 
-const SEVERITY_COLOR: Record<string, string> = {
-  BREAKING: "#c0392b",
-  DEPRECATION: "#b7791f",
-  BEHAVIORAL: "#2b6cb0",
-  ADDITIVE: "#2f855a",
-  COSMETIC: "#718096",
+const INK = "#0b0b0f";
+const QUIET = "#6b6b76";
+const GROUND = "#fbfbfc";
+
+const SEVERITY: Record<string, { color: string; label: string }> = {
+  BREAKING: { color: "#dc3e42", label: "Breaking" },
+  DEPRECATION: { color: "#b26a00", label: "Deprecation" },
+  BEHAVIORAL: { color: "#0b75d8", label: "Behavioral" },
+  ADDITIVE: { color: "#218358", label: "Additive" },
+  COSMETIC: { color: QUIET, label: "Cosmetic" },
 };
 
 export const OG_SIZE = { width: 1200, height: 630 };
@@ -25,6 +34,7 @@ export function OgCard({
   footer: string;
 }) {
   const clipped = title.length > 140 ? `${title.slice(0, 137)}…` : title;
+  const sev = severity ? SEVERITY[severity] : undefined;
   return (
     <div
       style={{
@@ -33,40 +43,40 @@ export function OgCard({
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        padding: "64px 72px",
-        background: "#faf8f3",
-        color: "#1a1a1a",
+        padding: "60px 72px",
+        background: GROUND,
+        color: INK,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 20, fontSize: 30 }}>
-        <span style={{ fontWeight: 700 }}>
-          drift<span style={{ color: "#c0392b" }}>watch</span>
-        </span>
-        <span style={{ color: "#6b6b6b" }}>{eyebrow}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: 30 }}>
+        <svg width={40} height={40} viewBox="0 0 32 32">
+          <rect width="32" height="32" rx="8" fill={MARK_INK} />
+          <path d={MARK_TOP} fill={MARK_LIME} />
+          <path d={MARK_BOTTOM} fill={MARK_LIME} />
+        </svg>
+        <span style={{ fontWeight: 700, letterSpacing: -1 }}>Driftwatch</span>
+        <span style={{ color: QUIET }}>{eyebrow}</span>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        {severity ? (
-          <div style={{ display: "flex" }}>
-            <span
-              style={{
-                background: SEVERITY_COLOR[severity] ?? "#718096",
-                color: "white",
-                fontSize: 26,
-                fontWeight: 700,
-                padding: "6px 16px",
-                borderRadius: 6,
-                letterSpacing: 1,
-              }}
-            >
-              {severity}
-            </span>
+      <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
+        {sev ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 30, fontWeight: 700, color: sev.color }}>
+            <div style={{ width: 22, height: 22, background: sev.color, transform: "rotate(45deg)" }} />
+            {sev.label}
           </div>
         ) : null}
-        <div style={{ fontSize: clipped.length > 70 ? 52 : 64, fontWeight: 700, lineHeight: 1.15 }}>
+        <div
+          style={{
+            fontSize: clipped.length > 70 ? 54 : 68,
+            fontWeight: 700,
+            lineHeight: 1.08,
+            letterSpacing: -2,
+            maxWidth: 1000,
+          }}
+        >
           {clipped}
         </div>
       </div>
-      <div style={{ fontSize: 26, color: "#6b6b6b" }}>{footer}</div>
+      <div style={{ fontSize: 24, color: QUIET }}>{footer}</div>
     </div>
   );
 }

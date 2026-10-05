@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { EmptyFeed, Release } from "../../../components/Change";
+import { ArrowUpRight, BracesIcon, FeedIcon } from "../../../components/Marks";
+import { ProviderLogo } from "../../../components/ProviderLogo";
 import { listProviders, recentReleases } from "../../../lib/queries";
 
 export const revalidate = 300;
@@ -20,7 +22,7 @@ export async function generateMetadata({
   if (!provider) return { title: "API not found" };
   return {
     title: `${provider.name} API breaking changes`,
-    description: `Every breaking change, deprecation and new field in the ${provider.name} API, read from its published OpenAPI spec. ${provider.snapshotCount} versions tracked.`,
+    description: `Every breaking change, deprecation and new field in the ${provider.name} API, as it ships.`,
     alternates: {
       canonical: `/apis/${api}`,
       types: {
@@ -44,30 +46,43 @@ export default async function ProviderPage({
   const releases = await recentReleases(50, slug);
 
   return (
-    <main>
-      <div className="prose">
-        <h1>{provider.name}</h1>
-        <p style={{ color: "var(--ink-2)" }}>
-          {provider.snapshotCount} spec versions tracked
-          {provider.earliest
-            ? `, back to ${provider.earliest.slice(0, 10)}`
-            : ""}
-          . {provider.breakingCount} published breaking changes.
-          {provider.docsUrl ? (
-            <>
-              {" "}
-              <a href={provider.docsUrl} rel="noreferrer noopener">
-                Provider docs
-              </a>
-              .
-            </>
-          ) : null}
+    <main className="shell">
+      <header className="page-head">
+        <p className="crumbs">
+          <a href="/providers">APIs</a> / {provider.name}
         </p>
-      </div>
+        <div className="api-title">
+          <span className="api-logo">
+            <ProviderLogo slug={slug} name={provider.name} size={30} />
+          </span>
+          <h1>{provider.name} API changes</h1>
+        </div>
+        <p className="page-lede">
+          Breaking changes, deprecations and new fields in the {provider.name} API, as
+          they ship.
+        </p>
+        <div className="subscribe-row">
+          <a className="btn btn-ghost btn-sm" href={`/apis/${slug}/rss.xml`}>
+            <FeedIcon size={14} /> RSS
+          </a>
+          <a className="btn btn-ghost btn-sm" href={`/apis/${slug}/feed.json`}>
+            <BracesIcon size={14} /> JSON Feed
+          </a>
+          {provider.docsUrl ? (
+            <a className="btn btn-ghost btn-sm" href={provider.docsUrl} rel="noreferrer noopener">
+              <ArrowUpRight size={14} /> {provider.name} docs
+            </a>
+          ) : null}
+        </div>
+      </header>
       {releases.length === 0 ? (
         <EmptyFeed providerName={provider.name} snapshotCount={provider.snapshotCount} />
       ) : (
-        releases.map((release) => <Release key={release.id} release={release} />)
+        <div className="feed">
+          {releases.map((release) => (
+            <Release key={release.id} release={release} />
+          ))}
+        </div>
       )}
     </main>
   );
