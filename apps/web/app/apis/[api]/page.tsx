@@ -65,14 +65,14 @@ export default async function ProviderPage({
           .
         </p>
         <div className="subscribe-row">
-          <a href={`/apis/${slug}/rss.xml`}>
+          <a className="btn btn-ghost btn-sm" href={`/apis/${slug}/rss.xml`}>
             <FeedIcon size={14} /> RSS
           </a>
-          <a href={`/apis/${slug}/feed.json`}>
+          <a className="btn btn-ghost btn-sm" href={`/apis/${slug}/feed.json`}>
             <BracesIcon size={14} /> JSON Feed
           </a>
           {provider.docsUrl ? (
-            <a href={provider.docsUrl} rel="noreferrer noopener">
+            <a className="btn btn-ghost btn-sm" href={provider.docsUrl} rel="noreferrer noopener">
               <ArrowUpRight size={14} /> {provider.name} docs
             </a>
           ) : null}

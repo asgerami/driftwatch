@@ -30,8 +30,8 @@ export function Nav() {
           <a href="/rss.xml">RSS feed</a>
         </div>
       </details>
-      <a className="btn" href="/watch" aria-current={pathname === "/watch" ? "page" : undefined}>
-        Watch my repo
+      <a className="btn btn-sm" href="/watch" aria-current={pathname === "/watch" ? "page" : undefined}>
+        Get early access
       </a>
     </nav>
   );

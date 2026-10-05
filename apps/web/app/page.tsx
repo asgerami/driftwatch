@@ -1,77 +1,83 @@
 import type { Metadata } from "next";
 
-import { EmptyFeed, FlipBadge, Release } from "../components/Change";
-import { Inline } from "../components/Inline";
-import { ArrowRight, BracesIcon, Contours, FeedIcon, PullIcon, SeverityMark } from "../components/Marks";
+import { EmptyFeed, Release, whereText } from "../components/Change";
+import { FlipTabs, type Flip } from "../components/FlipTabs";
+import { FeedIcon, PullIcon, SeverityMark } from "../components/Marks";
+import { ProductWindow, type WindowItem } from "../components/ProductWindow";
 import { listProviders, recentReleases } from "../lib/queries";
-import type { ChangeView, ReleaseView } from "../lib/types";
+import type { ReleaseView } from "../lib/types";
 
 export const revalidate = 300;
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 const FEATURED = ["stripe", "openai", "github"];
+const RANK = { BREAKING: 0, DEPRECATION: 1, BEHAVIORAL: 2, ADDITIVE: 3, COSMETIC: 4 } as const;
 
-/** The latest published break, shown as proof beside the claim. */
-function latestBreak(releases: ReleaseView[]): { release: ReleaseView; change: ChangeView } | undefined {
-  for (const severity of ["BREAKING", "DEPRECATION", "BEHAVIORAL"] as const) {
-    for (const release of releases) {
-      const change = release.changes.find((c) => c.severity === severity && c.href);
-      if (change) return { release, change };
+/** The window's inbox: the latest published changes, breaks first. */
+function windowItems(releases: ReleaseView[]): WindowItem[] {
+  const items: (WindowItem & { order: number })[] = [];
+  const seen = new Set<string>();
+  releases.forEach((release, r) => {
+    for (const change of release.changes) {
+      if (!change.href || change.severity === "ADDITIVE" || change.severity === "COSMETIC") continue;
+      const key = `${release.providerSlug}|${change.headline}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      items.push({
+        id: change.id,
+        href: change.href,
+        providerName: release.providerName,
+        shippedAt: release.shippedAt,
+        severity: change.severity,
+        headline: change.headline,
+        body: change.body.split("\n\n")[0] ?? "",
+        where: whereText(change),
+        pattern: change.patterns.ts ?? change.patterns.py ?? change.patterns.go,
+        directionFlip: change.directionFlip,
+        order: RANK[change.severity] * 1000 + r,
+      });
     }
-  }
-  return undefined;
+  });
+  return items
+    .sort((a, b) => a.order - b.order)
+    .slice(0, 6)
+    .map(({ order: _order, ...item }) => item);
 }
 
-function Proof({ release, change }: { release: ReleaseView; change: ChangeView }) {
-  const pattern = change.patterns.ts ?? change.patterns.py ?? change.patterns.go;
-  return (
-    <article className="notice hero-proof" data-severity={change.severity}>
-      <header className="notice-head">
-        <span>
-          <strong>{release.providerName}</strong> shipped{" "}
-          <time dateTime={release.shippedAt}>{release.shippedAt.slice(0, 10)}</time>
-        </span>
-        <SeverityMark severity={change.severity} />
-      </header>
-      <div className="notice-body">
-        {change.directionFlip ? <FlipBadge /> : null}
-        <h2>
-          <a href={change.href}>{change.headline}</a>
-        </h2>
-        <p>
-          <Inline text={change.body.split("\n\n")[0] ?? ""} />
-        </p>
-        {pattern ? <pre>{pattern}</pre> : null}
-        <div className="notice-foot">
-          <span>Latest from the feed</span>
-          <a className="link-arrow" href={change.href}>
-            Read the change <ArrowRight size={14} />
-          </a>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-const FLIPS = [
+const FLIPS: Flip[] = [
   {
+    tab: "A field becomes optional",
     them: "A response field becomes optional",
-    themWhy: "Safe for them: nothing they send is invalid.",
+    themWhy: "Safe for them: every response they send is still valid.",
     you: "A null dereference waiting to happen",
-    youWhy: "Code that reads the field without a check fails on every response that leaves it out.",
+    youWhy: "Code that reads the field without a check throws on every response that leaves it out.",
+    code: `const { city } = customer.address;
+// TypeError: Cannot destructure property 'city'
+// of 'customer.address' as it is undefined.`,
   },
   {
+    tab: "An enum gains a value",
     them: "A response enum gains a value",
     themWhy: "Additive for them: a new option, nothing removed.",
-    you: "Exhaustive switches break",
+    you: "Exhaustive switches stop being exhaustive",
     youWhy: "Strict parsers, generated client enums and switch statements meet a value they have no branch for.",
+    code: `switch (payment.status) {
+  case "succeeded": return settle(payment);
+  case "failed":    return retry(payment);
+  // "requires_review" arrives: no branch for it
+  default: throw new Error(\`unexpected \${payment.status}\`);
+}`,
   },
   {
+    tab: "A parameter is removed",
     them: "A request parameter is removed",
     themWhy: "A cleanup for them: one less thing to document.",
     you: "Results quietly change",
     youWhy: "The provider ignores what you still send. No error, nothing goes red, the answer is just different.",
+    code: `await api.invoices.list({ customer, status: "open" });
+// "status" is ignored now: this returns every
+// invoice, the paid ones included.`,
   },
 ];
 
@@ -80,47 +86,138 @@ export default async function HomePage() {
     recentReleases(20, undefined, { preferSignal: true }),
     listProviders(),
   ]);
-  const proof = latestBreak(releases);
-  const shown = releases.slice(0, 8);
+  const items = windowItems(releases);
   const named = FEATURED.map((slug) => providers.find((p) => p.slug === slug)?.name).filter(Boolean);
   const others = providers.length - named.length;
+  const watched = [...providers].sort((a, b) => b.breakingCount - a.breakingCount);
+  const shown = releases.slice(0, 6);
 
   return (
     <main>
       <section className="hero" aria-labelledby="hero-title">
-        <Contours />
-        <div className="shell hero-inner">
-          <div>
-            <h1 id="hero-title">
-              Corrections to the APIs you <em>build on</em>.
-            </h1>
+        <div className="shell">
+          <div className="hero-copy">
+            <h1 id="hero-title">Know when an API you depend on breaks your code.</h1>
             <p className="hero-sub">
               {named.length === FEATURED.length && others > 0
-                ? `Driftwatch reads the published specs of ${named.join(", ")} and ${others} more APIs, and tells you what breaks your calls.`
-                : "Driftwatch reads the published specs of the APIs you depend on, and tells you what breaks your calls."}
+                ? `Driftwatch reads the specs of ${named.join(", ")} and ${others} more APIs, and tells you which calls a change breaks.`
+                : "Driftwatch reads the specs of the APIs you depend on, and tells you which calls a change breaks."}
             </p>
             <div className="hero-actions">
-              <a className="btn" href="/watch">
-                Watch my repo
+              <a className="btn btn-lg" href="/watch">
+                Get early access
               </a>
-              <a className="link-arrow" href="#subscribe">
-                Get the feed <ArrowRight size={14} />
+              <a className="btn btn-ghost btn-lg" href="#changes">
+                Browse changes
               </a>
             </div>
           </div>
-          {proof ? <Proof release={proof.release} change={proof.change} /> : null}
+          <div className="hero-stage">{items.length > 0 ? <ProductWindow items={items} /> : null}</div>
         </div>
       </section>
 
-      <section className="section" aria-labelledby="latest-title">
+      {watched.length > 0 ? (
+        <div className="shell">
+          <p className="watching" aria-label={`Watching ${watched.length} APIs`}>
+            <strong>Watching {watched.length} APIs</strong>
+            {watched.slice(0, 9).map((provider) => (
+              <span key={provider.slug}>{provider.name}</span>
+            ))}
+            {watched.length > 9 ? <a className="link" href="/providers">and {watched.length - 9} more</a> : null}
+          </p>
+        </div>
+      ) : null}
+
+      <section className="section" aria-labelledby="flips-title">
         <div className="shell">
           <div className="section-head">
-            <h2 id="latest-title">Latest changes</h2>
-            <a className="link-arrow" href="/rss.xml">
-              <FeedIcon size={14} /> RSS
-            </a>
+            <h2 id="flips-title">Other tools diff your spec. Driftwatch diffs theirs.</h2>
+            <p>
+              Diff tools protect a provider&rsquo;s customers from the provider. From
+              the calling side, three of their &ldquo;safe&rdquo; changes are the ones
+              that break you.
+            </p>
           </div>
-          {releases.length === 0 ? (
+          <FlipTabs flips={FLIPS} />
+        </div>
+      </section>
+
+      <section className="section" aria-labelledby="steps-title">
+        <div className="shell">
+          <div className="section-head">
+            <h2 id="steps-title">From a spec change to a pull request</h2>
+            <p>A real Plaid change from September 2026, end to end.</p>
+          </div>
+          <ol className="steps">
+            <li className="step">
+              <h3 className="step-head">The spec changes</h3>
+              <p>Plaid renames a field in its published OpenAPI spec. Nobody sends an email.</p>
+              <div className="step-artifact">
+                <div className="step-artifact-bar">plaid/plaid-openapi, 2020-09-14.yml</div>
+                <pre>
+                  {"ProtectEventSendRequest:\n  properties:\n"}
+                  <span className="del">{"-   protect_session_id:"}</span>
+                  <span className="add">{"+   device_session_id:"}</span>
+                  {"      type: string"}
+                </pre>
+              </div>
+            </li>
+            <li className="step">
+              <h3 className="step-head">Driftwatch flags it</h3>
+              <p>It is published with what breaks, who is affected, and the code that fails.</p>
+              <div className="step-artifact">
+                <div className="step-artifact-bar">driftwatch.et/changes</div>
+                <div className="step-artifact-body" data-severity="BREAKING">
+                  <SeverityMark severity="BREAKING" pill />
+                  <strong>protect_session_id is no longer accepted</strong>
+                  Code that sends it to POST /protect/event/send.
+                  <p className="step-note step-link">
+                    <a className="link" href="/changes/plaid-2026-09-01-31912bc8">
+                      Read the full change
+                    </a>
+                  </p>
+                </div>
+              </div>
+            </li>
+            <li className="step">
+              <h3 className="step-head">A pull request fixes it</h3>
+              <p>The GitHub App finds the call in your repo, renames the field and checks the types.</p>
+              <div className="step-artifact">
+                <div className="step-artifact-bar">
+                  <PullIcon size={14} />
+                  Rename protect_session_id to device_session_id
+                </div>
+                <pre>
+                  <span className="del">{"-  protect_session_id: sessionId,"}</span>
+                  <span className="add">{"+  device_session_id: sessionId,"}</span>
+                </pre>
+                <div className="step-artifact-body step-note">
+                  Typechecked with the repo&rsquo;s tsconfig.json: no new errors. Written by the
+                  fixer in a test repository.
+                </div>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section className="section" id="changes" aria-labelledby="latest-title">
+        <div className="shell">
+          <div className="section-head-row">
+            <div className="section-head">
+              <h2 id="latest-title">Every breaking change, as it ships</h2>
+              <p>Published from the specs themselves, with the code each one breaks.</p>
+            </div>
+            <div className="hero-actions">
+              <a className="btn btn-ghost btn-sm" href="/rss.xml">
+                <FeedIcon size={14} /> RSS
+              </a>
+              <a className="btn btn-ghost btn-sm" href="/feed.json">
+                JSON Feed
+              </a>
+            </div>
+          </div>
+          {shown.length === 0 ? (
             <EmptyFeed />
           ) : (
             <div className="feed">
@@ -130,84 +227,27 @@ export default async function HomePage() {
             </div>
           )}
           <p className="feed-more">
-            <a className="link-arrow" href="/providers">
-              Every API, with its full history <ArrowRight size={14} />
+            <a className="link" href="/providers">
+              Browse every API and its full history
             </a>
           </p>
         </div>
       </section>
 
-      <section className="section" aria-labelledby="flips-title">
+      <section className="section" aria-labelledby="cta-title">
         <div className="shell">
-          <div className="section-head">
-            <h2 id="flips-title">Additive for them. Breaking for you.</h2>
-          </div>
-          <p className="section-lede">
-            Every other diff tool watches your own spec, to protect your customers.
-            Driftwatch watches the specs you call, and three rules come out the
-            other way.
-          </p>
-          <div className="ledger" role="table" aria-label="How three changes read from each side">
-            <div className="ledger-col-head" role="columnheader">Their changelog says</div>
-            <div className="ledger-col-head" role="columnheader">Your code sees</div>
-            {FLIPS.map((flip) => (
-              <div className="ledger-row" role="row" key={flip.them}>
-                <div className="ledger-cell ledger-them" role="cell">
-                  <h3>{flip.them}</h3>
-                  <p>{flip.themWhy}</p>
-                </div>
-                <div className="ledger-cell ledger-you" role="cell">
-                  <h3>{flip.you}</h3>
-                  <p>{flip.youWhy}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="feed-more plain">
-            <a className="link-arrow" href="/method">
-              How every change is classified <ArrowRight size={14} />
-            </a>
-          </p>
-        </div>
-      </section>
-
-      <section className="section" id="subscribe" aria-labelledby="subscribe-title">
-        <div className="shell">
-          <div className="section-head">
-            <h2 id="subscribe-title">Hear about it where you already read</h2>
-          </div>
-          <div className="channels">
-            <div className="channel channel-primary">
-              <h3>
-                <PullIcon /> A pull request for your repo
-              </h3>
-              <p>
-                A GitHub App that finds where your code calls the APIs you use, and
-                opens a fix when a change breaks one of those calls. In early access.
-              </p>
-              <a className="btn" href="/watch">
-                Watch my repo
+          <div className="cta-band">
+            <h2 id="cta-title">Fix the break before your users find it.</h2>
+            <p>
+              Tell us your repo and the APIs it calls. You&rsquo;ll be among the first to
+              get a pull request when one of them breaks it.
+            </p>
+            <div className="hero-actions">
+              <a className="btn btn-lg" href="/watch">
+                Get early access
               </a>
-            </div>
-            <div className="channel">
-              <h3>
-                <FeedIcon /> Every API, one feed
-              </h3>
-              <p>All published changes as they land, every six hours at most.</p>
-              <a className="link-arrow" href="/rss.xml">
-                RSS <ArrowRight size={14} />
-              </a>
-              <a className="link-arrow" href="/feed.json">
-                JSON Feed <ArrowRight size={14} />
-              </a>
-            </div>
-            <div className="channel">
-              <h3>
-                <BracesIcon /> Only the APIs you use
-              </h3>
-              <p>Each API has its own page and its own RSS and JSON feeds.</p>
-              <a className="link-arrow" href="/providers">
-                Pick your APIs <ArrowRight size={14} />
+              <a className="btn btn-ghost btn-lg" href="/rss.xml">
+                Follow the feed
               </a>
             </div>
           </div>

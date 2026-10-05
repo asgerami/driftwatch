@@ -80,6 +80,7 @@ export function StoryPage({ story }: { story: StoryPageView }) {
           <p>{whoIsAffected(story)}</p>
 
           <h2>Before and after</h2>
+          <div className="corrections-wrap">
           <table className="corrections">
             <thead>
               <tr>
@@ -118,6 +119,7 @@ export function StoryPage({ story }: { story: StoryPageView }) {
               })}
             </tbody>
           </table>
+          </div>
 
           {pattern ? (
             <>
@@ -150,7 +152,7 @@ export function StoryPage({ story }: { story: StoryPageView }) {
               <dt>Spec</dt>
               <dd>
                 {story.sourceLink ? (
-                  <a className="link-arrow" href={story.sourceLink.href} rel="noreferrer noopener">
+                  <a href={story.sourceLink.href} rel="noreferrer noopener">
                     {story.sourceLink.label}
                     <ArrowUpRight size={13} />
                   </a>
@@ -160,7 +162,7 @@ export function StoryPage({ story }: { story: StoryPageView }) {
               </dd>
               <dt>Feed</dt>
               <dd>
-                <a className="link-arrow" href={`/apis/${story.providerSlug}/rss.xml`}>
+                <a href={`/apis/${story.providerSlug}/rss.xml`}>
                   <FeedIcon size={13} /> {story.providerName} RSS
                 </a>
               </dd>
@@ -168,8 +170,8 @@ export function StoryPage({ story }: { story: StoryPageView }) {
           </div>
           <div className="aside-cta">
             <p>Get a pull request when a change like this hits code in your repo.</p>
-            <a className="btn" href="/watch">
-              Watch my repo
+            <a className="btn btn-sm" href="/watch">
+              Get early access
             </a>
           </div>
         </aside>

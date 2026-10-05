@@ -33,7 +33,7 @@ export function FlipBadge() {
 
 const LOCATIONS_SHOWN = 6;
 
-function whereText(change: ChangeView): string {
+export function whereText(change: ChangeView): string {
   const locations = change.locations;
   if (locations && locations.length > 1) {
     const shown = locations.slice(0, LOCATIONS_SHOWN).join(", ");

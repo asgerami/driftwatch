@@ -2,21 +2,20 @@
  * The 1200×630 share image. Rendered by next/og (Satori), which supports a
  * subset of CSS: flexbox only, inline styles, no external fonts here.
  *
- * Drawn in the site's night-chart palette, because a share image sits in
- * timelines that are mostly dark, with the severity as the chart's own mark.
+ * The site's palette: zinc dark, amber for the brand, severity colours as on
+ * the site, with the severity's own mark.
  */
 
-const INK = "#d8e4ea";
-const QUIET = "#8599a4";
-const GROUND = "#0a1217";
-const CONTOUR = "#16303a";
-const MAGENTA = "#f26aad";
+const INK = "#ededef";
+const QUIET = "#8a8a95";
+const GROUND = "#09090b";
+const AMBER = "#ffb224";
 
 const SEVERITY: Record<string, { color: string; label: string }> = {
-  BREAKING: { color: MAGENTA, label: "Breaking" },
-  DEPRECATION: { color: "#e2b25b", label: "Deprecation" },
-  BEHAVIORAL: { color: "#7fb7de", label: "Behavioral" },
-  ADDITIVE: { color: "#73c49b", label: "Additive" },
+  BREAKING: { color: "#ff6b6b", label: "Breaking" },
+  DEPRECATION: { color: AMBER, label: "Deprecation" },
+  BEHAVIORAL: { color: "#74b8ff", label: "Behavioral" },
+  ADDITIVE: { color: "#45d18f", label: "Additive" },
   COSMETIC: { color: QUIET, label: "Cosmetic" },
 };
 
@@ -45,7 +44,7 @@ export function OgCard({
         justifyContent: "space-between",
         padding: "60px 72px",
         background: GROUND,
-        backgroundImage: `repeating-linear-gradient(176deg, transparent 0px, transparent 46px, ${CONTOUR} 46px, ${CONTOUR} 48px)`,
+        backgroundImage: "radial-gradient(70% 60% at 85% 110%, rgba(255,178,36,0.22), rgba(9,9,11,0) 70%)",
         color: INK,
       }}
     >
@@ -55,13 +54,13 @@ export function OgCard({
             width: 30,
             height: 30,
             borderRadius: 15,
-            border: `3px solid ${MAGENTA}`,
+            border: `3px solid ${AMBER}`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <div style={{ width: 8, height: 8, borderRadius: 4, background: MAGENTA }} />
+          <div style={{ width: 8, height: 8, borderRadius: 4, background: AMBER }} />
         </div>
         <span style={{ fontWeight: 700, letterSpacing: -1 }}>Driftwatch</span>
         <span style={{ color: QUIET }}>{eyebrow}</span>

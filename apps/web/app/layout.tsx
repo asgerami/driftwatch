@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Schibsted_Grotesk } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 
 import "./globals.css";
 import { LogoMark } from "../components/Marks";
@@ -7,8 +7,8 @@ import { Nav } from "../components/Nav";
 import { SITE_URL } from "../lib/site";
 
 // Self-hosted at build time by next/font: no request to Google from a visitor.
-const sans = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap", weight: ["400", "500"] });
+const sans = Geist({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 /**
  * Cloudflare Web Analytics for driftwatch.et. The token is public by design:
@@ -36,10 +36,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f3f6f7" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a1217" },
-  ],
+  themeColor: "#09090b",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -76,8 +74,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 Driftwatch
               </a>
               <p>
-                Read from each provider&rsquo;s published OpenAPI spec. Severity is
-                decided by fixed rules, never by a model. Not affiliated with any
+                Breaking changes in the APIs you depend on, read from each
+                provider&rsquo;s published OpenAPI spec. Not affiliated with any
                 provider listed.
               </p>
             </div>
@@ -94,7 +92,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <ul>
                 <li><a href="/rss.xml">RSS feed</a></li>
                 <li><a href="/feed.json">JSON feed</a></li>
-                <li><a href="/watch">Watch my repo</a></li>
+                <li><a href="/watch">Get early access</a></li>
               </ul>
             </div>
           </div>

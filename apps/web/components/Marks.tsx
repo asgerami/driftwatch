@@ -5,10 +5,9 @@ import { SEVERITY_LABEL } from "../lib/types";
 /**
  * The drawn marks: one 16px grid, one 1.5 stroke, currentColor throughout.
  *
- * Severity marks borrow the chart's own symbols, so the shape carries the
- * meaning as well as the colour: the isolated-danger diamond for a break, a
- * caution triangle for a deprecation, a half-lit circle for a change in
- * behaviour, a plus for something new.
+ * Each severity has its own shape, so the shape carries the meaning as well
+ * as the colour: a diamond for a break, a triangle for a deprecation, a
+ * half-filled circle for a change in behaviour, a plus for something new.
  */
 
 type IconProps = { size?: number; label?: string };
@@ -71,16 +70,16 @@ export function SeverityGlyph({ severity, size = 14 }: { severity: Severity; siz
 }
 
 /** A severity, as mark plus word: colour is never the only signal. */
-export function SeverityMark({ severity, text }: { severity: Severity; text?: string }) {
+export function SeverityMark({ severity, text, pill = false }: { severity: Severity; text?: string; pill?: boolean }) {
   return (
-    <span className="sev" data-severity={severity}>
+    <span className={pill ? "sev sev-pill" : "sev"} data-severity={severity}>
       <SeverityGlyph severity={severity} />
       {text ?? SEVERITY_LABEL[severity]}
     </span>
   );
 }
 
-/** The wordmark's mark: a compass ring with the heading drifted off true. */
+/** The wordmark's mark: a gauge whose needle has drifted off true. */
 export function LogoMark({ size = 22 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -157,37 +156,5 @@ export function FlipIcon(props: IconProps) {
     <Svg {...props}>
       <path d="M2.5 5.5h10M10 3l2.5 2.5L10 8M13.5 10.5h-10M6 8l-2.5 2.5L6 13" />
     </Svg>
-  );
-}
-
-/**
- * Depth contours behind the home page's first viewport: the chart's
- * soundings, drawn once as the page loads. Deterministic, so the server and
- * every visit draw the same sea floor.
- */
-export function Contours() {
-  const lines: string[] = [];
-  const width = 1440;
-  for (let i = 0; i < 14; i++) {
-    const base = 40 + i * 44;
-    const amp = 18 + (i % 4) * 9;
-    const freq = 0.0042 + (i % 3) * 0.0011;
-    const phase = i * 0.9;
-    let d = "";
-    for (let x = -20; x <= width + 20; x += 24) {
-      const y =
-        base +
-        Math.sin(x * freq + phase) * amp +
-        Math.sin(x * freq * 2.7 + phase * 1.7) * (amp * 0.35);
-      d += `${x === -20 ? "M" : "L"}${x.toFixed(0)} ${y.toFixed(1)} `;
-    }
-    lines.push(d.trim());
-  }
-  return (
-    <svg className="contours" viewBox="0 0 1440 640" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      {lines.map((d, i) => (
-        <path key={i} d={d} pathLength={1} style={{ animationDelay: `${i * 45}ms` }} />
-      ))}
-    </svg>
   );
 }

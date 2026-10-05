@@ -28,7 +28,7 @@ export default async function WatchPage({
     <main className="shell">
       <div className="watch">
         <div className="watch-intro">
-          <h1>Watch my repo</h1>
+          <h1>Get a pull request when an API breaks your code</h1>
           <p className="page-lede">
             The feed tells you a vendor changed its API. The GitHub App reads your
             code instead, and opens a pull request when a change breaks one of your
@@ -41,7 +41,7 @@ export default async function WatchPage({
             accepted, a newly required value. Everything else is listed for a
             person, never guessed.
           </p>
-          <p>It isn&rsquo;t open yet. Tell us which repo and which APIs, and you&rsquo;ll be among the first to try it.</p>
+          <p>It is in early access. Tell us which repo and which APIs, and you&rsquo;ll be among the first to try it.</p>
 
           <figure className="example-pr" aria-label="An example pull request">
             <div className="example-pr-head">

@@ -86,8 +86,8 @@ export function WatchForm({
       </div>
       <input type="hidden" name={RENDERED_AT_FIELD} value={renderedAt} />
 
-      <button className="btn" type="submit">
-        Watch my repo
+      <button className="btn btn-lg" type="submit">
+        Get early access
       </button>
       <p className="watch-note">
         Stored only to tell you when the GitHub App is ready. No newsletter, no

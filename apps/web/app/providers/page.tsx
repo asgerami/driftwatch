@@ -33,6 +33,7 @@ export default async function ProvidersPage() {
           <p>No APIs are being watched yet.</p>
         </div>
       ) : (
+        <div className="catalogue-wrap">
         <table className="catalogue">
           <thead>
             <tr>
@@ -76,6 +77,7 @@ export default async function ProvidersPage() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </main>
   );

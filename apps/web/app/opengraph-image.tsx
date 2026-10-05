@@ -11,8 +11,8 @@ export default function Image() {
     (
       <OgCard
         eyebrow="driftwatch.et"
-        title="Corrections to the APIs you build on."
-        footer="What Stripe, OpenAI, GitHub and more changed, and what it breaks in your calls."
+        title="Know when an API you depend on breaks your code."
+        footer="Breaking changes in Stripe, OpenAI, GitHub and 18 more APIs, read from their specs."
       />
     ),
     size,

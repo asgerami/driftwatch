@@ -2,76 +2,77 @@
 
 The site's visual system, and why. Read this before changing how anything looks.
 
-## Direction
+## How it was decided
 
-Driftwatch is the *Notices to Mariners* of the APIs a team builds on. Mariners
-navigate by charts, and an official bulletin publishes corrections to those
-charts. The site borrows that world: the nautical chart and its notices. It
-avoids the terminal and the newspaper, which are where every devtool and every
-changelog end up.
+The direction came from research first, not taste. The second redesign
+replaced a first attempt that had no basis in how developer-tool startups
+present themselves.
 
-- **Mode.** The home page persuades: it says what this is, proves it with a real
-  change, and offers one action. Change, API and method pages are for reading: a
-  calm column at a readable width, with the chart world kept to the frame.
-- **Signature moment.** Depth contours behind the home page's first screen,
-  drawn once on load (`Contours` in `components/Marks.tsx`). Nothing else on the
-  site performs.
+- **Skills.** The design skills used are installed in `~/.claude/skills`:
+  - `frontend-design` (Anthropic): the plan-then-review process, and avoiding generic patterns
+  - `ui-ux-pro-max`: the "Product Demo" and "Real-Time / Operations" landing patterns, and the dark developer-tool styling
+  - `design-taste-frontend`: hero discipline, one label per action, the pre-flight checks
+  - `emil-design-eng`: motion
+- **References.** The opening screens of Linear, Trigger.dev and Inngest share one
+  pattern: dark-first, one confident headline, two actions, and the product itself
+  shown large right below.
+- **Chosen with Amir.** Dark, with an amber accent.
+
+## The page's one idea
+
+The hero shows the product, not a picture of it. `ProductWindow` is an inbox of
+the latest published changes, built on the server from real data. Choosing one
+shows what it breaks and the code that fails. Everything around it stays quiet.
 
 ## Colour
 
-The palette is restrained: tinted chart neutrals plus one accent, chart
-magenta, the colour charts use for hazards. It marks a breaking change and
-nothing else competes with it. Light mode is the day chart; dark mode is the
-night palette ship displays use. Both follow the visitor's system setting.
+The site is dark only. Zinc neutrals, plus one accent: amber, the colour of a
+warning light, which is what Driftwatch is. No large developer tool uses amber,
+so it stands out. Amber marks actions (buttons, focus, the soft glow behind the
+window). Severity colours are reserved for severity.
 
-| Token | Day | Night | Use |
-| --- | --- | --- | --- |
-| `--ground` | `#f3f6f7` | `#0a1217` | page |
-| `--band` | `#e7eef1` | `#0e191f` | hero, footer, quiet panels |
-| `--surface` | `#fbfcfc` | `#101d24` | raised: notice card, form, facts |
-| `--ink` / `--ink-2` / `--ink-3` | `#0e1c25` / `#3c4f5b` / `#576a75` | `#d8e4ea` / `#a3b6c0` / `#8599a4` | text, three steps |
-| `--accent` | `#b0146a` | `#f26aad` | breaking, focus, links on hover |
+| Token | Value | Use |
+| --- | --- | --- |
+| `--bg` / `--bg-2` | `#09090b` / `#0e0e11` | page, sunken panels |
+| `--panel` / `--panel-2` | `#121215` / `#18181c` | raised surfaces, menus |
+| `--line` / `--line-2` | white at 8% / 13% | borders |
+| `--text` / `--text-2` / `--text-3` | `#ededef` / `#a8a8b3` / `#7a7a85` | text, three steps |
+| `--amber` | `#ffb224` | actions, focus, glow |
+| severities | `#ff6b6b` breaking, amber deprecation, `#74b8ff` behavioural, `#45d18f` additive | marks only |
 
-Severity is always a drawn mark plus a word, never colour alone
-(`SeverityMark`):
+Severity is always a drawn mark plus a word, never colour alone (`SeverityMark`):
 
-- breaking: the isolated-danger diamond
-- deprecation: a caution triangle
-- behavioural: a half-lit circle
+- breaking: a diamond
+- deprecation: a triangle
+- behavioural: a half-filled circle
 - additive: a plus
 
 ## Type
 
-Schibsted Grotesk sets everything, using its real italics for emphasis.
-JetBrains Mono is only for code, paths and field names. `next/font` self-hosts
-both. Display tracking sits around -0.035em; body text is 17px at 1.6 line
-height, at most 68 characters wide.
+Geist for everything, Geist Mono for code, paths and field names, both
+self-hosted by `next/font`. Headlines are weight 600 at -0.045em, two lines at
+most. Body text is 16px at 1.6 line height.
 
 ## Shape and motion
 
-- One corner radius, 3px, everywhere. Hairline rules, plus a 2px ink rule to
-  open a list.
+- Buttons and tabs are pills. Panels use a 14px radius, inner elements 10px or
+  6px. Borders are white hairlines; there are no grey drop shadows on cards.
+- One label per action: "Get early access" everywhere it appears.
 - Motion follows Emil Kowalski's rules:
-  - transitions name their properties; never `all`
+  - transitions name their properties
   - a strong ease-out (`--ease-out`)
   - interface motion under 300ms
   - `scale(0.97)` when pressed
   - hover effects only on devices that can hover
+  - a 2px blur bridging the product window's crossfade
   - everything off under `prefers-reduced-motion`
 
-  The contours (1.6s) and the proof card's rise are the one explanatory moment
-  allowed to run longer.
+  The window's entrance is the one orchestrated moment.
 
-## Rules kept from the design skills
+## Do not
 
-Three design skills shaped this: Impeccable, Taste, and Emil Kowalski's
-design-engineering skill. These are the rules that matter day to day:
-
-- No eyebrow labels above headings, no section numbers, no coloured side
-  stripes on cards, no gradient text, no em dashes in visible copy.
-- No hero-metric blocks, no row of three equal cards, and no two home
-  sections in the same layout.
-- The impact templates mark identifiers with backticks. Render that text
-  through `Inline`; never show the backticks raw.
-- Browser surfaces use the palette too: text selection, the text cursor, focus
-  rings, scrollbars.
+- Put labels above headings, number things that are not a sequence, highlight a
+  single word in a headline, or append arrows to button text.
+- Make rows of identical cards, or reuse a layout between two home sections.
+- Use em dashes in visible copy.
+- Show raw backticks: impact text goes through `Inline`.
