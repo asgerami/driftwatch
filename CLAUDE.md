@@ -292,6 +292,7 @@ apps/fixer/             `driftwatch` CLI (M4): scan a repo for code a published 
   src/scan/             finders (http: fetch/axios/ky; sdk: official SDK clients), file walk, TS parsing
   src/fix/              spec verdicts (rename, removal, documented value), edits, diff, typecheck, repo tests
   src/prbody.ts         PR title and description from `fix --json`, templates only
+  src/candidates.ts     public repos worth scanning for a change, from GitHub code search (lists only)
   src/eval.ts           precision/recall against fixtures/ (markers: `driftwatch-expect: <kind>[, <kind>]`)
   fixtures/             consumer repos + the real change and specs each is scanned for; expected.patch per fixed one
   scripts/trim-spec.ts  cut a real normalized spec down to a fixture
