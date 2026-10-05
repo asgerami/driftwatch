@@ -9,6 +9,7 @@ import {
 } from "@driftwatch/core";
 
 import { SeverityMark } from "../../components/Marks";
+import { Toc } from "../../components/Toc";
 
 export const metadata: Metadata = {
   title: "How changes are classified",
@@ -26,6 +27,22 @@ const ordered = Object.values(RULES).sort(
         b.severity,
       ) || a.id.localeCompare(b.id),
 );
+
+const SECTIONS = [
+  { id: "deterministic", label: "Severity is deterministic" },
+  { id: "direction-flips", label: "The three direction flips" },
+  { id: "what-we-read", label: "What we are actually reading" },
+  { id: "auto-publish", label: "What publishes without a person" },
+  { id: "ruleset", label: "The ruleset" },
+];
+
+/** The severities a reader meets in the feed, and what each means for calling code. */
+const LEGEND = [
+  { severity: "BREAKING", meaning: "Code that works today fails." },
+  { severity: "DEPRECATION", meaning: "Still works, and is scheduled to stop." },
+  { severity: "BEHAVIORAL", meaning: "Nothing throws, but results differ." },
+  { severity: "ADDITIVE", meaning: "Something new. Nothing to change." },
+] as const;
 
 /**
  * The method page.
@@ -48,7 +65,7 @@ export default function MethodPage() {
       <div className="read">
       <article className="read-main">
 
-      <h2>Severity is deterministic</h2>
+      <h2 id="deterministic">Severity is deterministic</h2>
       <p>
         Every change is classified by a fixed rule, not by a language model.
         The same pair of specs always produces the same severities, so a wrong
@@ -61,7 +78,7 @@ export default function MethodPage() {
         the headline.
       </p>
 
-      <h2>The three direction flips</h2>
+      <h2 id="direction-flips">The three direction flips</h2>
       <p>
         Producer-side tools ask &ldquo;does this break my callers?&rdquo; This
         feed sits on the calling end, where three rules invert. They are the
@@ -83,7 +100,7 @@ export default function MethodPage() {
         </li>
       </ol>
 
-      <h2>What we are actually reading</h2>
+      <h2 id="what-we-read">What we are actually reading</h2>
       <p>
         Specifications, not behaviour. Some providers update their spec weeks
         after shipping, and some never do. Everything here is spec-derived, and
@@ -97,7 +114,7 @@ export default function MethodPage() {
         enum reported 2319 times.
       </p>
 
-      <h2>What publishes without a person</h2>
+      <h2 id="auto-publish">What publishes without a person</h2>
       <p>
         A change below {PUBLISH_CONFIDENCE_THRESHOLD} confidence never reaches
         the feed, and cosmetic changes never do at any confidence. Precision
@@ -144,10 +161,34 @@ export default function MethodPage() {
       </p>
 
       </article>
+      <aside className="aside" aria-label="About this page">
+        <div className="aside-card">
+          <Toc items={SECTIONS} />
+        </div>
+        <div className="aside-card legend">
+          <p className="toc-title">Severities</p>
+          <ul>
+            {LEGEND.map(({ severity, meaning }) => {
+              const count = ordered.filter((rule) => rule.severity === severity).length;
+              return (
+                <li key={severity}>
+                  <span className="legend-head">
+                    <SeverityMark severity={severity} />
+                    <span className="legend-count">
+                      {count} {count === 1 ? "rule" : "rules"}
+                    </span>
+                  </span>
+                  {meaning}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </aside>
       </div>
-      <section className="section" aria-labelledby="ruleset-title">
+      <section className="section" aria-labelledby="ruleset">
         <div className="section-head">
-          <h2 id="ruleset-title">The ruleset</h2>
+          <h2 id="ruleset">The ruleset</h2>
         </div>
         <div className="ruleset-wrap">
           <table className="ruleset">
