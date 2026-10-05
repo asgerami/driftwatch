@@ -10,9 +10,9 @@ export default function Image() {
   return new ImageResponse(
     (
       <OgCard
-        eyebrow="from the calling end"
-        title="Breaking changes in the third-party APIs you depend on"
-        footer="Stripe, OpenAI, GitHub, Cloudflare and more · driftwatch.et"
+        eyebrow="driftwatch.et"
+        title="Corrections to the APIs you build on."
+        footer="What Stripe, OpenAI, GitHub and more changed, and what it breaks in your calls."
       />
     ),
     size,

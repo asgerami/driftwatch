@@ -1,5 +1,7 @@
 import type { StoryPageView } from "../lib/types";
-import { FlipBadge, SeverityChip } from "./Change";
+import { FlipBadge } from "./Change";
+import { Inline } from "./Inline";
+import { ArrowUpRight, FeedIcon, SeverityMark } from "./Marks";
 
 /**
  * /changes/<id>: one story, everything a reader needs to act on it.
@@ -45,82 +47,133 @@ export function StoryPage({ story }: { story: StoryPageView }) {
   const { change } = story;
   const pattern = change.patterns.ts ?? change.patterns.py ?? change.patterns.go;
   const paragraphs = change.body.split("\n\n").filter(Boolean);
+  const anyDelta = story.facts.some((fact) => fact.before !== undefined || fact.after !== undefined);
 
   return (
-    <main className="prose story">
-      <p className="story-crumbs">
-        <a href={`/apis/${story.providerSlug}`}>{story.providerName}</a>
-        {" · "}
-        {story.sourceLabel}
-        {" · "}
-        {formatDay(story.shippedAt)}
-      </p>
+    <main className="shell">
+      <header className="story-head">
+        <p className="crumbs">
+          <a href={`/apis/${story.providerSlug}`}>{story.providerName}</a>
+          {" / "}
+          {story.sourceLabel}
+          {" / "}
+          <time dateTime={story.shippedAt}>{formatDay(story.shippedAt)}</time>
+        </p>
+        <div className="marks">
+          <SeverityMark severity={change.severity} />
+          {change.directionFlip ? <FlipBadge /> : null}
+        </div>
+        <h1 className="story-title">{change.headline}</h1>
+      </header>
 
-      <div className="change-head">
-        <SeverityChip severity={change.severity} />
-        {change.directionFlip ? <FlipBadge /> : null}
-        <span className="rule-id">{change.ruleId}</span>
-      </div>
-      <h1 className="story-title">{change.headline}</h1>
+      <div className="read">
+        <article className="read-main">
+          <h2>What changed</h2>
+          {paragraphs.map((paragraph, i) => (
+            <p key={i}>
+              <Inline text={paragraph} />
+            </p>
+          ))}
+          {change.detail ? <p className="change-detail">{change.detail}</p> : null}
 
-      <h2>What changed</h2>
-      {paragraphs.map((paragraph, i) => (
-        <p key={i}>{paragraph}</p>
-      ))}
-      {change.detail ? <p className="change-detail">{change.detail}</p> : null}
+          <h2>Who is affected</h2>
+          <p>{whoIsAffected(story)}</p>
 
-      <h2>Who is affected</h2>
-      <p>{whoIsAffected(story)}</p>
+          <h2>Before and after</h2>
+          <table className="corrections">
+            <thead>
+              <tr>
+                <th scope="col">Where</th>
+                {anyDelta ? (
+                  <>
+                    <th scope="col">Before</th>
+                    <th scope="col">After</th>
+                  </>
+                ) : (
+                  <th scope="col">Change</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {story.facts.map((fact, i) => {
+                const note = fact.detail && fact.detail !== change.detail ? fact.detail : undefined;
+                return (
+                  <tr key={i}>
+                    <td className="loc">{fact.location}</td>
+                    {anyDelta ? (
+                      <>
+                        <td>
+                          <span className="before">{fact.before ?? "absent"}</span>
+                        </td>
+                        <td>
+                          <span className="after">{fact.after ?? "absent"}</span>
+                          {note ? <span className="correction-note">{note}</span> : null}
+                        </td>
+                      </>
+                    ) : (
+                      <td>{note ?? change.detail ?? "Changed"}</td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
 
-      <h2>Before and after</h2>
-      <ul className="story-facts">
-        {story.facts.map((fact, i) => (
-          <li key={i}>
-            <code>{fact.location}</code>
-            {fact.before !== undefined || fact.after !== undefined ? (
-              <span className="story-delta">
-                {" "}
-                <span className="before">{fact.before ?? "absent"}</span>
-                {" → "}
-                <span className="after">{fact.after ?? "absent"}</span>
-              </span>
-            ) : null}
-            {fact.detail && fact.detail !== change.detail ? (
-              <span className="story-fact-detail"> · {fact.detail}</span>
-            ) : null}
-          </li>
-        ))}
-      </ul>
-      {pattern ? (
-        <>
-          <p>Code that breaks:</p>
-          <pre>{pattern}</pre>
-        </>
-      ) : null}
+          {pattern ? (
+            <>
+              <h2>Code that breaks</h2>
+              <pre>{pattern}</pre>
+            </>
+          ) : null}
 
-      <h2>Source</h2>
-      <dl className="story-meta">
-        <dt>Severity</dt>
-        <dd>{change.severity.toLowerCase()}</dd>
-        <dt>Shipped</dt>
-        <dd>{formatTime(story.shippedAt)}</dd>
-        <dt>Detected</dt>
-        <dd>{formatTime(story.detectedAt)}</dd>
-        <dt>Spec</dt>
-        <dd>
-          {story.sourceLink ? (
-            <a href={story.sourceLink.href} rel="noreferrer noopener">
-              {story.sourceLink.label}
+          <p className="footnote">
+            Read from {story.providerName}&rsquo;s published OpenAPI spec, not from
+            live traffic. <a href="/method">How severity is decided</a>.
+          </p>
+        </article>
+
+        <aside className="aside" aria-label="About this change">
+          <div className="aside-card">
+            <dl className="facts">
+              <dt>Severity</dt>
+              <dd>
+                <SeverityMark severity={change.severity} />
+              </dd>
+              <dt>Shipped</dt>
+              <dd>
+                <time dateTime={story.shippedAt}>{formatTime(story.shippedAt)}</time>
+              </dd>
+              <dt>Detected</dt>
+              <dd>
+                <time dateTime={story.detectedAt}>{formatTime(story.detectedAt)}</time>
+              </dd>
+              <dt>Spec</dt>
+              <dd>
+                {story.sourceLink ? (
+                  <a className="link-arrow" href={story.sourceLink.href} rel="noreferrer noopener">
+                    {story.sourceLink.label}
+                    <ArrowUpRight size={13} />
+                  </a>
+                ) : (
+                  "not available"
+                )}
+              </dd>
+              <dt>Feed</dt>
+              <dd>
+                <a className="link-arrow" href={`/apis/${story.providerSlug}/rss.xml`}>
+                  <FeedIcon size={13} /> {story.providerName} RSS
+                </a>
+              </dd>
+            </dl>
+          </div>
+          <div className="aside-cta">
+            <p>Get a pull request when a change like this hits code in your repo.</p>
+            <a className="btn" href="/watch">
+              Watch my repo
             </a>
-          ) : (
-            "not available"
-          )}
-        </dd>
-      </dl>
-      <p className="story-footnote">
-        Read from {story.providerName}&rsquo;s published OpenAPI spec, not from
-        live traffic. <a href="/method">How severity is decided</a>.
-      </p>
+          </div>
+        </aside>
+      </div>
     </main>
   );
 }

@@ -8,6 +8,8 @@ import {
   SPIKE_MULTIPLE,
 } from "@driftwatch/core";
 
+import { SeverityMark } from "../../components/Marks";
+
 export const metadata: Metadata = {
   title: "How changes are classified",
   description:
@@ -35,8 +37,16 @@ const ordered = Object.values(RULES).sort(
  */
 export default function MethodPage() {
   return (
-    <main className="prose">
-      <h1>How this is decided</h1>
+    <main className="shell">
+      <header className="page-head">
+        <h1>How this is decided</h1>
+        <p className="page-lede">
+          Every rule Driftwatch uses to call a change breaking, and exactly which
+          changes publish without a person reading them first.
+        </p>
+      </header>
+      <div className="read">
+      <article className="read-main">
 
       <h2>Severity is deterministic</h2>
       <p>
@@ -57,7 +67,7 @@ export default function MethodPage() {
         feed sits on the calling end, where three rules invert. They are the
         reason it exists.
       </p>
-      <ol>
+      <ol className="flips">
         <li>
           A response property <strong>becoming optional</strong> is safe for a
           producer and a null dereference waiting to happen for you.
@@ -133,59 +143,39 @@ export default function MethodPage() {
         <code>{AUTO_PUBLISH_POLICY}</code>) published it.
       </p>
 
-      <h2>The ruleset</h2>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.86rem" }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "1px solid var(--rule-strong)" }}>
-              Rule
-            </th>
-            <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "1px solid var(--rule-strong)" }}>
-              Severity
-            </th>
-            <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "1px solid var(--rule-strong)" }}>
-              What it does to calling code
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {ordered.map((rule) => (
-            <tr key={rule.id}>
-              <td
-                style={{
-                  padding: "8px 10px",
-                  borderBottom: "1px solid var(--rule)",
-                  fontFamily: "var(--f-mono)",
-                  fontSize: "0.78rem",
-                  whiteSpace: "nowrap",
-                  verticalAlign: "top",
-                }}
-              >
-                {rule.id}
-                {rule.directionFlip ? " ⇄" : ""}
-              </td>
-              <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--rule)", verticalAlign: "top" }}>
-                <span className="chip" data-severity={rule.severity}>
-                  {rule.severity.toLowerCase()}
-                </span>
-              </td>
-              <td
-                style={{
-                  padding: "8px 10px",
-                  borderBottom: "1px solid var(--rule)",
-                  color: "var(--ink-2)",
-                  verticalAlign: "top",
-                }}
-              >
-                {rule.consequence}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p style={{ color: "var(--ink-3)", fontSize: "0.85rem", marginTop: "12px" }}>
-        ⇄ marks a rule producer-side tools classify the other way.
-      </p>
+      </article>
+      </div>
+      <section className="section" aria-labelledby="ruleset-title">
+        <div className="section-head">
+          <h2 id="ruleset-title">The ruleset</h2>
+        </div>
+        <div className="ruleset-wrap">
+          <table className="ruleset">
+            <thead>
+              <tr>
+                <th scope="col">Rule</th>
+                <th scope="col">Severity</th>
+                <th scope="col">What it does to calling code</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ordered.map((rule) => (
+                <tr key={rule.id}>
+                  <td>
+                    {rule.id}
+                    {rule.directionFlip ? " ⇄" : ""}
+                  </td>
+                  <td>
+                    <SeverityMark severity={rule.severity} />
+                  </td>
+                  <td>{rule.consequence}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="footnote">⇄ marks a rule producer-side tools classify the other way.</p>
+      </section>
     </main>
   );
 }

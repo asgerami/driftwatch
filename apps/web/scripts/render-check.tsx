@@ -189,7 +189,7 @@ const feedRelease = {
   responseFieldAdds: { count: 3, fields: ["a", "b", "c"] },
 };
 const entries = feedEntries([feedRelease]);
-const meta = { title: "Driftwatch — Stripe", description: "d", homePath: "/apis/stripe", feedPath: "/apis/stripe/rss.xml" };
+const meta = { title: "Driftwatch: Stripe", description: "d", homePath: "/apis/stripe", feedPath: "/apis/stripe/rss.xml" };
 const rss = renderRss(meta, entries);
 check("rss declares the atom namespace and a self link", rss.includes('xmlns:atom="http://www.w3.org/2005/Atom"') && rss.includes('<atom:link href="https://driftwatch.et/apis/stripe/rss.xml" rel="self"'));
 check("rss item links to the permanent change page", rss.includes("<link>https://driftwatch.et/changes/stripe-2026-08-26-3f9a1c2e</link>"));
@@ -334,7 +334,7 @@ const collapsedRelease: ReleaseView = {
 const collapsedHtml = decode(renderToStaticMarkup(<Release release={collapsedRelease} />));
 check("the collapsed fields line carries the anchor RSS links to", collapsedHtml.includes(`id="${release.id}-fields"`));
 check("collapsed additive is one line, not eleven cards", collapsedHtml.includes("11 new response fields") && (collapsedHtml.match(/New response field/g) ?? []).length === 0);
-check("collapsed line lists a sample of fields", collapsedHtml.includes("field_0") && collapsedHtml.includes("+3 more"));
+check("collapsed line lists every field behind a disclosure", collapsedHtml.includes("<details") && collapsedHtml.includes("field_0") && collapsedHtml.includes("field_10"));
 check("path.added and breaking cards still render next to the line", collapsedHtml.includes("Endpoint added") && collapsedHtml.includes("direction flip"));
 check("additiveLineHeadline is plural-aware", additiveLineHeadline({ count: 1, fields: ["a"] }) === "1 new response field" && additiveLineHeadline({ count: 11, fields: [] }) === "11 new response fields");
 check(

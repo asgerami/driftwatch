@@ -5,13 +5,11 @@ import {
   requestNullableHeadline,
   requestPropertyHeadline,
 } from "../lib/feed";
+import { Inline } from "./Inline";
+import { Chevron, FlipIcon, SeverityMark } from "./Marks";
 
 export function SeverityChip({ severity }: { severity: ChangeView["severity"] }) {
-  return (
-    <span className="chip" data-severity={severity}>
-      {SEVERITY_LABEL[severity]}
-    </span>
-  );
+  return <SeverityMark severity={severity} />;
 }
 
 /**
@@ -27,7 +25,8 @@ export function FlipBadge() {
       className="flip"
       title="Producer-side tools classify this as non-breaking. From the calling end it is not."
     >
-      direction flip
+      <FlipIcon size={14} />
+      direction flip: their tools call this safe
     </span>
   );
 }
@@ -55,25 +54,36 @@ function whereText(change: ChangeView): string {
   return `${op}${field}${sites}`;
 }
 
-export function ChangeItem({ change }: { change: ChangeView }) {
+export function ChangeItem({ change, repeat = false }: { change: ChangeView; repeat?: boolean }) {
   const pattern = change.patterns.ts ?? change.patterns.py ?? change.patterns.go;
 
   return (
     <li className="change" id={change.id} data-severity={change.severity}>
-      <div className="change-head">
+      <div className="marks">
         <SeverityChip severity={change.severity} />
         {change.directionFlip ? <FlipBadge /> : null}
-        <span className="rule-id">{change.ruleId}</span>
       </div>
       <h3 className="change-title">
         {change.href ? <a href={change.href}>{change.headline}</a> : change.headline}
       </h3>
-      <p className="change-body">{change.body.split("\n\n")[0]}</p>
+      {repeat ? null : (
+        <p className="change-body">
+          <Inline text={change.body.split("\n\n")[0] ?? ""} />
+        </p>
+      )}
       {change.locations && change.detail ? (
         <p className="change-detail">{change.detail}</p>
       ) : null}
       <div className="change-where">{whereText(change)}</div>
-      {pattern ? <pre>{pattern}</pre> : null}
+      {pattern ? (
+        <details className="disclose">
+          <summary>
+            <Chevron size={13} />
+            Code that breaks
+          </summary>
+          <pre>{pattern}</pre>
+        </details>
+      ) : null}
     </li>
   );
 }
@@ -85,9 +95,11 @@ export function Tally({ counts }: { counts: ReleaseView["counts"] }) {
   return (
     <span className="tally">
       {shown.map((severity) => (
-        <span key={severity} className="chip" data-severity={severity}>
-          {counts[severity]} {SEVERITY_LABEL[severity].toLowerCase()}
-        </span>
+        <SeverityMark
+          key={severity}
+          severity={severity}
+          text={`${counts[severity]} ${SEVERITY_LABEL[severity].toLowerCase()}`}
+        />
       ))}
     </span>
   );
@@ -107,67 +119,77 @@ function AdditiveLineRow({
   /** Anchor the RSS feed links to. */
   id: string;
 }) {
-  const shown = line.fields.slice(0, 8);
-  const more = line.fields.length - shown.length;
   return (
-    <p className="additive-line" id={id}>
-      <span className="chip" data-severity="ADDITIVE">
-        Additive
-      </span>
-      <span>{headline}</span>
-      {shown.length > 0 ? (
-        <span className="additive-fields">
-          {shown.join(", ")}
-          {more > 0 ? ` +${more} more` : ""}
-        </span>
-      ) : null}
-    </p>
+    <div className="additive-line" id={id} data-severity="ADDITIVE">
+      <details className="disclose">
+        <summary>
+          <Chevron size={13} />
+          <SeverityMark severity="ADDITIVE" text="" />
+          {headline}
+        </summary>
+        {line.fields.length > 0 ? (
+          <ul className="field-list">
+            {line.fields.map((field) => (
+              <li key={field}>{field}</li>
+            ))}
+          </ul>
+        ) : null}
+      </details>
+    </div>
   );
 }
 
 export function Release({ release }: { release: ReleaseView }) {
+  const source = release.sourceKey !== "api" ? release.sourceLabel : undefined;
   return (
     <article className="release" id={release.id}>
-      <header className="release-head">
-        <span className="release-provider">
+      <header className="release-side">
+        <a className="release-provider" href={`/apis/${release.providerSlug}`}>
           {release.providerName}
-          {release.sourceKey !== "api" ? ` · ${release.sourceKey}` : ""}
-        </span>
+        </a>
+        {source ? <span className="release-source">{source}</span> : null}
         <span className="release-meta">
-          {formatDate(release.shippedAt)}
+          <time dateTime={release.shippedAt}>{formatDate(release.shippedAt)}</time>
           {release.commitSha ? ` · ${release.commitSha.slice(0, 8)}` : ""}
         </span>
         <Tally counts={release.counts} />
       </header>
-      {release.providerNote ? <p className="provider-note">{release.providerNote}</p> : null}
-      {release.changes.length > 0 ? (
-        <ul className="changes">
-          {release.changes.map((change) => (
-            <ChangeItem key={change.id} change={change} />
-          ))}
-        </ul>
-      ) : null}
-      {release.responseFieldAdds ? (
-        <AdditiveLineRow
-          line={release.responseFieldAdds}
-          headline={additiveLineHeadline(release.responseFieldAdds)}
-          id={`${release.id}-fields`}
-        />
-      ) : null}
-      {release.requestPropertyAdds ? (
-        <AdditiveLineRow
-          line={release.requestPropertyAdds}
-          headline={requestPropertyHeadline(release.requestPropertyAdds)}
-          id={`${release.id}-request-fields`}
-        />
-      ) : null}
-      {release.requestNullableAdds ? (
-        <AdditiveLineRow
-          line={release.requestNullableAdds}
-          headline={requestNullableHeadline(release.requestNullableAdds)}
-          id={`${release.id}-request-nullable`}
-        />
-      ) : null}
+      <div className="release-main">
+        {release.providerNote ? <p className="provider-note">{release.providerNote}</p> : null}
+        {release.changes.length > 0 ? (
+          <ul className="changes">
+            {release.changes.map((change, i) => (
+              // Four fields removed in one release share one explanation: say it once.
+              <ChangeItem
+                key={change.id}
+                change={change}
+                repeat={i > 0 && release.changes[i - 1]!.body === change.body}
+              />
+            ))}
+          </ul>
+        ) : null}
+        {release.responseFieldAdds ? (
+          <AdditiveLineRow
+            line={release.responseFieldAdds}
+            headline={additiveLineHeadline(release.responseFieldAdds)}
+            id={`${release.id}-fields`}
+          />
+        ) : null}
+        {release.requestPropertyAdds ? (
+          <AdditiveLineRow
+            line={release.requestPropertyAdds}
+            headline={requestPropertyHeadline(release.requestPropertyAdds)}
+            id={`${release.id}-request-fields`}
+          />
+        ) : null}
+        {release.requestNullableAdds ? (
+          <AdditiveLineRow
+            line={release.requestNullableAdds}
+            headline={requestNullableHeadline(release.requestNullableAdds)}
+            id={`${release.id}-request-nullable`}
+          />
+        ) : null}
+      </div>
     </article>
   );
 }
@@ -191,7 +213,7 @@ export function EmptyFeed({
   if ((snapshotCount ?? 0) === 1) {
     return (
       <div className="empty">
-        <p style={{ margin: 0 }}>
+        <p>
           Nothing published yet{scoped}. Tracking started recently, and changes
           appear from the next time the spec is updated.
         </p>
@@ -202,7 +224,7 @@ export function EmptyFeed({
   return (
     <div className="empty">
       <p>No changes published yet{scoped}.</p>
-      <p style={{ marginBottom: 0 }}>
+      <p>
         Every change is checked by a person before it appears here, so the
         feed stays quiet rather than guess.{" "}
         <a href="/method">How changes are classified</a>.

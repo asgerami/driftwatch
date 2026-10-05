@@ -10,37 +10,72 @@ export const metadata: Metadata = {
 
 export const revalidate = 900;
 
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
 export default async function ProvidersPage() {
   const providers = await listProviders();
+  const most = Math.max(1, ...providers.map((p) => p.breakingCount));
 
   return (
-    <main className="prose">
-      <h1>Providers</h1>
-      <p style={{ color: "var(--ink-2)" }}>
-        Specs a team depends on. Git-tracked sources arrive with years of
-        history; hosted URLs start from the first poll.
-      </p>
+    <main className="shell">
+      <header className="page-head">
+        <h1>APIs watched</h1>
+        <p className="page-lede">
+          {providers.length > 0 ? `${providers.length} APIs. ` : ""}
+          Specs kept in a git repository arrive with their history; specs served
+          from a URL start from the first time Driftwatch read them.
+        </p>
+      </header>
       {providers.length === 0 ? (
         <div className="empty">
-          <p style={{ margin: 0 }}>
-            No providers yet. Run <code>pnpm w seed</code>.
-          </p>
+          <p>No APIs are being watched yet.</p>
         </div>
       ) : (
-        <ul className="providers">
-          {providers.map((provider) => (
-            <li key={provider.slug} className="provider">
-              <a href={`/apis/${provider.slug}`}>{provider.name}</a>
-              <div className="provider-meta">
-                {provider.snapshotCount} versions
-                {provider.earliest ? ` · since ${provider.earliest.slice(0, 4)}` : ""}
-              </div>
-              <div className="provider-meta">
-                {provider.breakingCount} breaking published
-              </div>
-            </li>
-          ))}
-        </ul>
+        <table className="catalogue">
+          <thead>
+            <tr>
+              <th scope="col">API</th>
+              <th scope="col" className="num">
+                Breaking changes
+              </th>
+              <th scope="col" className="num hide-sm">
+                Versions read
+              </th>
+              <th scope="col" className="num hide-sm">
+                History from
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {providers.map((provider) => (
+              <tr key={provider.slug}>
+                <td>
+                  <a href={`/apis/${provider.slug}`}>{provider.name}</a>
+                </td>
+                <td className="num">
+                  {provider.breakingCount > 0 ? (
+                    <span
+                      className="bar"
+                      style={{ width: `${Math.max(2, Math.round((provider.breakingCount / most) * 96))}px` }}
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  {provider.breakingCount}
+                </td>
+                <td className="num hide-sm quiet">{plural(provider.snapshotCount, "version")}</td>
+                <td className="num hide-sm quiet">
+                  {provider.earliest ? (
+                    <time dateTime={provider.earliest}>{provider.earliest.slice(0, 7)}</time>
+                  ) : (
+                    "-"
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </main>
   );

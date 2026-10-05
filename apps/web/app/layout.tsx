@@ -1,6 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { JetBrains_Mono, Schibsted_Grotesk } from "next/font/google";
+
 import "./globals.css";
+import { LogoMark } from "../components/Marks";
+import { Nav } from "../components/Nav";
 import { SITE_URL } from "../lib/site";
+
+// Self-hosted at build time by next/font: no request to Google from a visitor.
+const sans = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap", weight: ["400", "500"] });
 
 /**
  * Cloudflare Web Analytics for driftwatch.et. The token is public by design:
@@ -17,7 +25,7 @@ const DESCRIPTION =
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: "Driftwatch — breaking changes in the APIs you depend on", template: "%s · Driftwatch" },
+  title: { default: "Driftwatch: breaking changes in the APIs you depend on", template: "%s · Driftwatch" },
   description: DESCRIPTION,
   openGraph: { siteName: "Driftwatch", type: "website", description: DESCRIPTION },
   twitter: { card: "summary_large_image" },
@@ -27,46 +35,70 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f3f6f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a1217" },
+  ],
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;700&display=swap"
-        />
-      </head>
+    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
       <body>
-        <div className="shell">
-          <header className="masthead">
-            <a className="wordmark" href="/">
-              drift<span>watch</span>
+        <a className="skip" href="#main">
+          Skip to content
+        </a>
+        <header className="masthead">
+          <div className="shell masthead-inner">
+            <a className="wordmark" href="/" aria-label="Driftwatch, home">
+              <LogoMark />
+              Driftwatch
             </a>
-            <nav className="nav">
-              <a href="/">Feed</a>
-              <a href="/providers">Providers</a>
-              <a href="/method">Method</a>
-              <a href="/watch">Watch my repo</a>
-              <a href="/api/feed.json">JSON</a>
-            </nav>
-          </header>
-          {children}
-          {CF_BEACON_TOKEN ? (
-            // Cloudflare Web Analytics: no cookies, no personal data, free.
-            // Off unless the token is set at build time.
-            <script
-              type="module"
-              src="https://static.cloudflareinsights.com/beacon.min.js"
-              data-cf-beacon={JSON.stringify({ token: CF_BEACON_TOKEN })}
-            />
-          ) : null}
-          <footer className="footer">
-            <span>Spec-derived. Severity is deterministic.</span>
-            <span>Not affiliated with any provider listed.</span>
-          </footer>
-        </div>
+            <Nav />
+          </div>
+        </header>
+        <div id="main">{children}</div>
+        {CF_BEACON_TOKEN ? (
+          // Cloudflare Web Analytics: no cookies, no personal data, free.
+          // Off unless the token is set at build time.
+          <script
+            type="module"
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon={JSON.stringify({ token: CF_BEACON_TOKEN })}
+          />
+        ) : null}
+        <footer className="footer">
+          <div className="shell footer-inner">
+            <div>
+              <a className="wordmark" href="/">
+                <LogoMark size={20} />
+                Driftwatch
+              </a>
+              <p>
+                Read from each provider&rsquo;s published OpenAPI spec. Severity is
+                decided by fixed rules, never by a model. Not affiliated with any
+                provider listed.
+              </p>
+            </div>
+            <div>
+              <h2>Read</h2>
+              <ul>
+                <li><a href="/">Latest changes</a></li>
+                <li><a href="/providers">APIs watched</a></li>
+                <li><a href="/method">How severity is decided</a></li>
+              </ul>
+            </div>
+            <div>
+              <h2>Subscribe</h2>
+              <ul>
+                <li><a href="/rss.xml">RSS feed</a></li>
+                <li><a href="/feed.json">JSON feed</a></li>
+                <li><a href="/watch">Watch my repo</a></li>
+              </ul>
+            </div>
+          </div>
+        </footer>
       </body>
     </html>
   );

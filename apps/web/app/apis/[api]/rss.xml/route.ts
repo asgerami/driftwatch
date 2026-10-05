@@ -18,7 +18,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ api
 
   const xml = renderRss(
     {
-      title: `Driftwatch — ${provider.name}`,
+      title: `Driftwatch: ${provider.name}`,
       description: `Breaking changes in the ${provider.name} API, read from the calling end.`,
       homePath: `/apis/${api}`,
       feedPath: `/apis/${api}/rss.xml`,

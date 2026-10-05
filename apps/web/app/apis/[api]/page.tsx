@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { EmptyFeed, Release } from "../../../components/Change";
+import { ArrowUpRight, BracesIcon, FeedIcon } from "../../../components/Marks";
 import { listProviders, recentReleases } from "../../../lib/queries";
 
 export const revalidate = 300;
@@ -44,30 +45,47 @@ export default async function ProviderPage({
   const releases = await recentReleases(50, slug);
 
   return (
-    <main>
-      <div className="prose">
-        <h1>{provider.name}</h1>
-        <p style={{ color: "var(--ink-2)" }}>
-          {provider.snapshotCount} spec versions tracked
-          {provider.earliest
-            ? `, back to ${provider.earliest.slice(0, 10)}`
-            : ""}
-          . {provider.breakingCount} published breaking changes.
-          {provider.docsUrl ? (
+    <main className="shell">
+      <header className="page-head">
+        <p className="crumbs">
+          <a href="/providers">APIs</a> / {provider.name}
+        </p>
+        <h1>{provider.name} API changes</h1>
+        <p className="page-lede">
+          {provider.breakingCount} published breaking{" "}
+          {provider.breakingCount === 1 ? "change" : "changes"}, from{" "}
+          {provider.snapshotCount} {provider.snapshotCount === 1 ? "version" : "versions"} of its
+          spec
+          {provider.earliest ? (
             <>
-              {" "}
-              <a href={provider.docsUrl} rel="noreferrer noopener">
-                Provider docs
-              </a>
-              .
+              {" read since "}
+              <time dateTime={provider.earliest}>{provider.earliest.slice(0, 10)}</time>
             </>
           ) : null}
+          .
         </p>
-      </div>
+        <div className="subscribe-row">
+          <a href={`/apis/${slug}/rss.xml`}>
+            <FeedIcon size={14} /> RSS
+          </a>
+          <a href={`/apis/${slug}/feed.json`}>
+            <BracesIcon size={14} /> JSON Feed
+          </a>
+          {provider.docsUrl ? (
+            <a href={provider.docsUrl} rel="noreferrer noopener">
+              <ArrowUpRight size={14} /> {provider.name} docs
+            </a>
+          ) : null}
+        </div>
+      </header>
       {releases.length === 0 ? (
         <EmptyFeed providerName={provider.name} snapshotCount={provider.snapshotCount} />
       ) : (
-        releases.map((release) => <Release key={release.id} release={release} />)
+        <div className="feed">
+          {releases.map((release) => (
+            <Release key={release.id} release={release} />
+          ))}
+        </div>
       )}
     </main>
   );

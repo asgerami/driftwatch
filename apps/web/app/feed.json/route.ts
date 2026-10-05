@@ -16,7 +16,7 @@ export async function GET() {
   const releases = await recentReleases(60);
   const feed = renderJsonFeed(
     {
-      title: "Driftwatch — every API",
+      title: "Driftwatch: every API",
       description: "Breaking changes in the third-party APIs Driftwatch watches, read from the calling end.",
       homePath: "/",
       feedPath: "/feed.json",
