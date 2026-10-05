@@ -447,13 +447,13 @@ export function scanFields(
   matched: MatchedCall[],
   targets: Targets,
   why: (call: MatchedCall, field: FieldTarget) => string,
-  repo = process.cwd(),
+  modules: ModuleGraph = new ModuleGraph(process.cwd(), new Map(sources.map((s) => [s.fileName, s]))),
 ): Finding[] {
   if (targets.responseFields.length === 0 && targets.requestFields.length === 0) return [];
   const byName = new Map(sources.map((s) => [s.fileName, s]));
   const ctx: Context = {
     sources: byName,
-    modules: new ModuleGraph(repo, byName),
+    modules,
     why,
     responseFields: targets.responseFields,
     findings: new Map(),

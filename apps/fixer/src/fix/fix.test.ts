@@ -91,10 +91,11 @@ describe("fix against the fixture repos", () => {
 
   it("removes an optional field, but not one with a possible replacement or a computed value", async () => {
     const r = await result("stripe-payment-intents");
-    expect(r.patches.map((p) => [p.line, p.kind])).toEqual([
-      [6, "remove"],
-      [10, "remove"],
-      [48, "remove"],
+    expect(r.patches.map((p) => [p.file, p.line, p.kind])).toEqual([
+      ["src/billing.ts", 6, "remove"],
+      ["src/billing.ts", 10, "remove"],
+      ["src/billing.ts", 48, "remove"],
+      ["src/routes/intents.ts", 5, "remove"], // through a client made in src/lib/stripe.ts
     ]);
     const reasons = Object.fromEntries(r.skipped.map((s) => [s.finding.line, s.reason]));
     expect(reasons[58]).toContain("computed by a call");

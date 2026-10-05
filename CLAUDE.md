@@ -229,7 +229,8 @@ reported. A call through a wrapper of the repo's own (`window.api.xfetch.post(ur
 anime.gf's way of calling OpenAI) counts only when its URL is on the
 provider's host and the function reads as a request (an HTTP verb, or
 fetch/request/http in its name), and only ever at medium. SDK calls count only on a known client (a value created from the
-provider's official package); method names come from `operationId` where the
+provider's official package, in the file or in a module of the repo's own
+that exports it or a function returning it: `lib/stripe.ts`, `initStripe()`); method names come from `operationId` where the
 SDK is generated from it (GitHub, Plaid) and from the path's REST shape
 otherwise (Stripe, OpenAI). Field access is traced from a matched call's
 value, never matched by name alone: through `await`, `.json()` (fetch, ky),
