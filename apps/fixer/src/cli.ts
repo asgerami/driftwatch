@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 
 import { Command } from "commander";
 
+import { findCandidates } from "./candidates.js";
 import { loadChange } from "./change.js";
 import type { Finding } from "./findings.js";
 import { fix, type FixResult } from "./fix/index.js";
@@ -11,6 +12,7 @@ import { prBody, type FixReport } from "./prbody.js";
 import { runTests, type TestRun } from "./fix/tests.js";
 import { scan } from "./scan/index.js";
 import { loadSpec, loadSpecBefore } from "./spec.js";
+import { computeTargets } from "./targets.js";
 
 /**
  * driftwatch: the concierge fixer (brief, M4). Finds where a repo calls an API
@@ -86,6 +88,32 @@ program
   );
 
 program
+  .command("candidates")
+  .description("list public repos likely to call what a change affects, from GitHub code search (needs gh, signed in)")
+  .requiredOption("--change <id|url|file>", "a change id from driftwatch.et/changes/<id>, its JSON URL, or a JSON file")
+  .option("--spec <file>", "use this spec file instead of fetching the provider's")
+  .option("--limit <n>", "how many repos to list", "15")
+  .option("--json", "print the result as JSON")
+  .action(async (opts: { change: string; spec?: string; limit: string; json?: boolean }) => {
+    const change = await loadChange(changeRef(opts.change));
+    const targets = computeTargets(change, await loadSpec(change, maybe(opts.spec)));
+    const { queries, candidates } = await findCandidates(change, targets, Number(opts.limit) || 15);
+    if (opts.json) {
+      console.log(JSON.stringify({ queries, candidates }, null, 2));
+      return;
+    }
+    const lines = [change.url, `Searched: ${queries.map((q) => q.q).join("  ·  ")}`, ""];
+    if (candidates.length === 0) lines.push("No candidates: nothing outside the provider's own repos matched.");
+    candidates.forEach((c, i) => {
+      lines.push(`${String(i + 1).padStart(2)}. ${c.repo}  ★${c.stars}  pushed ${c.pushedAt.slice(0, 10)}`);
+      lines.push(`    matched ${c.terms.map((t) => `"${t}"`).join(", ")} in ${c.files.slice(0, 3).join(", ")}${c.files.length > 3 ? ` (+${c.files.length - 3})` : ""}`);
+      lines.push(`    gh workflow run inspect -f command=scan -f args="${c.repo} ${change.id}"`);
+    });
+    lines.push("", "A match is a reason to scan, not a finding. Scan, read, and keep it to a handful of PRs per change.");
+    console.log(lines.join("\n"));
+  });
+
+program
   .command("pr-body")
   .description("write the pull request title and description for a fix, from `fix --json` output")
   .requiredOption("--fix <file>", "the JSON `driftwatch fix --json` printed")
@@ -103,7 +131,9 @@ program
 
 function fixReport(r: FixResult, tests: TestRun | undefined, opts: { out?: string; write?: boolean }): string {
   const lines = [r.change.url, `${r.patches.length} patch(es), ${r.skipped.length} finding(s) not patched, ${r.findings.length} other finding(s)`, ""];
-  if (r.typecheck) {
+  if (r.typecheck && r.typecheck.filesChecked === 0) {
+    lines.push(`No TypeScript to typecheck: the patched JavaScript (${r.typecheck.syntaxChecked} file(s)) was parsed for syntax errors${r.typecheck.introduced.length === 0 ? ", none found" : ""}.`, "");
+  } else if (r.typecheck) {
     const t = r.typecheck;
     lines.push(
       `Typecheck (${t.configured ? "the repo's tsconfig.json" : "strict defaults, no tsconfig.json"}, ${t.filesChecked} files): ` +

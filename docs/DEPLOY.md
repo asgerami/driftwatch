@@ -168,26 +168,32 @@ API, fix PRs, and any source not fetching.
 
 The `driftwatch` CLI (`apps/fixer`) never opens a pull request. You do.
 
-1. Clone the repo you mean to fix and install its dependencies, so the
+1. Find repos to fix:
+   `pnpm --silent --filter @driftwatch/fixer cli candidates --change <storyId>`
+   searches public GitHub code (through `gh`, signed in) and ranks repos that
+   use the changed field beside an affected call first, then by recent pushes.
+   Archived repos, forks, tests, fixtures and the provider's own repos are
+   dropped. A match is a reason to scan, not a finding.
+2. Clone the repo you mean to fix and install its dependencies, so the
    typecheck sees the real SDK types.
-2. `pnpm --filter @driftwatch/fixer cli scan --change <storyId> --repo <path>`
+3. `pnpm --filter @driftwatch/fixer cli scan --change <storyId> --repo <path>`
    lists every affected call and field read, with a confidence label.
    On a slow connection, scan a public repo on GitHub's network instead:
    `gh workflow run inspect -f command=scan -f args="<owner/repo> <storyId>"`
    (or `command=fix` for the patch, which there is never written and never
    runs the repo's tests), then `gh run view --log`.
-3. `pnpm --filter @driftwatch/fixer cli fix --change <storyId> --repo <path> --out fix.patch`
+4. `pnpm --filter @driftwatch/fixer cli fix --change <storyId> --repo <path> --out fix.patch`
    writes a patch for the mechanical cases and lists everything else with the
    reason it was not patched. `--write` applies it and runs the repo's tests,
    restoring the files if they fail.
-4. Read the patch and the "Not patched" list. Most of a real fix is the list.
-5. `pnpm --silent --filter @driftwatch/fixer cli fix --change <storyId> --repo <path> --write --json > fix.json`
+5. Read the patch and the "Not patched" list. Most of a real fix is the list.
+6. `pnpm --silent --filter @driftwatch/fixer cli fix --change <storyId> --repo <path> --write --json > fix.json`
    (`--silent`, or pnpm's own header lands in the JSON), then
    `pnpm --filter @driftwatch/fixer cli pr-body --fix fix.json` prints a title
    and description: what changed upstream (with links), what the patch
    changes, how it was verified, and one line saying Driftwatch found it.
    Edit it as you like; it is a template, not a claim.
-6. Open the PR yourself, then log it: `pnpm w pr log <url> --change <storyId>`.
+7. Open the PR yourself, then log it: `pnpm w pr log <url> --change <storyId>`.
    Keep it to a handful of PRs per upstream change.
 
 ## When something breaks

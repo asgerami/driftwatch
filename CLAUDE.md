@@ -229,7 +229,8 @@ reported. A call through a wrapper of the repo's own (`window.api.xfetch.post(ur
 anime.gf's way of calling OpenAI) counts only when its URL is on the
 provider's host and the function reads as a request (an HTTP verb, or
 fetch/request/http in its name), and only ever at medium. SDK calls count only on a known client (a value created from the
-provider's official package); method names come from `operationId` where the
+provider's official package, in the file or in a module of the repo's own
+that exports it or a function returning it: `lib/stripe.ts`, `initStripe()`); method names come from `operationId` where the
 SDK is generated from it (GitHub, Plaid) and from the path's REST shape
 otherwise (Stripe, OpenAI). Field access is traced from a matched call's
 value, never matched by name alone: through `await`, `.json()` (fetch, ky),
@@ -292,6 +293,7 @@ apps/fixer/             `driftwatch` CLI (M4): scan a repo for code a published 
   src/scan/             finders (http: fetch/axios/ky; sdk: official SDK clients), file walk, TS parsing
   src/fix/              spec verdicts (rename, removal, documented value), edits, diff, typecheck, repo tests
   src/prbody.ts         PR title and description from `fix --json`, templates only
+  src/candidates.ts     public repos worth scanning for a change, from GitHub code search (lists only)
   src/eval.ts           precision/recall against fixtures/ (markers: `driftwatch-expect: <kind>[, <kind>]`)
   fixtures/             consumer repos + the real change and specs each is scanned for; expected.patch per fixed one
   scripts/trim-spec.ts  cut a real normalized spec down to a fixture

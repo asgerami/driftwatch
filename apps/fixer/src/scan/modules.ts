@@ -137,13 +137,18 @@ export class ModuleGraph {
  * modifier, `export default`, or a later `export { fn as name }` list.
  */
 export function exportNames(fn: ts.Node, local: string): Set<string> {
-  const names = new Set<string>();
   const declaration = ts.isFunctionDeclaration(fn) ? fn : fn.parent?.parent?.parent; // VariableStatement
+  return exportNamesOf(fn.getSourceFile(), local, declaration);
+}
+
+/** The names `local` is exported under, given the statement that declares it. */
+export function exportNamesOf(source: ts.SourceFile, local: string, declaration?: ts.Node): Set<string> {
+  const names = new Set<string>();
   const modifiers = declaration && ts.canHaveModifiers(declaration) ? (ts.getModifiers(declaration) ?? []) : [];
   if (modifiers.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) {
     names.add(modifiers.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword) ? "default" : local);
   }
-  for (const statement of fn.getSourceFile().statements) {
+  for (const statement of source.statements) {
     if (ts.isExportAssignment(statement) && !statement.isExportEquals && ts.isIdentifier(statement.expression) && statement.expression.text === local) {
       names.add("default");
     }

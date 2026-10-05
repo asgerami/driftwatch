@@ -24,3 +24,15 @@ diff --git a/src/billing.ts b/src/billing.ts
    });
  }
  
+diff --git a/src/routes/intents.ts b/src/routes/intents.ts
+--- a/src/routes/intents.ts
++++ b/src/routes/intents.ts
+@@ -2,7 +2,7 @@
+ 
+ export async function later(amount: number) {
+   const s = getStripe();
+-  return s.paymentIntents.create({ amount, currency: "usd", payment_method_types: ["card"] }); // driftwatch-expect: sdk, field
++  return s.paymentIntents.create({ amount, currency: "usd" }); // driftwatch-expect: sdk, field
+ }
+ 
+ export async function confirmLater(id: string) {

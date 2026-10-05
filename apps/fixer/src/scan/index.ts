@@ -6,7 +6,8 @@ import { computeTargets, type FieldTarget, type TargetOperation, type Targets } 
 import { scanFields } from "./fields.js";
 import { sourceFiles } from "./files.js";
 import { parse, scanHttp } from "./http.js";
-import { scanSdk } from "./sdk.js";
+import { ModuleGraph } from "./modules.js";
+import { scanSdk, sharedClients } from "./sdk.js";
 
 export interface ScanResult {
   change: ChangeDocument;
@@ -51,11 +52,13 @@ export async function scan(change: ChangeDocument, spec: JsonObject, repo: strin
   const findings: Finding[] = [];
   const matched: MatchedCall[] = [];
   const sources = files.map((file) => parse(file.path, file.text));
+  const modules = new ModuleGraph(repo, new Map(sources.map((s) => [s.fileName, s])));
+  const shared = sharedClients(sources, modules, change.provider.slug);
   for (const source of sources) {
     findings.push(...scanHttp(source, targets, why, matched));
-    findings.push(...scanSdk(source, targets, change.provider.slug, why, matched));
+    findings.push(...scanSdk(source, targets, change.provider.slug, why, matched, shared.get(source.fileName)));
   }
-  findings.push(...scanFields(sources, matched, targets, explainField(change), repo));
+  findings.push(...scanFields(sources, matched, targets, explainField(change), modules));
   return {
     change,
     targets,

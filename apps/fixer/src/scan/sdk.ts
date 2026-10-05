@@ -2,6 +2,7 @@ import ts from "typescript";
 
 import type { Finding, MatchedCall } from "../findings.js";
 import type { TargetOperation, Targets } from "../targets.js";
+import { exportNamesOf, type ModuleGraph } from "./modules.js";
 
 /**
  * Official SDK calls to an affected operation.
@@ -157,6 +158,12 @@ function typeNamesSdk(type: ts.TypeNode | undefined, imports: Set<string>): bool
   return imports.has(name.text);
 }
 
+const ASSIGNMENTS = new Set([
+  ts.SyntaxKind.EqualsToken,
+  ts.SyntaxKind.QuestionQuestionEqualsToken,
+  ts.SyntaxKind.BarBarEqualsToken,
+]);
+
 /** Variables and `this.` fields holding a client. */
 function sdkClients(source: ts.SourceFile, imports: Set<string>, packages: string[]): { vars: Set<string>; fields: Set<string> } {
   const vars = new Set<string>();
@@ -179,6 +186,15 @@ function sdkClients(source: ts.SourceFile, imports: Set<string>, packages: strin
         fields.add(node.name.text);
       }
     }
+    // let client; … client = new Stripe(k), or client ??= new Stripe(k)
+    if (
+      ts.isBinaryExpression(node) &&
+      ASSIGNMENTS.has(node.operatorToken.kind) &&
+      ts.isIdentifier(node.left) &&
+      createsClient(node.right, imports, packages)
+    ) {
+      vars.add(node.left.text);
+    }
     if (
       ts.isBinaryExpression(node) &&
       node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
@@ -192,6 +208,98 @@ function sdkClients(source: ts.SourceFile, imports: Set<string>, packages: strin
   };
   visit(source);
   return { vars, fields };
+}
+
+/** Clients a file can use without making one: imported from a module of the repo's own. */
+export interface SharedClients {
+  /** Local names bound to a client: `import stripe from "@/lib/stripe"`. */
+  clients: Set<string>;
+  /** Local names of functions returning one: `const stripe = initStripe()`. */
+  factories: Set<string>;
+}
+
+function inlineRequires(text: string, packages: string[]): boolean {
+  return packages.some((pkg) => new RegExp(`require\\(\\s*["']${pkg.replace(/[/.]/g, "\\$&")}["']\\s*\\)\\s*\\(`).test(text));
+}
+
+/** Whether a function hands back a client: `return new Stripe(k)`, or a client variable. */
+function returnsClient(fn: ts.SignatureDeclaration, isClient: (e: ts.Expression) => boolean): boolean {
+  if (ts.isArrowFunction(fn) && !ts.isBlock(fn.body)) return isClient(fn.body);
+  let found = false;
+  const visit = (node: ts.Node) => {
+    if (found || (node !== fn && ts.isFunctionLike(node))) return;
+    if (ts.isReturnStatement(node) && node.expression && isClient(node.expression)) found = true;
+    ts.forEachChild(node, visit);
+  };
+  visit(fn);
+  return found;
+}
+
+/** What a file exports that is a client, or makes one. */
+function clientExports(source: ts.SourceFile, packages: string[]): { values: Set<string>; factories: Set<string> } {
+  const values = new Set<string>();
+  const factories = new Set<string>();
+  const imports = sdkImports(source, packages);
+  if (imports.size === 0 && !inlineRequires(source.text, packages)) return { values, factories };
+  const { vars } = sdkClients(source, imports, packages);
+  const isClient = (e: ts.Expression): boolean => {
+    let x = e;
+    while (ts.isParenthesizedExpression(x) || ts.isAwaitExpression(x) || ts.isAsExpression(x) || ts.isNonNullExpression(x)) x = x.expression;
+    if (createsClient(x, imports, packages)) return true;
+    if (ts.isIdentifier(x)) return vars.has(x.text);
+    if (ts.isBinaryExpression(x)) return isClient(x.left) || isClient(x.right); // client ??= new Stripe(k)
+    if (ts.isConditionalExpression(x)) return isClient(x.whenTrue) || isClient(x.whenFalse);
+    return false;
+  };
+  const isFactory = (e: ts.Node | undefined): boolean => !!e && (ts.isArrowFunction(e) || ts.isFunctionExpression(e)) && returnsClient(e, isClient);
+
+  for (const statement of source.statements) {
+    if (ts.isVariableStatement(statement)) {
+      for (const d of statement.declarationList.declarations) {
+        if (!ts.isIdentifier(d.name)) continue;
+        const names = exportNamesOf(source, d.name.text, statement);
+        if (vars.has(d.name.text)) names.forEach((n) => values.add(n));
+        else if (isFactory(d.initializer)) names.forEach((n) => factories.add(n));
+      }
+    } else if (ts.isFunctionDeclaration(statement) && returnsClient(statement, isClient)) {
+      const names = statement.name ? exportNamesOf(source, statement.name.text, statement) : new Set<string>();
+      if (!statement.name) names.add("default"); // export default function () { … }
+      names.forEach((n) => factories.add(n));
+    } else if (ts.isExportAssignment(statement) && !statement.isExportEquals) {
+      if (isClient(statement.expression)) values.add("default");
+      else if (isFactory(statement.expression)) factories.add("default");
+    }
+  }
+  return { values, factories };
+}
+
+/**
+ * For each file, the clients it imports from the repo's own modules. A shared
+ * `lib/stripe.ts` is the most common way to hold a client; the Golobe travel
+ * app makes one with `initStripe()` in one module and calls it in another,
+ * and nothing that looked only within a file found it.
+ */
+export function sharedClients(sources: ts.SourceFile[], modules: ModuleGraph, providerSlug: string): Map<string, SharedClients> {
+  const out = new Map<string, SharedClients>();
+  const packages = SDK_PACKAGES[providerSlug];
+  if (!packages) return out;
+  const exporters: { file: string; values: Set<string>; factories: Set<string> }[] = [];
+  for (const source of sources) {
+    if (!packages.some((pkg) => source.text.includes(pkg))) continue;
+    const { values, factories } = clientExports(source, packages);
+    if (values.size > 0 || factories.size > 0) exporters.push({ file: source.fileName, values, factories });
+  }
+  if (exporters.length === 0) return out;
+  for (const source of sources) {
+    const shared: SharedClients = { clients: new Set(), factories: new Set() };
+    for (const e of exporters) {
+      if (e.file === source.fileName) continue;
+      for (const b of modules.bindings(source, e.file, e.values)) if (b.kind === "name") shared.clients.add(b.local);
+      for (const b of modules.bindings(source, e.file, e.factories)) if (b.kind === "name") shared.factories.add(b.local);
+    }
+    if (shared.clients.size > 0 || shared.factories.size > 0) out.set(source.fileName, shared);
+  }
+  return out;
 }
 
 /** `a.b.c.d(…)` → { root: "a" | "this.a", names: ["b","c","d"] }. */
@@ -215,18 +323,21 @@ export function scanSdk(
   providerSlug: string,
   why: (op: TargetOperation) => string,
   matched: MatchedCall[] = [],
+  shared?: SharedClients,
 ): Finding[] {
   const file = source.fileName;
   const text = source.text;
   const packages = SDK_PACKAGES[providerSlug];
   if (!packages || targets.operations.length === 0) return [];
-  if (!packages.some((pkg) => text.includes(pkg))) return [];
+  if (!shared && !packages.some((pkg) => text.includes(pkg))) return [];
 
-  const imports = sdkImports(source, packages);
+  // A factory imported from the repo's own module makes a client like the
+  // SDK's constructor does: const stripe = initStripe().
+  const imports = new Set([...sdkImports(source, packages), ...(shared?.factories ?? [])]);
   // require("stripe")(key) creates a client with no import binding at all.
-  const inlineRequire = packages.some((pkg) => new RegExp(`require\\(\\s*["']${pkg.replace(/[/.]/g, "\\$&")}["']\\s*\\)\\s*\\(`).test(text));
-  if (imports.size === 0 && !inlineRequire) return [];
+  if (imports.size === 0 && !inlineRequires(text, packages) && !shared?.clients.size) return [];
   const { vars, fields } = sdkClients(source, imports, packages);
+  for (const name of shared?.clients ?? []) vars.add(name);
   const isClient = (root: string) => (root.startsWith("this.") ? fields.has(root.slice(5)) : vars.has(root));
 
   const signatures = targets.operations.map((op) => ({ op, signatures: signaturesFor(op) }));
