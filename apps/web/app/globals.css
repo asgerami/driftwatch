@@ -41,6 +41,9 @@
   --shadow-lg: 0 1px 2px rgb(16 16 32 / 5%), 0 40px 80px -36px rgb(16 16 32 / 30%);
 
   --f-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --f-display: var(--f-sans);
+  /* Accent for text, icons and focus, where the button fill would be too light. */
+  --accent-strong: #8a5a00;
   --f-mono: var(--font-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -99,7 +102,7 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid var(--amber);
+  outline: 2px solid var(--accent-strong);
   outline-offset: 3px;
   border-radius: 4px;
 }
@@ -108,6 +111,7 @@ h1,
 h2,
 h3 {
   margin: 0;
+  font-family: var(--f-display);
   font-weight: 600;
   line-height: 1.12;
   letter-spacing: -0.025em;
@@ -210,6 +214,7 @@ textarea {
 }
 
 .wordmark {
+  font-family: var(--f-display);
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -221,7 +226,7 @@ textarea {
 }
 
 .wordmark svg {
-  color: var(--amber);
+  color: var(--accent-strong);
   flex: none;
 }
 
@@ -560,7 +565,7 @@ textarea {
 }
 
 .window-bar svg {
-  color: var(--amber);
+  color: var(--accent-strong);
 }
 
 .window-bar .updated {
@@ -945,7 +950,7 @@ textarea {
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--amber);
+  color: var(--accent-strong);
 }
 
 .step > p {
@@ -1111,7 +1116,7 @@ textarea {
 }
 
 .flip svg {
-  color: var(--amber);
+  color: var(--accent-strong);
 }
 
 .marks {
@@ -1913,7 +1918,7 @@ textarea {
 
 .watch-form input:focus {
   outline: none;
-  border-color: #d18f00;
+  border-color: var(--accent-strong);
   box-shadow: 0 0 0 3px var(--amber-soft);
 }
 
@@ -1978,7 +1983,7 @@ textarea {
 }
 
 .api-toggle input:focus-visible + span {
-  outline: 2px solid var(--amber);
+  outline: 2px solid var(--accent-strong);
   outline-offset: 2px;
 }
 
@@ -2292,7 +2297,7 @@ textarea {
   border: 1px solid var(--line-2);
   border-radius: 12px;
   background: var(--amber-soft);
-  color: #8a5a00;
+  color: var(--accent-strong);
 }
 
 .bento-wide {
@@ -2351,6 +2356,30 @@ textarea {
     grid-column: auto;
     grid-row: auto;
   }
+}
+
+/* ── Lab switcher (comparison pages only) ─────────────────────────── */
+
+.lab-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 16px;
+}
+
+.lab-switch a {
+  padding: 6px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  font-size: 0.86rem;
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.lab-switch a[aria-current="page"] {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: var(--amber-ink);
 }
 
 /* ── Motion preferences ───────────────────────────────────────────── */
