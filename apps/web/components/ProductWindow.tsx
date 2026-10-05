@@ -10,7 +10,10 @@ import { FlipIcon, LogoMark, SeverityGlyph, SeverityMark } from "./Marks";
 export interface WindowItem {
   id: string;
   href: string;
+  providerSlug: string;
   providerName: string;
+  /** The provider's mark (an SVG path on a 24 grid), when it has one. */
+  markPath?: string;
   shippedAt: string;
   severity: Severity;
   headline: string;
@@ -18,6 +21,22 @@ export interface WindowItem {
   where: string;
   pattern?: string;
   directionFlip: boolean;
+}
+
+/** The provider's mark, or its initial. */
+export function Mark({ item, size = 14 }: { item: Pick<WindowItem, "markPath" | "providerName">; size?: number }) {
+  if (!item.markPath) {
+    return (
+      <span className="lettermark" style={{ width: size, height: size, fontSize: size * 0.56 }} aria-hidden="true">
+        {item.providerName.charAt(0)}
+      </span>
+    );
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d={item.markPath} />
+    </svg>
+  );
 }
 
 /**
@@ -64,7 +83,9 @@ export function ProductWindow({ items }: { items: WindowItem[] }) {
                 <span className="sev">
                   <SeverityGlyph severity={entry.severity} size={12} />
                 </span>
-                <span className="inbox-provider">{entry.providerName}</span>
+                <span className="inbox-provider">
+                  <Mark item={entry} size={12} /> {entry.providerName}
+                </span>
                 <time className="inbox-date" dateTime={entry.shippedAt}>
                   {entry.shippedAt.slice(5, 10)}
                 </time>
@@ -76,8 +97,9 @@ export function ProductWindow({ items }: { items: WindowItem[] }) {
         <div className="detail" data-switching={switching} aria-live="polite">
           <div className="detail-meta">
             <SeverityMark severity={item.severity} pill />
-            <span>
-              {item.providerName}, <time dateTime={item.shippedAt}>{item.shippedAt.slice(0, 10)}</time>
+            <span className="detail-provider">
+              <Mark item={item} size={14} /> {item.providerName},{" "}
+              <time dateTime={item.shippedAt}>{item.shippedAt.slice(0, 10)}</time>
             </span>
             {item.directionFlip ? (
               <span className="flip" title="Producer-side tools classify this as non-breaking.">

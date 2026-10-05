@@ -1,50 +1,17 @@
 import type { Metadata } from "next";
 
-import { EmptyFeed, Release, whereText } from "../components/Change";
+import { EmptyFeed, Release } from "../components/Change";
 import { FlipTabs, type Flip } from "../components/FlipTabs";
 import { FeedIcon, PullIcon, SeverityMark } from "../components/Marks";
-import { ProductWindow, type WindowItem } from "../components/ProductWindow";
+import { ProductWindow } from "../components/ProductWindow";
+import { windowItems } from "../lib/home";
 import { listProviders, recentReleases } from "../lib/queries";
-import type { ReleaseView } from "../lib/types";
 
 export const revalidate = 300;
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 const FEATURED = ["stripe", "openai", "github"];
-const RANK = { BREAKING: 0, DEPRECATION: 1, BEHAVIORAL: 2, ADDITIVE: 3, COSMETIC: 4 } as const;
-
-/** The window's inbox: the latest published changes, breaks first. */
-function windowItems(releases: ReleaseView[]): WindowItem[] {
-  const items: (WindowItem & { order: number })[] = [];
-  const seen = new Set<string>();
-  releases.forEach((release, r) => {
-    for (const change of release.changes) {
-      if (!change.href || change.severity === "ADDITIVE" || change.severity === "COSMETIC") continue;
-      const key = `${release.providerSlug}|${change.headline}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      items.push({
-        id: change.id,
-        href: change.href,
-        providerName: release.providerName,
-        shippedAt: release.shippedAt,
-        severity: change.severity,
-        headline: change.headline,
-        body: change.body.split("\n\n")[0] ?? "",
-        where: whereText(change),
-        pattern: change.patterns.ts ?? change.patterns.py ?? change.patterns.go,
-        directionFlip: change.directionFlip,
-        order: RANK[change.severity] * 1000 + r,
-      });
-    }
-  });
-  return items
-    .sort((a, b) => a.order - b.order)
-    .slice(0, 6)
-    .map(({ order: _order, ...item }) => item);
-}
-
 const FLIPS: Flip[] = [
   {
     tab: "A field becomes optional",
