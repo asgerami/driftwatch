@@ -1799,6 +1799,90 @@ textarea {
   }
 }
 
+/* "On this page" and the severity legend, in the method page's aside. */
+.read-main h2[id],
+#ruleset {
+  scroll-margin-top: 96px;
+}
+
+.toc {
+  padding: 16px 0;
+}
+
+.aside-card.legend {
+  padding: 16px 20px;
+}
+
+/* The method page's aside: a narrow column at the far right. */
+@media (min-width: 961px) {
+  .read > .aside[aria-label="About this page"] {
+    justify-self: end;
+    width: 100%;
+    max-width: 340px;
+  }
+}
+
+.toc-title {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.toc ul,
+.legend ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+
+.toc a {
+  display: block;
+  padding: 6px 0 6px 12px;
+  border-left: 2px solid var(--line);
+  font-size: 0.9rem;
+  color: var(--text-2);
+  text-decoration: none;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.toc a[aria-current="location"] {
+  border-left-color: var(--accent-strong);
+  color: var(--text);
+  font-weight: 500;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .toc a:hover {
+    color: var(--text);
+  }
+}
+
+.legend ul {
+  gap: 14px;
+}
+
+.legend li {
+  display: grid;
+  gap: 3px;
+  font-size: 0.88rem;
+  color: var(--text-2);
+}
+
+.legend-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.legend-count {
+  font-size: 0.8rem;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
 .footnote {
   margin-top: 28px;
   font-size: 0.88rem;
@@ -1813,6 +1897,11 @@ textarea {
 
   .aside {
     position: static;
+  }
+
+  /* Below the article, a list of its own sections helps nobody. */
+  .aside-card:has(.toc) {
+    display: none;
   }
 }
 
