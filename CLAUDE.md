@@ -322,6 +322,10 @@ change and read the output before trusting it.
 
 - **Never add Claude attribution to commits.** No `Co-Authored-By`, no
   "generated with" trailers, no attribution lines of any kind.
+- **Conventional commits** from 2026-10-05 on (brief section 7):
+  `feat(fixer): …`, `fix(worker): …`, `docs: …`, `test: …`, `chore: …`,
+  scoped by package where one applies. Earlier history uses plain sentences
+  and stays as it is. PR titles follow the same form.
 - A pre-commit hook runs build and tests. A type error reached a commit once.
 - `packages/core` has a `prepare` script so `pnpm install` builds `dist/`. The
   worker and the site import core by that dist path, so a stale `dist` means
