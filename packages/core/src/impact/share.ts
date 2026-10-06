@@ -7,6 +7,8 @@
  * the fact and links the permanent change page.
  */
 
+import type { ProviderNote } from "./providers.js";
+
 export interface ShareInput {
   providerName: string;
   /** e.g. "Response field abuse removed". */
@@ -25,8 +27,8 @@ export interface ShareInput {
   changeUrl: string;
   /** Spec diff or hosted spec, when there is one. */
   sourceUrl?: string;
-  /** How many APIs Driftwatch watches, for the disclosure line. */
-  watchedApis: number;
+  /** How the provider versions its API, when a reader needs it to judge the break. */
+  providerNote?: ProviderNote;
 }
 
 export interface ShareDrafts {
@@ -73,10 +75,14 @@ export function shareDrafts(input: ShareInput): ShareDrafts {
   // X: fact, place, why it matters, link. Trim the middle, never the link.
   const fact = `${input.providerName} API, ${day}: ${input.headline}${detail ? ` (${detail})` : ""}.`;
   const why = input.directionFlip ? FLIP_LINE : firstSentence(input.consequence);
+  const note = input.providerNote ? `\n\n${input.providerNote.short}` : "";
   const tail = `\n\n${input.changeUrl}`;
   const budget = X_LIMIT - xLength(tail);
-  let lead = `${fact}${where ? `\n${where}.` : ""}\n\n${why}`;
-  if (lead.length > budget) lead = `${fact}\n\n${why}`;
+  // Shed the place, then the why, before the provider's note: without the
+  // note a Stripe reader rightly answers that their pinned version is fine.
+  let lead = `${fact}${where ? `\n${where}.` : ""}\n\n${why}${note}`;
+  if (lead.length > budget) lead = `${fact}\n\n${why}${note}`;
+  if (lead.length > budget) lead = `${fact}${note}`;
   if (lead.length > budget) lead = clip(fact, budget);
   const x = `${lead}${tail}`;
 
@@ -92,12 +98,14 @@ export function shareDrafts(input: ShareInput): ShareDrafts {
     ...(more > 0 ? [`- and ${more} more`] : []),
     "",
     `Why it matters: ${input.consequence}`,
-    ...(input.directionFlip ? ["", FLIP_LINE] : []),
+    // Flip rules' consequences mostly say it themselves; say it once.
+    ...(input.directionFlip && !/producer-side/i.test(input.consequence) ? ["", FLIP_LINE] : []),
+    ...(input.providerNote ? ["", `Note: ${input.providerNote.note}`] : []),
     "",
     ...(input.sourceUrl ? [`Spec diff: ${input.sourceUrl}`] : []),
     `Details: ${input.changeUrl}`,
     "",
-    `Disclosure: I run Driftwatch, which watches the published OpenAPI specs of ${input.watchedApis} APIs from the consumer side and flags changes that break calling code. Classified by a fixed rule (${input.ruleId}), no model involved; how it decides: https://driftwatch.et/method`,
+    `Disclosure: I run Driftwatch, which reads the published OpenAPI specs of the APIs teams depend on, from the calling side, and flags changes that break calling code. Classified by a fixed rule (${input.ruleId}), no model involved; how it decides: https://driftwatch.et/method`,
   ].join("\n");
 
   return { x, title, body };

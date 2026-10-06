@@ -3,6 +3,7 @@ import {
   RULES,
   RULESET_VERSION,
   groupStories,
+  providerNote,
   renderImpact,
   storyDetail,
   type Change as CoreChange,
@@ -10,7 +11,6 @@ import {
 } from "@driftwatch/core";
 import { prisma } from "./db";
 import { leadWithSignal, splitCards } from "./feed";
-import { providerNote } from "./providers";
 import type { ChangeView, ProviderView, ReleaseView, StoryFact, StoryPageView } from "./types";
 
 /**
@@ -230,7 +230,7 @@ function toRelease(run: RunRow): ReleaseView {
     responseFieldAdds,
     requestPropertyAdds,
     requestNullableAdds,
-    providerNote: counts.BREAKING > 0 ? providerNote(run.to.source.provider.slug) : undefined,
+    providerNote: counts.BREAKING > 0 ? providerNote(run.to.source.provider.slug)?.note : undefined,
   };
 }
 

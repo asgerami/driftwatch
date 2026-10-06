@@ -78,4 +78,6 @@ export {
   type ShareInput,
 } from "./impact/share.js";
 
+export { providerNote, type ProviderNote } from "./impact/providers.js";
+
 export type { ChangeDocument } from "./change-document.js";

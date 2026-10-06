@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { providerNote } from "./providers.js";
 import { TITLE_LIMIT, X_LIMIT, shareDrafts, xLength, type ShareInput } from "./share.js";
 
 const vercel: ShareInput = {
@@ -13,7 +14,6 @@ const vercel: ShareInput = {
   shippedAt: "2026-10-03T05:20:00.000Z",
   changeUrl: "https://driftwatch.et/changes/vercel-2026-10-03-4007d59c",
   sourceUrl: "https://openapi.vercel.sh/",
-  watchedApis: 21,
 };
 
 describe("share drafts", () => {
@@ -59,6 +59,40 @@ describe("share drafts", () => {
     });
     expect(mux.x).not.toContain("(can now return");
     expect(mux.body).not.toContain("(can now return");
+  });
+
+  it("carry the provider's versioning note, on X and in the long post", () => {
+    // Real case: Stripe's 2026-09-23 spec dropped payment_method_types. Every
+    // account is pinned to a version, so without the note the post reads as
+    // an outage that has not happened.
+    const stripe = shareDrafts({
+      ...vercel,
+      providerName: "Stripe",
+      headline: "payment_method_types is no longer accepted",
+      consequence: "Usually ignored rather than rejected, so the call succeeds and does something subtly different.",
+      ruleId: "request.property.removed",
+      directionFlip: true,
+      locations: Array.from({ length: 6 }, (_, i) => `POST /v1/payment_intents/${i} · payment_method_types`),
+      providerNote: providerNote("stripe"),
+    });
+    expect(stripe.x).toContain("Stripe pins each account to an API version");
+    expect(xLength(stripe.x)).toBeLessThanOrEqual(X_LIMIT);
+    expect(stripe.body).toContain("Note: Stripe's published spec describes its newest API version.");
+  });
+
+  it("say a direction flip once when the consequence already says it", () => {
+    // Real case: OpenAI's new spend-limit error codes printed both lines.
+    const enumAdded = shareDrafts({
+      ...vercel,
+      directionFlip: true,
+      ruleId: "response.enum.value-added",
+      consequence: "Producer-side tools call this additive. It breaks exhaustive switches, strict parsers and generated client enums.",
+    });
+    expect(enumAdded.body.match(/producer-side/gi)).toHaveLength(1);
+  });
+
+  it("quote no count of APIs that will go stale", () => {
+    expect(shareDrafts(vercel).body).not.toMatch(/\d+ APIs/);
   });
 
   it("count URLs the way X does", () => {
