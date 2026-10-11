@@ -360,8 +360,28 @@ describe("security", () => {
 
   it("flags removing the alternative a caller may be using", () => {
     const result = run([{ oauth: [] }, { apiKey: [] }], [{ oauth: [] }]);
-    expect(ids(result)).toEqual(["security.scheme-changed"]);
+    expect(ids(result)).toEqual(["security.alternative-removed"]);
     expect(result.changes[0]?.before).toBe("apiKey");
+    expect(result.changes[0]?.severity).toBe("BREAKING");
+  });
+
+  it("names the option that still works when one alternative is withdrawn", () => {
+    // Real case: Datadog's POST /api/v2/events on 2026-10-08 accepted API +
+    // application key OR OAuth, then dropped OAuth. It read as "scheme
+    // changed, needs reworking", wrong for every API-key caller.
+    const result = run(
+      [{ apiKeyAuth: [], appKeyAuth: [] }, { AuthZ: [] }],
+      [{ apiKeyAuth: [], appKeyAuth: [] }],
+    );
+    expect(ids(result)).toEqual(["security.alternative-removed"]);
+    expect(result.changes[0]?.detail).toBe(
+      "AuthZ no longer accepted; apiKeyAuth + appKeyAuth still is",
+    );
+  });
+
+  it("still calls it a scheme change when no old alternative survives", () => {
+    const result = run([{ basicAuth: [] }, { apiKey: [] }], [{ bearerAuth: [] }]);
+    expect(ids(result)).toEqual(["security.scheme-changed", "security.scheme-changed"]);
   });
 
   it("treats a dropped credential as a relaxation held below the threshold", () => {

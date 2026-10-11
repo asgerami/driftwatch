@@ -182,6 +182,14 @@ export function renderImpact(change: Change): RenderedImpact {
       break;
     }
 
+    case "security.alternative-removed": {
+      headline = `${String(change.before ?? "A credential")} no longer accepted on ${change.path ?? "this operation"}`;
+      body =
+        `${change.consequence}\n\nAffects ${site}. Still accepted: \`${String(change.after ?? "")}\`. ` +
+        `Check which credentials your integration sends before treating this as yours.`;
+      break;
+    }
+
     case "pagination.default-changed": {
       headline = `Pagination default for ${leaf(change.fieldPath)} changed to ${JSON.stringify(change.after)}`;
       patterns.ts = `// Unpaginated calls now return ${JSON.stringify(change.after)} items, previously ${JSON.stringify(change.before)}\nconst page = await client.get("${change.path ?? "/…"}");`;

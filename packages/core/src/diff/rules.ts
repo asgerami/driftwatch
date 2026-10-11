@@ -291,6 +291,14 @@ export const RULES: Record<string, Rule> = Object.fromEntries(
       consequence: "The integration needs reworking, not patching.",
     }),
     rule({
+      id: "security.alternative-removed",
+      severity: "BREAKING",
+      confidence: 90,
+      headline: "One way to authenticate removed",
+      consequence:
+        "Callers using the withdrawn credentials are rejected. Callers already on a remaining option are unaffected.",
+    }),
+    rule({
       id: "security.requirement-removed",
       severity: "BEHAVIORAL",
       confidence: 80,

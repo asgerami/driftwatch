@@ -86,7 +86,7 @@ export interface DiffResult {
   counts: Record<Severity, number>;
 }
 
-export const RULESET_VERSION = "1.6.0";
+export const RULESET_VERSION = "1.7.0";
 
 /** A single pair of specs should never produce more than this. */
 const MAX_CHANGES = 5000;
@@ -631,6 +631,23 @@ function diffOperation(input: OperationDiffInput): void {
           before: schemesOf(held),
           after: schemesOf(sameSchemes),
           detail: `requires ${[...new Set(missing)].sort().join(", ")}`,
+        });
+      } else if (
+        beforeRequirements.some(
+          (other) => other.size > 0 && afterRequirements.some((need) => satisfies(other, need)),
+        )
+      ) {
+        // Another way in still works. Only callers of the withdrawn option
+        // break; calling it "scheme changed" told everyone to rework auth.
+        // Datadog's POST /api/v2/events dropped OAuth beside API + app keys.
+        const remaining = afterRequirements.map(schemesOf).join(" or ");
+        emit({
+          ...location,
+          ruleId: "security.alternative-removed",
+          jsonPointer: `${at}/security`,
+          before: schemesOf(held),
+          after: remaining,
+          detail: `${schemesOf(held)} no longer accepted; ${remaining} still is`,
         });
       } else {
         emit({

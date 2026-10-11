@@ -30,6 +30,7 @@ export const ALWAYS_HELD_RULES: ReadonlySet<string> = new Set([
   "operation.removed",
   "security.scope-added",
   "security.scheme-changed",
+  "security.alternative-removed",
   "security.requirement-removed",
 ]);
 
