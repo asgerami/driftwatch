@@ -384,6 +384,14 @@ change and read the output before trusting it.
    portfolio project with a business model nobody asked for. The signal to wait
    for is one person saying the digest caught something before it hit their
    production.
+8. **An SDK method whose URL depends on its options is mapped by name alone.**
+   Resend's `contacts.list({ segmentId })` calls `/segments/{id}/contacts`;
+   only without an id does it call `GET /contacts`. Scan maps every
+   `contacts.list` to `GET /contacts`, so when Resend dropped that endpoint's
+   `segment_id` filter, `mbifulco/blog` and `classmoji` came up as high-confidence
+   SDK findings that the change cannot reach. They are "other findings",
+   never patched, so nothing wrong could ship. But read the SDK's source
+   before acting on an SDK finding for an option-routed method.
 
 ## When changing the ruleset
 

@@ -288,10 +288,6 @@ export function plan(change: ChangeDocument, result: ScanResult, after: JsonObje
         skipped.push({ finding, reason: `${finding.confidence} confidence: reported, never patched` });
         continue;
       }
-      if (!documented.found) {
-        skipped.push({ finding, reason: `\`${fact.fieldPath}\` is now required and ${documented.reason}` });
-        continue;
-      }
       const source = result.sources.get(finding.file);
       let node = source && nodeAt(source, finding.line, finding.column);
       while (node && !ts.isCallExpression(node)) node = node.parent;
@@ -317,7 +313,14 @@ export function plan(change: ChangeDocument, result: ScanResult, after: JsonObje
         continue;
       }
       const leaf = path[path.length - 1]!;
+      // A call that already sends the field is not affected, whatever the spec
+      // documents. Checked before giving up for want of a value: a call with
+      // `model: model || "dall-e-3"` was reported as missing it.
       if (target.properties.some((p) => p.name && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) && p.name.text === leaf)) continue;
+      if (!documented.found) {
+        skipped.push({ finding, reason: `\`${fact.fieldPath}\` is now required and ${documented.reason}` });
+        continue;
+      }
       patches.push({
         file: finding.file,
         line: source.getLineAndCharacterOfPosition(target.getStart(source)).line + 1,

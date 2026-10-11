@@ -89,6 +89,16 @@ describe("fix against the fixture repos", () => {
     expect(r.skipped.map((s) => [s.finding.line, s.reason])).toEqual([[41, "the call passes no object literal to add the field to"]]);
   });
 
+  it("reports a newly required field with no documented value only where the call leaves it out", async () => {
+    // Real case: OpenAI's image `model` became required with no default left.
+    // hyperframe-studio sends `model: model || "dall-e-3"` and was reported anyway.
+    const r = await result("openai-images");
+    expect(r.patches).toEqual([]);
+    expect(r.skipped.map((s) => [s.finding.line, s.reason])).toEqual([
+      [25, "`model` is now required and the spec documents no single value for it"],
+    ]);
+  });
+
   it("removes an optional field, but not one with a possible replacement or a computed value", async () => {
     const r = await result("stripe-payment-intents");
     expect(r.patches.map((p) => [p.file, p.line, p.kind])).toEqual([
