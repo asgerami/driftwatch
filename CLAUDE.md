@@ -398,14 +398,14 @@ change and read the output before trusting it.
    SDK findings that the change cannot reach. They are "other findings",
    never patched, so nothing wrong could ship. But read the SDK's source
    before acting on an SDK finding for an option-routed method.
-9. **Dropping one of several accepted auth alternatives reads as a scheme
-   change.** Datadog's `POST /api/v2/events` accepted API + application key
-   *or* OAuth (`AuthZ`); on 2026-10-08 the OAuth option went. That surfaced as
-   `security.scheme-changed`, "AuthZ → apiKeyAuth + appKeyAuth", "needs
-   reworking", which tells every reader to change auth when only OAuth callers
-   are affected. Auth changes are always held, so it was rejected in review,
-   not published. A rule for "an alternative was withdrawn", naming who it
-   reaches, would let it publish truthfully.
+9. **Fixed in ruleset 1.7.0: a withdrawn auth alternative.** Datadog's
+   `POST /api/v2/events` accepted API + application key *or* OAuth (`AuthZ`);
+   on 2026-10-08 the OAuth option went. It surfaced as
+   `security.scheme-changed`, "needs reworking", telling every reader to
+   change auth when only OAuth callers were affected, and was rejected in
+   review. When another old alternative still meets a new one, it is now
+   `security.alternative-removed` ("AuthZ no longer accepted; apiKeyAuth +
+   appKeyAuth still is"), still held as an auth change.
 
 ## When changing the ruleset
 
