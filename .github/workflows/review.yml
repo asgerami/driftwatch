@@ -1,0 +1,82 @@
+# The review gate, run by hand against production: list what is waiting,
+# publish it, or reject a false positive. The same `pnpm w review` a person
+# runs locally, without needing Neon and R2 credentials on that machine.
+#
+# Always list first and read the output: `publish` publishes every pending
+# story the listing shows for the target. The review-queue issue catches up
+# on the next scheduled poll.
+
+name: review
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "list (read-only) | publish | reject"
+        required: true
+        default: list
+        type: choice
+        options: [list, publish, reject]
+      target:
+        description: 'Provider slug or "slug/key". Empty for all (not allowed with publish).'
+        required: false
+        default: ""
+      match:
+        description: "reject only: text matched against each pending story's rule id and locations"
+        required: false
+        default: ""
+
+# Never alongside a poll: both write review state.
+concurrency:
+  group: poll
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      R2_BASE_URL: ${{ secrets.R2_BASE_URL }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      # Inputs reach the shell as variables, never interpolated into the script.
+      ACTION: ${{ inputs.action }}
+      TARGET: ${{ inputs.target }}
+      MATCH: ${{ inputs.match }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm generate
+
+      - name: Review
+        run: |
+          set -euo pipefail
+          case "$ACTION" in
+            list)
+              pnpm w review ${TARGET:+"$TARGET"}
+              ;;
+            publish)
+              # One provider at a time, so a publish is always a listing someone read.
+              [ -n "$TARGET" ] || { echo "publish needs a target"; exit 1; }
+              pnpm w review "$TARGET"
+              pnpm w review "$TARGET" --publish
+              ;;
+            reject)
+              [ -n "$MATCH" ] || { echo "reject needs match text"; exit 1; }
+              pnpm w review ${TARGET:+"$TARGET"} --reject "$MATCH"
+              ;;
+          esac
