@@ -3,6 +3,7 @@ import { writeFile } from "node:fs/promises";
 import {
   RULES,
   RULESET_VERSION,
+  providerNote,
   renderImpact,
   shareDrafts,
   storyDetail,
@@ -17,7 +18,10 @@ import { outputPath } from "./report.js";
  * The share kit: draft posts for published breaking changes.
  *
  * `--generate` (run by the scheduled job) drafts every published breaking
- * story from the last DRAFT_WINDOW_DAYS that has no draft yet. Plain `share`
+ * story from the last DRAFT_WINDOW_DAYS that has no draft yet. With
+ * `--refresh` it also rewrites every draft still waiting (neither posted nor
+ * skipped) from the current templates, however old; a posted draft is a
+ * record of what was said and is never touched. Plain `share`
  * lists the drafts nobody has posted or skipped, each with an X compose link
  * pre-filled with the draft: one click opens it, a person still presses Post.
  * Nothing in Driftwatch posts on its own.
@@ -29,6 +33,7 @@ const DRAFT_WINDOW_DAYS = 14;
 
 export interface ShareOptions {
   generate?: boolean;
+  refresh?: boolean;
   posted?: string;
   skip?: string;
   limit?: number;
@@ -47,15 +52,26 @@ export async function share(options: ShareOptions = {}): Promise<void> {
     return;
   }
   if (options.generate) {
-    await generate();
+    await generate(options.refresh === true);
     return;
   }
   await list(options.limit ?? 10, options.out);
 }
 
-async function generate(): Promise<void> {
-  const since = new Date(Date.now() - DRAFT_WINDOW_DAYS * 24 * 60 * 60 * 1000);
-  const drafted = new Set((await prisma.shareDraft.findMany({ select: { storyId: true } })).map((d) => d.storyId));
+async function generate(refresh: boolean): Promise<void> {
+  const existing = await prisma.shareDraft.findMany({
+    select: { storyId: true, shippedAt: true, postedAt: true, skippedAt: true },
+  });
+  const waiting = existing.filter((d) => !d.postedAt && !d.skippedAt);
+  // Without --refresh every drafted story is left alone; with it, only the
+  // ones a person already posted or skipped.
+  const drafted = new Set((refresh ? existing.filter((d) => d.postedAt || d.skippedAt) : existing).map((d) => d.storyId));
+  const windowStart = new Date(Date.now() - DRAFT_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  let since = windowStart;
+  if (refresh) {
+    for (const draft of waiting) if (draft.shippedAt < since) since = draft.shippedAt;
+  }
+  const isWaiting = new Set(waiting.map((d) => d.storyId));
 
   const rows = await prisma.change.findMany({
     where: {
@@ -105,9 +121,11 @@ async function generate(): Promise<void> {
     stories.set(row.storyId!, list);
   }
 
-  const watchedApis = await prisma.provider.count({ where: { sources: { some: { active: true } } } });
   let created = 0;
+  let rewritten = 0;
   for (const [storyId, list] of stories) {
+    // An older story is only here to refresh its waiting draft, never to start one.
+    if (!isWaiting.has(storyId) && (list[0]!.run.to.providerTime ?? list[0]!.run.to.capturedAt) < windowStart) continue;
     const first = list[0]!;
     const rule = RULES[first.ruleId];
     const impact = renderImpact({
@@ -139,22 +157,24 @@ async function generate(): Promise<void> {
       shippedAt: shippedAt.toISOString(),
       changeUrl: `${SITE_URL}/changes/${storyId}`,
       sourceUrl: sourceUrlOf(to.source.repo, to.source.url, from.commitSha, to.commitSha),
-      watchedApis,
+      providerNote: providerNote(to.source.provider.slug),
     });
 
-    await prisma.shareDraft.create({
-      data: {
-        storyId,
-        providerSlug: to.source.provider.slug,
-        shippedAt,
-        xPost: drafts.x,
-        title: drafts.title,
-        body: drafts.body,
-      },
-    });
-    created++;
+    const text = { xPost: drafts.x, title: drafts.title, body: drafts.body };
+    if (isWaiting.has(storyId)) {
+      await prisma.shareDraft.update({ where: { storyId }, data: text });
+      rewritten++;
+    } else {
+      await prisma.shareDraft.create({
+        data: { storyId, providerSlug: to.source.provider.slug, shippedAt, ...text },
+      });
+      created++;
+    }
   }
-  log.ok(`share: ${created} new draft(s) for breaking changes shipped in the last ${DRAFT_WINDOW_DAYS} days`);
+  log.ok(
+    `share: ${created} new draft(s) for breaking changes shipped in the last ${DRAFT_WINDOW_DAYS} days` +
+      (refresh ? `, ${rewritten} waiting draft(s) rewritten` : ""),
+  );
 }
 
 async function list(limit: number, out?: string): Promise<void> {
