@@ -313,6 +313,12 @@ visual layer be checked without a database.
 | `pnpm w seed` / `backfill` / `diff` / `review` / `poll` / `status` / `report` / `share` / `signals` / `pr log` | yes |
 | `pnpm check` (build and test everything) | no |
 
+The review gate also runs against production from GitHub Actions, with the
+repo's Neon and R2 secrets: the `review` workflow takes `action` (`list`,
+`publish`, `reject`), `target` and `match`. Publish needs a target and prints
+the listing first. Check a held story against the provider's spec history
+before publishing or rejecting it; the review-queue issue says why it was held.
+
 `pnpm w verify` and `pnpm w preview` are the real integration tests. They run
 against live provider repos. **Every bug worth finding in this project so far
 was found by them, not by the unit tests.** Run `preview` after any ruleset
@@ -392,6 +398,14 @@ change and read the output before trusting it.
    SDK findings that the change cannot reach. They are "other findings",
    never patched, so nothing wrong could ship. But read the SDK's source
    before acting on an SDK finding for an option-routed method.
+9. **Dropping one of several accepted auth alternatives reads as a scheme
+   change.** Datadog's `POST /api/v2/events` accepted API + application key
+   *or* OAuth (`AuthZ`); on 2026-10-08 the OAuth option went. That surfaced as
+   `security.scheme-changed`, "AuthZ → apiKeyAuth + appKeyAuth", "needs
+   reworking", which tells every reader to change auth when only OAuth callers
+   are affected. Auth changes are always held, so it was rejected in review,
+   not published. A rule for "an alternative was withdrawn", naming who it
+   reaches, would let it publish truthfully.
 
 ## When changing the ruleset
 
