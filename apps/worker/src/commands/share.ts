@@ -1,9 +1,11 @@
-import { writeFile } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 
 import {
   RULES,
   RULESET_VERSION,
+  composeUrl,
   providerNote,
+  rankDrafts,
   renderImpact,
   shareDrafts,
   storyDetail,
@@ -24,6 +26,8 @@ import { outputPath } from "./report.js";
  * record of what was said and is never touched. Plain `share`
  * lists the drafts nobody has posted or skipped, each with an X compose link
  * pre-filled with the draft: one click opens it, a person still presses Post.
+ * `--pick` (run daily by the share workflow) chooses the one waiting draft
+ * most worth posting today, with two runners-up, for the share-today issue.
  * Nothing in Driftwatch posts on its own.
  */
 
@@ -34,6 +38,7 @@ const DRAFT_WINDOW_DAYS = 14;
 export interface ShareOptions {
   generate?: boolean;
   refresh?: boolean;
+  pick?: boolean;
   posted?: string;
   skip?: string;
   limit?: number;
@@ -53,6 +58,10 @@ export async function share(options: ShareOptions = {}): Promise<void> {
   }
   if (options.generate) {
     await generate(options.refresh === true);
+    return;
+  }
+  if (options.pick) {
+    await pick(options.out);
     return;
   }
   await list(options.limit ?? 10, options.out);
@@ -197,7 +206,7 @@ async function list(limit: number, out?: string): Promise<void> {
       "",
       draft.xPost,
       "",
-      `Compose: https://x.com/intent/post?text=${encodeURIComponent(draft.xPost)}`,
+      `Compose: ${composeUrl(draft.xPost)}`,
       "",
       "### Hacker News / Reddit",
       "",
@@ -217,6 +226,122 @@ async function list(limit: number, out?: string): Promise<void> {
   } else {
     console.log(document);
   }
+}
+
+const REPO_URL = "https://github.com/asgerami/driftwatch";
+const RUNNERS_UP = 2;
+
+/**
+ * Today's draft for the share-today issue. With `out`, the body goes to <out>
+ * and the issue title to <out>.title, and both are removed when there is
+ * nothing worth posting, which closes the issue (as `report` does).
+ */
+/** The next best, from other providers than the pick where there are any. */
+function runnersUp<T extends { draft: { providerSlug: string } }>(ranked: T[]): T[] {
+  const [top, ...rest] = ranked;
+  if (!top) return [];
+  const chosen: T[] = [];
+  const seen = new Set([top.draft.providerSlug]);
+  for (const p of rest) {
+    if (chosen.length === RUNNERS_UP) break;
+    if (!seen.has(p.draft.providerSlug)) {
+      chosen.push(p);
+      seen.add(p.draft.providerSlug);
+    }
+  }
+  for (const p of rest) {
+    if (chosen.length === RUNNERS_UP) break;
+    if (!chosen.includes(p)) chosen.push(p);
+  }
+  return chosen;
+}
+
+async function pick(out?: string): Promise<void> {
+  const waiting = await prisma.shareDraft.findMany({ where: { postedAt: null, skippedAt: null } });
+  // Only stories still published under the current ruleset: a draft whose
+  // story was later rejected must never be put in front of a person to post.
+  const facts = await prisma.change.findMany({
+    where: {
+      storyId: { in: waiting.map((d) => d.storyId) },
+      publishedAt: { not: null },
+      run: { rulesetVer: RULESET_VERSION },
+    },
+    select: { storyId: true, ruleId: true, directionFlip: true },
+  });
+  const factOf = new Map(facts.map((f) => [f.storyId!, f]));
+  const recentlyPosted = (
+    await prisma.shareDraft.findMany({
+      where: { postedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+      select: { providerSlug: true, postedAt: true },
+    })
+  ).map((d) => ({ providerSlug: d.providerSlug, postedAt: d.postedAt! }));
+
+  const ranked = rankDrafts(
+    waiting.flatMap((d) => {
+      const fact = factOf.get(d.storyId);
+      return fact ? [{ ...d, shippedAt: d.shippedAt.toISOString(), ruleId: fact.ruleId, directionFlip: fact.directionFlip }] : [];
+    }),
+    { now: new Date(), recentlyPosted },
+  );
+
+  const write = async (body: string | undefined, title?: string) => {
+    if (!out) {
+      console.log(body ?? "nothing worth posting today");
+      return;
+    }
+    const path = outputPath(out);
+    if (body === undefined) {
+      await Promise.all([rm(path, { force: true }), rm(`${path}.title`, { force: true })]);
+      log.info("share: nothing worth posting today");
+      return;
+    }
+    await Promise.all([writeFile(path, body), writeFile(`${path}.title`, title!)]);
+    log.ok(`share: today's pick → ${path}`);
+  };
+
+  const top = ranked[0];
+  if (!top) return write(undefined);
+
+  const mark = (action: "posted" | "skip", storyId: string) =>
+    `${REPO_URL}/actions/workflows/share.yml (Run workflow → ${action} → ${storyId})`;
+  const draft = top.draft;
+  const body = [
+    `## Post this today`,
+    "",
+    `**[Open it on X, ready to post](${composeUrl(draft.xPost)})**`,
+    "",
+    "```",
+    draft.xPost,
+    "```",
+    "",
+    `Why this one: ${top.reasons.join(", ")}.`,
+    `Change page: ${SITE_URL}/changes/${draft.storyId}`,
+    "",
+    `Posted it? Mark it so tomorrow's pick moves on: ${mark("posted", draft.storyId)}, or locally \`pnpm w share --posted ${draft.storyId}\`.`,
+    `Not worth it? ${mark("skip", draft.storyId)}, or \`pnpm w share --skip ${draft.storyId}\`.`,
+    "",
+    "<details><summary>Hacker News / Reddit version</summary>",
+    "",
+    `**${draft.title}**`,
+    "",
+    draft.body,
+    "",
+    "</details>",
+    "",
+    ...(ranked.length > 1
+      ? [
+          "## Or one of these",
+          "",
+          ...runnersUp(ranked)
+            .map((p) => `- [${p.draft.xPost.split("\n")[0]}](${composeUrl(p.draft.xPost)}) · \`${p.draft.storyId}\` · ${p.reasons.join(", ")}`),
+          "",
+        ]
+      : []),
+    `_${ranked.length} draft(s) worth posting. Picked by the share workflow; nothing posts itself._`,
+    "",
+  ].join("\n");
+  const headline = draft.xPost.split("\n")[0]!.replace(/\.$/, "");
+  await write(body, `Post today: ${headline.length > 90 ? `${headline.slice(0, 89)}…` : headline}`);
 }
 
 function locationOf(row: {

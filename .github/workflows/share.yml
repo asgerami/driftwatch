@@ -1,0 +1,86 @@
+# The daily share pick: the one waiting draft most worth posting today, put in
+# front of a person in the share-today issue with a one-click X link. A new
+# issue notifies, and so does a comment when the pick changes.
+#
+# Nothing posts on its own (CLAUDE.md note 22). Run it by hand to mark a draft
+# posted or skipped from anywhere, then the issue moves on to the next pick.
+
+name: share
+
+on:
+  schedule:
+    # 14:07 UTC: mid-morning in the US, early evening in Addis Ababa.
+    - cron: "7 14 * * *"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "pick (refresh the issue) | posted | skip"
+        required: true
+        default: pick
+        type: choice
+        options: [pick, posted, skip]
+      story:
+        description: "posted / skip: the story id, e.g. stripe-2026-09-23-a76f3bb4"
+        required: false
+        default: ""
+
+concurrency:
+  group: share
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  share:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      # Inputs reach the shell as variables, never interpolated into the script.
+      ACTION: ${{ inputs.action || 'pick' }}
+      STORY: ${{ inputs.story }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm generate
+
+      - name: Mark
+        if: env.ACTION != 'pick'
+        run: |
+          set -euo pipefail
+          [[ "$STORY" =~ ^[a-z0-9-]+$ ]] || { echo "story must be a story id like stripe-2026-09-23-a76f3bb4"; exit 1; }
+          if [ "$ACTION" = posted ]; then pnpm w share --posted "$STORY"; else pnpm w share --skip "$STORY"; fi
+
+      - name: Share-today issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          pnpm w share --pick --out "$GITHUB_WORKSPACE/pick.md"
+          cd "$GITHUB_WORKSPACE"
+          number=$(gh issue list --label share-today --state open --json number --jq '.[0].number // empty')
+          if [ -s pick.md ]; then
+            title=$(cat pick.md.title)
+            if [ -n "$number" ]; then
+              old=$(gh issue view "$number" --json title --jq .title)
+              gh issue edit "$number" --title "$title" --body-file pick.md
+              if [ "$old" != "$title" ]; then gh issue comment "$number" --body "$title"; fi
+            else
+              gh label create share-today --color 0e8a16 --description "Today's draft worth posting" 2>/dev/null || true
+              gh issue create --title "$title" --label share-today --body-file pick.md
+            fi
+          elif [ -n "$number" ]; then
+            gh issue close "$number" --comment "Nothing worth posting right now: every recent draft is posted, skipped or older than two weeks."
+          fi

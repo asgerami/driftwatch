@@ -70,6 +70,7 @@ export {
 } from "./diff/policy.js";
 
 export {
+  composeUrl,
   shareDrafts,
   xLength,
   X_LIMIT,
@@ -79,5 +80,13 @@ export {
 } from "./impact/share.js";
 
 export { providerNote, type ProviderNote } from "./impact/providers.js";
+
+export {
+  rankDrafts,
+  PICK_WINDOW_DAYS,
+  PROVIDER_REST_DAYS,
+  type Pick,
+  type PickCandidate,
+} from "./impact/pick.js";
 
 export type { ChangeDocument } from "./change-document.js";

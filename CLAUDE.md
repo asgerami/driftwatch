@@ -218,7 +218,11 @@ inactive sources.
 (`packages/core/src/impact/share.ts`) The same reason as note 4: a template
 cannot claim a fact the diff did not find, and a post under the founder's name
 is the last place for an invented one. `pnpm w share` lists drafts with an X
-compose link; a person presses Post. Never add an automatic poster.
+compose link; a person presses Post. Never add an automatic poster. The
+`share` workflow automates everything but the click: once a day it ranks the
+waiting drafts (`impact/pick.ts`) and puts the best in the `share-today` issue
+with a compose link. Hacker News and Reddit ban automated submissions, and 176
+template posts on a timer would read as the spam this product cannot afford.
 
 **23. The fixer finds; a person decides.** (`apps/fixer`) It reads a change
 from `/api/changes/<id>` and the provider's spec at that change's commit, and

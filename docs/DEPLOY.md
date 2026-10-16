@@ -146,7 +146,22 @@ pnpm w share                       # newest 10 unposted drafts, each with an X c
 pnpm w share -n 30 --out drafts.md # more, as a file to copy from
 pnpm w share --posted <storyId>    # after posting
 pnpm w share --skip <storyId>      # not worth posting
+pnpm w share --pick                # today's best draft, and two runners-up
 ```
+
+**Every day at 14:07 UTC** the `share` workflow picks the one waiting draft
+most worth posting and puts it in the `share-today` issue: the post, a link
+that opens it on X ready to post, the HN/Reddit version, and two runners-up
+from other providers. A new pick comments on the issue, so it notifies. Post
+it (one click, then Post), then mark it so tomorrow's pick moves on: Actions →
+share → Run workflow → `posted` (or `skip`) with the story id, or the same
+`pnpm w share --posted` locally. Run it with `pick` to refresh the issue by
+hand.
+
+The ranking is `rankDrafts` in `packages/core/src/impact/pick.ts`: provider
+reach, a direction flip (+3), a break in what callers send (+2), minus half a
+point per day waiting. Nothing older than 14 days, and a provider posted in the
+last two days rests. Only stories still published are picked.
 
 ## Signals
 

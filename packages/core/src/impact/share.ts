@@ -45,6 +45,16 @@ export const X_LIMIT = 280;
 export const X_URL_WEIGHT = 23;
 export const TITLE_LIMIT = 80;
 
+/**
+ * X's compose link, pre-filled with a draft: one click opens it, a person
+ * presses Post. Parentheses are escaped too, which encodeURIComponent leaves
+ * bare: one ends a Markdown link early, cutting the post at "(".
+ */
+export function composeUrl(text: string): string {
+  const encoded = encodeURIComponent(text).replace(/\(/g, "%28").replace(/\)/g, "%29");
+  return `https://x.com/intent/post?text=${encoded}`;
+}
+
 /** Length as X counts it: each http(s) URL weighs 23 characters. */
 export function xLength(text: string): number {
   return text.replace(/https?:\/\/\S+/g, "x".repeat(X_URL_WEIGHT)).length;

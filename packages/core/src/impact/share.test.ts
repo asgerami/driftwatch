@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { providerNote } from "./providers.js";
-import { TITLE_LIMIT, X_LIMIT, shareDrafts, xLength, type ShareInput } from "./share.js";
+import { TITLE_LIMIT, X_LIMIT, composeUrl, shareDrafts, xLength, type ShareInput } from "./share.js";
 
 const vercel: ShareInput = {
   providerName: "Vercel",
@@ -93,6 +93,14 @@ describe("share drafts", () => {
 
   it("quote no count of APIs that will go stale", () => {
     expect(shareDrafts(vercel).body).not.toMatch(/\d+ APIs/);
+  });
+
+  it("build a compose link that survives inside a Markdown link", () => {
+    // Real case: OpenAI's "url is no longer guaranteed (can now be null)" cut
+    // the share-today issue's link at the bare "(".
+    const url = composeUrl("url is no longer guaranteed (can now be null).");
+    expect(url).not.toMatch(/[()]/);
+    expect(decodeURIComponent(url.split("text=")[1]!)).toBe("url is no longer guaranteed (can now be null).");
   });
 
   it("count URLs the way X does", () => {
