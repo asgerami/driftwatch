@@ -140,13 +140,21 @@ program
   .command("share")
   .option("--generate", "draft posts for published breaking changes from the last 14 days that have none")
   .option("--refresh", "with --generate, also rewrite every draft not yet posted or skipped")
+  .option("--pick", "choose today's draft worth posting, with two runners-up (for the share-today issue)")
   .option("--posted <storyId>", "mark a draft as posted")
   .option("--skip <storyId>", "mark a draft as not worth posting")
   .option("-n, --limit <count>", "drafts to show", "10")
   .option("--out <file>", "write the drafts to a markdown file instead")
   .description("The share kit: draft X and HN/Reddit posts for breaking changes. Never posts.")
-  .action((opts: { generate?: boolean; refresh?: boolean; posted?: string; skip?: string; limit: string; out?: string }) =>
-    share({ ...opts, generate: opts.generate === true, refresh: opts.refresh === true, limit: Number(opts.limit) }),
+  .action(
+    (opts: { generate?: boolean; refresh?: boolean; pick?: boolean; posted?: string; skip?: string; limit: string; out?: string }) =>
+      share({
+        ...opts,
+        generate: opts.generate === true,
+        refresh: opts.refresh === true,
+        pick: opts.pick === true,
+        limit: Number(opts.limit),
+      }),
   );
 
 program
