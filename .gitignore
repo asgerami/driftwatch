@@ -10,3 +10,10 @@ tsconfig.check.json
 next-env.d.ts
 node-compile-cache/
 *.tsbuildinfo
+
+# Cloudflare: local Worker secrets (never commit), OpenNext and Wrangler output,
+# and the generated Prisma client for the site.
+.dev.vars
+.open-next/
+.wrangler/
+apps/web/generated/

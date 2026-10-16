@@ -4,11 +4,20 @@
 // (Provider, SpecSource, SpecSnapshot) is exercised today. Diffing and the
 // GitHub App land on this schema without a destructive migration.
 
+// The worker CLI and the fixer: Node, Prisma's native engine.
 generator client {
   provider = "prisma-client-js"
-  // The site's server functions run on Netlify's AWS Lambda (Amazon Linux,
-  // OpenSSL 3), not on the machine that builds them.
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+// The site, on Cloudflare Workers: no native engine runs there, so its client
+// is Prisma's TypeScript query compiler over the Neon serverless driver
+// (apps/web/lib/db.ts passes the adapter).
+generator web {
+  provider     = "prisma-client"
+  output       = "../apps/web/generated/prisma"
+  runtime      = "workerd"
+  engineType   = "client"
+  moduleFormat = "esm"
 }
 
 // DATABASE_URL may go through a connection pooler (Neon's "-pooler" host).

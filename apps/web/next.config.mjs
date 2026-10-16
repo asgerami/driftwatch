@@ -44,4 +44,19 @@ loadRootEnv();
 /** @type {import('next').NextConfig} */
 export default {
   transpilePackages: ["@driftwatch/core"],
+  webpack(config, { isServer }) {
+    if (isServer) {
+      // Prisma's Workers client loads its query compiler as
+      // `import("./query_compiler_bg.wasm?module")`. Workers only run wasm
+      // imported as a module, and webpack cannot parse it, so it stays an
+      // external import, made absolute so it still resolves from Next's
+      // output. OpenNext and Wrangler bundle it from there.
+      const wasmModule = ({ request, context }, callback) =>
+        request && /\.wasm\?module$/.test(request)
+          ? callback(null, `import ${resolve(context, request)}`)
+          : callback();
+      config.externals = [wasmModule, ...(Array.isArray(config.externals) ? config.externals : [config.externals])];
+    }
+    return config;
+  },
 };

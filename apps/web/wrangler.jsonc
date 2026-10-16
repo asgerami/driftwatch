@@ -1,0 +1,14 @@
+{
+  // driftwatch.et on Cloudflare Workers, built by OpenNext (@opennextjs/cloudflare).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "driftwatch",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  // nodejs_compat: Next's server and Prisma's client use Node built-ins.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": { "enabled": true }
+}
