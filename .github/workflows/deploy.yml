@@ -11,7 +11,9 @@ name: deploy
 
 on:
   push:
-    branches: [master]
+    # TEMPORARY: feat/cloudflare-hosting creates the Worker before cutover.
+    # Remove it before merging.
+    branches: [master, feat/cloudflare-hosting]
     paths:
       - "apps/web/**"
       - "packages/core/**"
