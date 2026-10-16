@@ -44,7 +44,7 @@ export function formatSignals(s: Signals): string {
   }
   lines.push("");
 
-  lines.push("Feed fetches (lower bound: the CDN answers repeats within 5 minutes)");
+  lines.push("Feed fetches (every request on Cloudflare; on Netlify its CDN hid repeats within 5 minutes)");
   lines.push(`  ${s.feeds.total} total`);
   for (const feed of s.feeds.byPath.slice(0, 10)) lines.push(`  ${String(feed.count).padStart(6)}  ${feed.path}`);
   lines.push("");
@@ -133,7 +133,7 @@ async function cloudflare(path: string, init: RequestInit = {}): Promise<unknown
     ...init,
     signal: AbortSignal.timeout(30_000),
     headers: {
-      authorization: `Bearer ${process.env["CF_API_TOKEN"]}`,
+      authorization: `Bearer ${process.env["CF_ANALYTICS_TOKEN"]}`,
       "content-type": "application/json",
       ...(init.headers ?? {}),
     },
@@ -147,8 +147,8 @@ async function cloudflare(path: string, init: RequestInit = {}): Promise<unknown
 
 async function pageViews(since: Date): Promise<Signals["views"]> {
   const account = accountId();
-  if (!process.env["CF_API_TOKEN"]) {
-    return { available: false, reason: "set CF_API_TOKEN (Cloudflare API token with Account Analytics: Read)" };
+  if (!process.env["CF_ANALYTICS_TOKEN"]) {
+    return { available: false, reason: "set CF_ANALYTICS_TOKEN (Cloudflare API token with Account Analytics: Read)" };
   }
   if (!account) return { available: false, reason: "set CF_ACCOUNT_ID" };
   try {

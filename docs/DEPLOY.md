@@ -7,16 +7,16 @@ Everything runs on free tiers. Nothing here needs a server you maintain.
 | Poll and diff every 6 hours | GitHub Actions (`.github/workflows/poll.yml`) | 2,000 min/month on a private repo, unlimited on a public one | About 2 min per run, ~250 min/month |
 | Database | Neon Postgres | 0.5 GB | Metadata and changes only; spec files are in R2 |
 | Spec files (blobs) | Cloudflare R2 | 10 GB, 1M writes and 10M reads a month | About 1 MB per stored version |
-| Website | Netlify | Commercial use allowed | Small |
+| Website | Cloudflare Workers, pages cached in R2 | 100k requests a day, 10 ms CPU each | Small |
 
 Free-tier limits change. Check them when something starts failing.
 
 ## Secrets
 
 The same values go in three places: your local `.env`, GitHub Actions secrets,
-and Netlify environment variables. Only the site needs a subset.
+and the site's Worker. Only the site needs a subset.
 
-| Name | What | `.env` | GitHub | Netlify |
+| Name | What | `.env` | GitHub | Worker |
 | --- | --- | --- | --- | --- |
 | `DATABASE_URL` | Neon connection string, pooled (host contains `-pooler`), plus `&connect_timeout=30` | yes | yes | yes |
 | `DIRECT_URL` | Same, without `-pooler`. Used by `prisma db push` | yes | yes | no |
@@ -54,29 +54,40 @@ Or add them by hand under the repo's **Settings → Secrets and variables → Ac
    Scheduled workflows only run from there. Trigger one by hand under
    **Actions → poll → Run workflow** to check it.
 
-## Netlify
+## Cloudflare Workers (the site)
 
-Live at https://driftwatch.et (custom domain; `www.` and `http://` redirect to
-it) and https://driftwatchhq.netlify.app.
+Live at https://driftwatch.et. The Worker is `driftwatch`, built from
+`apps/web` by OpenNext (`@opennextjs/cloudflare`). It moved off Netlify in
+October 2026 because Netlify's free plan injects a "Powered by Netlify" badge
+that cannot be hidden.
 
-1. **Add new site → Import an existing project**, pick `asgerami/driftwatch`.
-2. Build settings:
-   - Base directory: *(empty)*
-   - Package directory: `apps/web`
-   - Build command: `pnpm generate && pnpm --filter @driftwatch/web... run build`
-     (the `...` also builds `packages/core`, which the site imports)
-   - Publish directory: `apps/web/.next`
-3. Environment variables: `DATABASE_URL` (the pooled one, with
-   `connect_timeout=30`, no surrounding quotes) and `NODE_VERSION` = `22`.
-   Not `DIRECT_URL` or the `R2_*` keys: the site reads neither.
-4. Netlify detects Next.js and installs its adapter. `prisma/schema.prisma`
-   includes the `rhel-openssl-3.0.x` engine its server functions need.
-
-Every PR gets a deploy preview at `deploy-preview-<n>--driftwatchhq.netlify.app`,
-reading the production database.
-
-`/api/feed.json` sends `netlify-vary: query=provider|limit|signal`. Without it
-Netlify's CDN cached one response per path and ignored `?provider=`.
+- **Deploys.** `.github/workflows/deploy.yml`: a push to master that touches
+  the site deploys production; a pull request uploads a preview version at
+  `pr-<n>-driftwatch.<subdomain>.workers.dev` and comments the link. Both build
+  with the production database, so pages pre-render from real data.
+- **Secrets.** On the Worker, set once with `wrangler secret put <NAME>` from
+  `apps/web`: `DATABASE_URL` (pooled, with `connect_timeout=30`),
+  `RESEND_API_KEY`, `EMAIL_FROM`. In GitHub: `CLOUDFLARE_API_TOKEN` (Cloudflare
+  → My Profile → API Tokens → "Edit Cloudflare Workers" template) and
+  `DATABASE_URL` for the build. `SITE_URL` and `DEPLOY_ENV` are plain vars in
+  `apps/web/wrangler.jsonc`.
+- **Page cache.** Pages are stored in the R2 bucket `driftwatch-next-cache`
+  (not the spec bucket) and served from there; a stale page is served while
+  the Worker re-renders it as a separate request (`open-next.config.ts`).
+- **Database.** The site has its own Prisma client (generator `web`):
+  Prisma's TypeScript query compiler over Neon's HTTP driver, because no
+  native engine runs on Workers. `next build` pre-renders in Node, where the
+  client's `query_compiler_bg.wasm?module` import would load wrongly;
+  `apps/web/scripts/wasm-module-hooks.mjs` fixes that for the build only.
+- **By hand.** `pnpm --filter @driftwatch/web build:cf`, then from `apps/web`
+  `CLOUDFLARE_ACCOUNT_ID=729da4ba0e6133ff38305f4491dc1420 npx opennextjs-cloudflare deploy`
+  after `npx wrangler login`. Never put a Cloudflare token in `.env` as
+  `CF_API_TOKEN`: Wrangler reads that old name as its own deploy token.
+- **Free plan limits.** 100,000 requests a day, a 3 MiB compressed bundle
+  (the site is about 2.7 MiB) and 10 ms of CPU per request. Cached pages fit
+  easily; a re-render or a share image might not. If the Worker's logs
+  (dashboard → Workers → driftwatch → Logs) show "exceeded CPU" errors,
+  Workers Paid ($5 a month) lifts the limit.
 
 ## Analytics and email (both free, both off until configured)
 
@@ -85,8 +96,9 @@ personal data, so no consent banner. Uses the Cloudflare account R2 already
 needs.
 
 Set up: driftwatch.et's token is in `apps/web/app/layout.tsx` (it is public,
-shipped in every page). It loads on production builds only (Netlify's
-`CONTEXT=production`), so previews don't count as visits. Stats are in the
+shipped in every page). It loads on production only (`DEPLOY_ENV=production`,
+set by `wrangler.jsonc` and the deploy workflow), so previews don't count as
+visits. Stats are in the
 Cloudflare dashboard under **Analytics & Logs → Web Analytics**. A fork sets
 `NEXT_PUBLIC_CF_BEACON_TOKEN` instead.
 
@@ -98,8 +110,9 @@ they resubmit). A failed send is logged and never fails the signup.
 2. Add the DNS records it lists (SPF, DKIM, and the MX for bounces) wherever
    driftwatch.et's DNS is managed, and wait for "Verified".
 3. **API Keys → Create**, permission "Sending access", domain driftwatch.et.
-4. Netlify environment variables: `RESEND_API_KEY` = the key, and
-   `EMAIL_FROM` = `Driftwatch <hello@driftwatch.et>`.
+4. Worker secrets, from `apps/web`: `npx wrangler secret put RESEND_API_KEY`
+   (the key) and `npx wrangler secret put EMAIL_FROM`
+   (`Driftwatch <hello@driftwatch.et>`).
 
 Until both are set, nothing is sent.
 
@@ -114,8 +127,8 @@ scheduled diff. Order:
    new rules, carrying published and rejected decisions forward.
 2. Compare the old and new versions' facts (the query in the PR that bumped to
    1.2.0 is a starting point) and read anything that changed.
-3. `pnpm w review` for anything new, then merge. Netlify deploys the site
-   already matching the database.
+3. `pnpm w review` for anything new, then merge. The deploy workflow ships
+   the site already matching the database.
 
 ## Publishing
 
@@ -171,10 +184,12 @@ API, fix PRs, and any source not fetching.
 
 - **Page views** come from Cloudflare Web Analytics and need a token in `.env`:
   Cloudflare → My Profile → API Tokens → Create Token → Custom token, with
-  permission *Account → Account Analytics → Read*. Set `CF_API_TOKEN`. The
+  permission *Account → Account Analytics → Read*. Set `CF_ANALYTICS_TOKEN` (not `CF_API_TOKEN`: Wrangler reads that name as its own deploy token). The
   account id is read from `R2_BASE_URL`.
-- **Feed fetches** are counted by the feed routes themselves (`FeedFetch`): a
-  lower bound, since Netlify's CDN answers repeats within 5 minutes.
+- **Feed fetches** are counted by the feed routes themselves (`FeedFetch`).
+  On Cloudflare every request reaches the Worker, so the count is exact;
+  before the move Netlify's CDN answered repeats within 5 minutes, so earlier
+  counts are a lower bound.
 - **Fix PRs**: log each one you open with
   `pnpm w pr log https://github.com/<owner>/<repo>/pull/<n> --change <storyId>`;
   signals re-reads its state from GitHub each run.

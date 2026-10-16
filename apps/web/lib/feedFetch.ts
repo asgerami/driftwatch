@@ -1,10 +1,10 @@
 import { prisma } from "./db";
 
 /**
- * Count a feed request that reached the site. A lower bound on real fetches:
- * Netlify's CDN answers repeats within the 5-minute cache without running
- * this. Never fails the feed: a reader must get the feed even if counting
- * breaks.
+ * Count a feed request. On Workers every request reaches the site, so this
+ * is every fetch (on Netlify its CDN answered repeats within five minutes, so
+ * counts before the move are a lower bound). Never fails the feed: a reader
+ * must get the feed even if counting breaks.
  */
 export async function countFeedFetch(path: string): Promise<void> {
   const day = new Date().toISOString().slice(0, 10);

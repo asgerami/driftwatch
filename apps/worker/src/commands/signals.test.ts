@@ -16,15 +16,15 @@ describe("formatSignals", () => {
   it("prints every signal the brief asks for", () => {
     const out = formatSignals(base);
     expect(out).toContain("120 total · 70 on change pages · 30 on API pages");
-    expect(out).toContain("Feed fetches (lower bound");
+    expect(out).toContain("Feed fetches (every request on Cloudflare");
     expect(out).toContain("3 signups, 2 in the last 7 days");
     expect(out).toContain("2 opened · 1 merged · 0 closed unmerged · 1 still open");
     expect(out).toContain("every source fetching");
   });
 
   it("says why views are missing instead of printing zero", () => {
-    const out = formatSignals({ ...base, views: { available: false, reason: "set CF_API_TOKEN" } });
-    expect(out).toContain("unavailable: set CF_API_TOKEN");
+    const out = formatSignals({ ...base, views: { available: false, reason: "set CF_ANALYTICS_TOKEN" } });
+    expect(out).toContain("unavailable: set CF_ANALYTICS_TOKEN");
     expect(out).not.toContain("0 total ·");
   });
 

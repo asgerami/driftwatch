@@ -270,6 +270,23 @@ Fixture specs are real, cut down with `scripts/trim-spec.ts`. `pr-body` is
 templates over `fix --json`, for the same reason as note 4: a maintainer is
 asked to trust it.
 
+**25. The site runs on Cloudflare Workers, with its own Prisma client.**
+(`apps/web`, `docs/DEPLOY.md`) Netlify's free plan injects a badge that cannot
+be hidden, so the site moved to Workers via OpenNext. Each of these looks
+removable and is not:
+- Generator `web` in `prisma/schema.prisma` is Prisma's TypeScript query
+  compiler over Neon's **HTTP** driver (`lib/db.ts`). No native engine runs on
+  Workers, and a pooled WebSocket cannot be reused across requests there. The
+  worker CLI keeps generator `client`.
+- `next.config.mjs` keeps `*.wasm?module` imports external; webpack cannot
+  parse them and Workers only run wasm imported as a module.
+- `scripts/wasm-module-hooks.mjs` runs only during `build:cf`: `next build`
+  pre-renders in Node, where that import loads as an instance and the client
+  fails. Without it the build either breaks or pre-renders empty pages.
+- The analytics token is `CF_ANALYTICS_TOKEN`. As `CF_API_TOKEN` Wrangler
+  read it as its own deploy token, and every R2 call failed with a 403.
+- Feed fetches are now exact counts: nothing caches in front of a Worker.
+
 ## Layout
 
 ```
@@ -284,7 +301,8 @@ apps/worker/            the pipeline CLI
   blobs.ts              content-addressed blob store: R2, or DATA_DIR/blobs
   store.ts              the ONE write path into SpecSnapshot
   diffing.ts            the ONE write path into DiffRun and Change
-apps/web/
+apps/web/               Next.js on Cloudflare Workers (OpenNext; wrangler.jsonc, open-next.config.ts)
+  lib/db.ts             the site's Prisma client: query compiler over Neon HTTP
   lib/queries.ts        Prisma reads to plain view models
   lib/feeds.ts          RSS 2.0 and JSON Feed 1.1 from release views (pure)
   lib/waitlist.ts       the only gate for /watch submissions (pure)

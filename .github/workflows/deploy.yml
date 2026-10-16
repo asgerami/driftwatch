@@ -1,0 +1,102 @@
+# The site on Cloudflare Workers (apps/web, built by OpenNext).
+#
+# A push to master deploys production at driftwatch.et. A pull request that
+# touches the site uploads a preview version instead, at
+# pr-<number>-driftwatch.<subdomain>.workers.dev, and comments the link. Both
+# build with the production database: pages are pre-rendered from real data,
+# and a preview reads the same feed the live site does (it never writes,
+# except a waitlist signup someone makes on it).
+
+name: deploy
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "apps/web/**"
+      - "packages/core/**"
+      - "prisma/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy.yml"
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - "packages/core/**"
+      - "prisma/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+# One production deploy at a time; a newer preview replaces an older one.
+concurrency:
+  group: deploy-${{ github.event_name == 'pull_request' && github.event.number || 'production' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  deploy:
+    # Secrets are not given to pull requests from forks; nothing to deploy with.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: 729da4ba0e6133ff38305f4491dc1420
+      # Analytics only on production (app/layout.tsx). The Worker's runtime
+      # value comes from wrangler.jsonc; this one is for pages pre-rendered
+      # during the build.
+      DEPLOY_ENV: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Also builds packages/core via its prepare script.
+      - run: pnpm install --frozen-lockfile
+
+      # Both Prisma clients: the worker's and the site's (generator web).
+      - run: pnpm generate
+
+      - name: Build
+        run: pnpm --filter @driftwatch/web build:cf
+
+      - name: Deploy production
+        if: github.event_name != 'pull_request'
+        working-directory: apps/web
+        run: npx opennextjs-cloudflare deploy
+
+      - name: Upload preview
+        if: github.event_name == 'pull_request'
+        id: preview
+        working-directory: apps/web
+        env:
+          ALIAS: pr-${{ github.event.number }}
+        run: |
+          set -o pipefail
+          npx opennextjs-cloudflare upload -- --preview-alias "$ALIAS" --var DEPLOY_ENV:preview | tee upload.log
+          url=$(grep -o "https://$ALIAS-[^ ]*workers.dev" upload.log | head -1)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Comment the preview link
+        if: github.event_name == 'pull_request' && steps.preview.outputs.url != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          URL: ${{ steps.preview.outputs.url }}
+          PR: ${{ github.event.number }}
+        run: |
+          body="Preview: $URL"
+          id=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("Preview: ")))][0].id // empty')
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$id" -f body="$body" >/dev/null
+          else
+            gh pr comment "$PR" --body "$body"
+          fi

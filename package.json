@@ -23,7 +23,8 @@
   },
   "devDependencies": {
     "prisma": "^6.1.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "wrangler": "4.151.1"
   },
   "packageManager": "pnpm@9.15.0",
   "dependencies": {

@@ -14,13 +14,14 @@ const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono", display: 
 
 /**
  * Cloudflare Web Analytics for driftwatch.et. The token is public by design:
- * it ships in every page's HTML. Production builds only (Netlify sets
- * CONTEXT), so deploy previews and local builds don't count as visits.
- * NEXT_PUBLIC_CF_BEACON_TOKEN overrides it, e.g. for a fork.
+ * it ships in every page's HTML. Production only: the deploy workflow sets
+ * DEPLOY_ENV=production for the build and the Worker, so preview versions and
+ * local builds don't count as visits. NEXT_PUBLIC_CF_BEACON_TOKEN overrides
+ * it, e.g. for a fork.
  */
 const CF_BEACON_TOKEN =
   process.env["NEXT_PUBLIC_CF_BEACON_TOKEN"] ??
-  (process.env["CONTEXT"] === "production" ? "4fc3240a453d4d3698500762795d7216" : undefined);
+  (process.env["DEPLOY_ENV"] === "production" ? "4fc3240a453d4d3698500762795d7216" : undefined);
 
 const DESCRIPTION =
   "Breaking-change alerts for the third-party APIs your code depends on.";

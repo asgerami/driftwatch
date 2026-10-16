@@ -18,6 +18,9 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
+      wrangler:
+        specifier: 4.151.1
+        version: 4.151.1(@types/node@22.20.2)
 
   apps/fixer:
     dependencies:

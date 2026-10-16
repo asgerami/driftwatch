@@ -1,7 +1,10 @@
 {
   // driftwatch.et on Cloudflare Workers, built by OpenNext (@opennextjs/cloudflare).
+  // Secrets (DATABASE_URL, RESEND_API_KEY, EMAIL_FROM) are set with
+  // `wrangler secret put`, never written here.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "driftwatch",
+  "account_id": "729da4ba0e6133ff38305f4491dc1420",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-10-01",
   // nodejs_compat: Next's server and Prisma's client use Node built-ins.
@@ -9,6 +12,20 @@
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
+  },
+  "r2_buckets": [
+    // The page cache (open-next.config.ts). Spec blobs live in driftwatch-blobs.
+    { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "driftwatch-next-cache" }
+  ],
+  "services": [
+    // The memory queue re-renders stale pages by calling the Worker itself.
+    { "binding": "WORKER_SELF_REFERENCE", "service": "driftwatch" }
+  ],
+  "vars": {
+    "SITE_URL": "https://driftwatch.et",
+    // Analytics only on production (app/layout.tsx). PR previews override it
+    // with --var DEPLOY_ENV:preview (.github/workflows/deploy.yml).
+    "DEPLOY_ENV": "production"
   },
   "observability": { "enabled": true }
 }

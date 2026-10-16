@@ -2,9 +2,9 @@ import { countFeedFetch } from "../../lib/feedFetch";
 import { JSON_FEED_HEADERS, feedEntries, renderJsonFeed } from "../../lib/feeds";
 import { recentReleases } from "../../lib/queries";
 
-// Runs per request (Netlify's CDN still caches it for 5 minutes via
-// cache-control) so feed fetches can be counted; a statically regenerated
-// route would only run once per revalidation.
+// Runs per request so every feed fetch is counted; a statically regenerated
+// route would only run once per revalidation. On Workers nothing caches in
+// front of it, so the count is exact.
 export const dynamic = "force-dynamic";
 
 /**
