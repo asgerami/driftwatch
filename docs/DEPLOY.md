@@ -80,8 +80,10 @@ that cannot be hidden.
   client's `query_compiler_bg.wasm?module` import would load wrongly;
   `apps/web/scripts/wasm-module-hooks.mjs` fixes that for the build only.
 - **By hand.** `pnpm --filter @driftwatch/web build:cf`, then from `apps/web`
-  `CLOUDFLARE_ACCOUNT_ID=729da4ba0e6133ff38305f4491dc1420 npx opennextjs-cloudflare deploy`
-  after `npx wrangler login`. Never put a Cloudflare token in `.env` as
+  `OPEN_NEXT_DEPLOY=true npx wrangler deploy` after `npx wrangler login`. Not
+  `opennextjs-cloudflare deploy`: its upload of pre-rendered pages into the R2
+  cache times out on every write, here and on GitHub. Without it each page
+  renders on its first request after a deploy, then comes from the cache. Never put a Cloudflare token in `.env` as
   `CF_API_TOKEN`: Wrangler reads that old name as its own deploy token.
 - **Free plan limits.** 100,000 requests a day, a 3 MiB compressed bundle
   (the site is about 2.7 MiB) and 10 ms of CPU per request. Cached pages fit

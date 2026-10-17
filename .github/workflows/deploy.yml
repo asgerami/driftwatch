@@ -71,10 +71,19 @@ jobs:
       - name: Build
         run: pnpm --filter @driftwatch/web build:cf
 
+      # Wrangler, not `opennextjs-cloudflare deploy`: the adapter first uploads
+      # pre-rendered pages to the R2 cache through a temporary proxy Worker,
+      # and that proxy times out on every write (locally and here, wrangler
+      # 4.151 with @opennextjs/cloudflare 1.20). Skipping it costs nothing a
+      # reader sees: each page renders on its first request after a deploy and
+      # is cached in R2 from then on. OPEN_NEXT_DEPLOY stops Wrangler handing
+      # the deploy back to the adapter.
       - name: Deploy production
         if: github.event_name != 'pull_request'
         working-directory: apps/web
-        run: npx opennextjs-cloudflare deploy
+        env:
+          OPEN_NEXT_DEPLOY: "true"
+        run: npx wrangler deploy
 
       - name: Upload preview
         if: github.event_name == 'pull_request'
@@ -82,9 +91,10 @@ jobs:
         working-directory: apps/web
         env:
           ALIAS: pr-${{ github.event.number }}
+          OPEN_NEXT_DEPLOY: "true"
         run: |
           set -o pipefail
-          npx opennextjs-cloudflare upload -- --preview-alias "$ALIAS" --var DEPLOY_ENV:preview | tee upload.log
+          npx wrangler versions upload --preview-alias "$ALIAS" --var DEPLOY_ENV:preview | tee upload.log
           url=$(grep -o "https://$ALIAS-[^ ]*workers.dev" upload.log | head -1)
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
